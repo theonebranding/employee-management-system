@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global Styling */
+body {
+  @apply bg-gray-100 text-gray-900 font-sans;
+  margin: 0;
+  padding: 0;
+}
+
+/* Link Styling */
+a {
+  @apply text-blue-600 hover:underline font-medium;
+}
+
+/* Form Input Styling */
+input,
+textarea,
+select {
+  @apply border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500;
+}
+
+/* Button Styling */
+button {
+  @apply px-4 py-2 rounded-md font-medium transition-colors;
+}
+button.primary {
+  @apply bg-blue-600 text-white hover:bg-blue-700;
+}
+button.secondary {
+  @apply bg-gray-200 text-gray-700 hover:bg-gray-300;
+}
+
+/* Custom Utility Overrides */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400;
+}

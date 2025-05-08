@@ -1,0 +1,30 @@
+import express from 'express';
+import {
+  addEmployee,
+  getAllEmployees,
+  getEmployee,
+  updateEmployee,
+  getMyProfile,
+  addPredefinedCheckInTime,
+  deleteEmployee,
+} from '../controllers/employeeController.js';
+import verifyToken from '../middleware/verifyToken.js';
+import checkRole from '../middleware/checkRole.js';
+
+const router = express.Router();
+
+router.post('/add', verifyToken, checkRole(['admin']), addEmployee);
+// Admin-only endpoint to fetch all employees with pagination
+router.get('/all', verifyToken, checkRole(['admin']), getAllEmployees);
+
+router.get('/find', verifyToken, checkRole(['admin', 'employee']), getEmployee);
+
+router.patch('/update/:id?', verifyToken, checkRole(['employee', 'admin']), updateEmployee);
+
+router.get('/my-profile', verifyToken, checkRole(['employee']), getMyProfile);
+
+router.patch('/add-checkin-time/:id?', verifyToken, checkRole(['admin']), addPredefinedCheckInTime);
+
+router.delete('/delete/:id?', verifyToken, checkRole(['admin']), deleteEmployee);
+
+export default router;

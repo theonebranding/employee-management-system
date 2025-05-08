@@ -1,0 +1,114 @@
+{
+  "env": {
+    "es2021": true,
+    "node": true
+  },
+  "extends": [
+    "airbnb-base",
+    "plugin:import/errors",
+    "plugin:import/warnings",
+    "plugin:security/recommended",
+    "plugin:express/recommended",
+    "plugin:sonarjs/recommended",
+    "plugin:unicorn/recommended",
+    "plugin:prettier/recommended"
+  ],
+  "parser": "@babel/eslint-parser",
+  "parserOptions": {
+    "ecmaVersion": 12,
+    "sourceType": "module",
+    "requireConfigFile": false
+  },
+  "plugins": [
+    "import",
+    "node",
+    "promise",
+    "prettier",
+    "security",
+    "async-await",
+    "express",
+    "no-unsanitized",
+    "sonarjs",
+    "unicorn"
+  ],
+  "rules": {
+    // Existing Rules (kept from previous setup)
+    "no-unused-vars": [
+      "error",
+      { "vars": "all", "args": "after-used", "ignoreRestSiblings": false }
+    ],
+    "no-console": ["error", { "allow": ["warn", "error"] }],
+    "complexity": ["error", 8],
+    "max-lines-per-function": ["error", 40],
+    "max-params": ["error", 3],
+    "max-nested-callbacks": ["error", 3],
+    "no-else-return": "error",
+    "no-empty-function": "error",
+    "no-constant-binary-expression": "error",
+
+    // Enhanced Import/Export Rules
+    "import/no-unresolved": ["error", { "commonjs": false, "amd": false }],
+    "import/order": [
+      "error",
+      {
+        "groups": ["builtin", "external", "internal", "parent", "sibling", "index"],
+        "newlines-between": "always",
+        "alphabetize": { "order": "asc", "caseInsensitive": true }
+      }
+    ],
+    "import/no-extraneous-dependencies": ["error", { "devDependencies": false }],
+    "import/no-duplicates": "error",
+    "import/no-mutable-exports": "error",
+    "import/no-cycle": ["error", { "maxDepth": 1 }],
+
+    // Async/Await Rules
+    "async-await/no-unnecessary-await": "error",
+    "async-await/prefer-await-to-then": "error",
+    "no-async-promise-executor": "error",
+    "require-await": "error",
+
+    // Security Rules
+    "security/detect-object-injection": "error",
+    "security/detect-non-literal-fs-filename": "error",
+    "no-unsanitized/property": "error",
+    "no-unsanitized/method": "error",
+
+    // Express-Specific Rules
+    "express/no-async-in-middleware": "error",
+    "express/no-unhandled-errors": "error",
+    "express/check-error-handler": "error",
+
+    // Node.js Rules
+    "node/no-unsupported-features/es-syntax": 0,
+    "node/no-unpublished-import": "error",
+
+    // SonarJS Rules for Code Smells
+    "sonarjs/cognitive-complexity": ["error", 15],
+    "sonarjs/no-duplicate-string": "error",
+    "sonarjs/no-identical-functions": "error",
+    "sonarjs/prefer-immediate-return": "error",
+
+    // Unicorn Rules for Best Practices
+    "unicorn/filename-case": ["error", { "case": "camelCase" }],
+    "unicorn/no-null": "error",
+    "unicorn/prefer-top-level-await": "error",
+    "unicorn/prevent-abbreviations": [
+      "error",
+      {
+        "allowList": { "req": true, "res": true, "err": true }
+      }
+    ],
+
+    // Prettier Integration
+    "prettier/prettier": [
+      "error",
+      {
+        "singleQuote": true,
+        "trailingComma": "es5",
+        "bracketSpacing": true,
+        "printWidth": 100,
+        "tabWidth": 2
+      }
+    ]
+  }
+}

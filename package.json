@@ -1,0 +1,19 @@
+{
+  "name": "one-it",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev" : "concurrently \"cd company-frontend && npm run dev\" \"cd company-backend && npm run dev\"",
+    "build" : "concurrently \"cd company-frontend && npm run build\"",
+    "start" : "concurrently \"cd company-frontend && npm run start\" \"cd company-backend && npm run start\""
+  },
+  "keywords": [],
+  "author": "Rahil Vahora",
+  "license": "ISC",
+  "type": "module",
+  "description": "",
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

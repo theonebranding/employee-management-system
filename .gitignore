@@ -1,0 +1,94 @@
+# Ignore Node.js dependencies
+node_modules/
+npm-debug.log
+yarn.lock
+package-lock.json
+
+# Ignore build artifacts
+dist/
+build/
+
+# Ignore logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ignore dotenv environment files
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+.env.*.local
+
+# Ignore sensitive config files
+config/*.json
+config/*.env
+
+# Ignore database files
+*.sqlite
+*.sqlite3
+mongodb_data/
+dump/
+
+# Ignore compiled TypeScript files
+*.tsbuildinfo
+
+# Ignore frontend dependencies & build files
+frontend/node_modules/
+frontend/build/
+
+# Ignore temporary files
+*.tmp
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Ignore server uploads folder
+uploads/
+public/uploads/
+public/temp/
+
+# Ignore VS Code and JetBrains IDE settings
+.vscode/
+.idea/
+
+# Ignore MacOS system files
+.DS_Store
+
+# Ignore Firebase/Amplify configurations (if using)
+.firebase/
+amplify/#current-cloud-backend
+amplify/.config
+
+# Ignore Docker-related files
+docker-compose.override.yml
+.dockerignore
+docker-sync.yml
+docker-compose.yml
+
+# Ignore Terraform & Ansible files (if using DevOps)
+*.tfstate
+*.tfstate.backup
+.terraform/
+.ansible/
+
+# Ignore Kubernetes configurations (if applicable)
+.kube/
+*.kubeconfig
+
+# Ignore AWS credentials (for security)
+.aws/
+*.pem
+*.crt
+*.key
+
+# Ignore CI/CD pipeline files (GitHub Actions, Jenkins, etc.)
+.github/workflows/*.yml
+.circleci/
+.travis.yml
+.gitlab-ci.yml
+jenkinsfile
