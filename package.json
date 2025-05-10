@@ -7,7 +7,7 @@
     "dev": "concurrently \"cd company-frontend && npm run dev\" \"cd company-backend && npm run dev\"",
     "build": "concurrently \"cd company-frontend && npm run build\"",
     "start": "concurrently \"cd company-frontend && npm run start\" \"cd company-backend && npm run start\"",
-    "lint-all": "npm --prefix backend run lint && npm --prefix frontend run lint && npm --prefix backend run format && npm --prefix frontend run format",
+    "lint-all": "npx chalk.bold.green '📦 Linting Backend...' && npm --prefix backend run lint && npx chalk.bold.green '📦 Linting Frontend...' && npm --prefix frontend run lint && npx chalk.bold.yellow '✨ Formatting Backend...' && npm --prefix backend run format && npx chalk.bold.yellow '✨ Formatting Frontend...' && npm --prefix frontend run format",
     "prepare": "husky install"
   },
   "lint-staged": {
@@ -28,8 +28,12 @@
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
+    "boxen": "^8.0.1",
+    "chalk": "^5.4.1",
     "concurrently": "^9.1.2",
+    "figlet": "^1.8.1",
     "husky": "^9.1.7",
-    "lint-staged": "^15.5.2"
+    "lint-staged": "^15.5.2",
+    "ora": "^8.2.0"
   }
 }

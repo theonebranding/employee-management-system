@@ -4,27 +4,27 @@
 
 ### **Naming Conventions:**
 
-* **Controllers:** camelCase and end with `Controller.js`
+- **Controllers:** camelCase and end with `Controller.js`
 
-  * e.g., `userController.js`, `authController.js`
+  - e.g., `userController.js`, `authController.js`
 
-* **Models:** camelCase
+- **Models:** camelCase
 
-  * e.g., `userSchema.js`, `orderSchema.js`
+  - e.g., `userSchema.js`, `orderSchema.js`
 
-* **Routes:** camelCase
+- **Routes:** camelCase
 
-  * e.g., `userRoutes.js`, `authRoutes.js`
+  - e.g., `userRoutes.js`, `authRoutes.js`
 
-* **Services:** camelCase
+- **Services:** camelCase
 
-  * e.g., `authService.js`, `emailService.js`
+  - e.g., `authService.js`, `emailService.js`
 
-* **Utilities:** camelCase
+- **Utilities:** camelCase
 
-  * e.g., `jwtHelper.js`, `dateHelper.js`
+  - e.g., `jwtHelper.js`, `dateHelper.js`
 
-* **Environment Variables:** `UPPER_SNAKE_CASE`
+- **Environment Variables:** `UPPER_SNAKE_CASE`
 
 ---
 
@@ -69,48 +69,47 @@ backend/
 
 ### ✅ **Code Review Checklist:**
 
-* [ ] Follows naming conventions
-* [ ] No ESLint/Prettier warnings
-* [ ] Error handling is properly implemented
-* [ ] Controllers are lean and modular
-* [ ] Services handle business logic
-* [ ] Database queries are parameterized
-* [ ] Sensitive data is not hardcoded
-* [ ] No `console.log()` statements in production code
-* [ ] Environment variables are correctly used
-* [ ] Tests cover core business logic
-* [ ] Consistent response structure (`success`, `data`, `message`)
-* [ ] All routes are properly validated
-* [ ] API documentation is up-to-date
+- [ ] Follows naming conventions
+- [ ] No ESLint/Prettier warnings
+- [ ] Error handling is properly implemented
+- [ ] Controllers are lean and modular
+- [ ] Services handle business logic
+- [ ] Database queries are parameterized
+- [ ] Sensitive data is not hardcoded
+- [ ] No `console.log()` statements in production code
+- [ ] Environment variables are correctly used
+- [ ] Tests cover core business logic
+- [ ] Consistent response structure (`success`, `data`, `message`)
+- [ ] All routes are properly validated
+- [ ] API documentation is up-to-date
 
 ---
 
 ### ✅ **Best Practices:**
 
-* **Security:**
+- **Security:**
 
-  * Sanitize inputs to prevent SQL injection and XSS.
-  * Use HTTPS for secure data transfer.
-  * Implement JWT for authentication.
+  - Sanitize inputs to prevent SQL injection and XSS.
+  - Use HTTPS for secure data transfer.
+  - Implement JWT for authentication.
 
-* **Error Handling:**
+- **Error Handling:**
 
-  * Use a global error handler (`errorHandler.js`).
-  * Standardize error responses with status codes and messages.
+  - Use a global error handler (`errorHandler.js`).
+  - Standardize error responses with status codes and messages.
 
-* **Environment Management:**
+- **Environment Management:**
 
-  * Store secrets in `.env` file.
-  * Use `dotenv` to access environment variables.
+  - Store secrets in `.env` file.
+  - Use `dotenv` to access environment variables.
 
-* **Code Quality:**
+- **Code Quality:**
 
-  * Use ESLint for linting.
-  * Use Prettier for formatting.
-  * Run tests before committing.
+  - Use ESLint for linting.
+  - Use Prettier for formatting.
+  - Run tests before committing.
 
-* **Logging:**
+- **Logging:**
 
-  * Use `winston` or `pino` for structured logging.
-  * Avoid using `console.log()` in production.
-
+  - Use `winston` or `pino` for structured logging.
+  - Avoid using `console.log()` in production.
