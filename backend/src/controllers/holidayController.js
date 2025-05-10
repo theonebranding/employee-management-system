@@ -181,12 +181,10 @@ export const getEmployeeOnHoliday = async (req, res) => {
       start = new Date(`${year}-${month}-01`); // First day of the month
       end = new Date(year, month, 0); // Last day of the month
     } else {
-      return res
-        .status(400)
-        .json({
-          message:
-            "Invalid parameters. Provide either 'date', 'month & year', or 'startDate & endDate'.",
-        });
+      return res.status(400).json({
+        message:
+          "Invalid parameters. Provide either 'date', 'month & year', or 'startDate & endDate'.",
+      });
     }
 
     // Convert to UTC and remove time part for accurate matching

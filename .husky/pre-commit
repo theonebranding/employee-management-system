@@ -1,0 +1,4 @@
+echo "Running Lint and Format..."
+npm run lint-all
+
+echo "Linting and Formatting Complete!"

@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import Leave from '../models/leaveSchema.js';
 import { sendLeaveRequestEmail, sendLeaveStatusEmail } from '../services/emailService.js';
-
+import Employee from '../models/employeeSchema.js';
 export const createLeave = async (req, res) => {
   try {
     const { reason, startDate, endDate } = req.body;

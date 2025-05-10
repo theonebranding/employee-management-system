@@ -53,15 +53,18 @@ export const getCurrentStatus = async (req, res) => {
 
     // Fetch late check-in information
     const lateCheckIn = attendance.lateCheckIn || false;
-    const lateCheckInMinutes = attendance.lateCheckInMinutes || 0;
+    // const lateCheckInMinutes = attendance.lateCheckInMinutes || 0;
 
     // Response
     const response = {
       status,
       checkInTime: attendance.checkInTime || null,
-      checkInLocation: { latitude, longitude } || null,
+      checkInLocation: latitude && longitude ? { latitude, longitude } : null,
       checkOutTime: attendance.checkOutTime || null,
-      checkOutLocation: { latitude: checkOutLatitude, longitude: checkOutLongitude } || null,
+      checkOutLocation:
+        checkOutLatitude && checkOutLongitude
+          ? { latitude: checkOutLatitude, longitude: checkOutLongitude }
+          : null,
       recessStartTime: attendance.recessStartTime || null,
       totalRecessDuration: formatTime(totalRecessDurationInMilliseconds),
       liveWorkingTime: formatTime(liveWorkingTime),

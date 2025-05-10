@@ -2,27 +2,27 @@ import LateCheckIn from '../models/lateCheckInSchema.js';
 import Salary from '../models/salarySchema.js';
 import AdminAttendanceSettings from '../models/adminAttendanceSettingsSchema.js';
 
-// get lateCheckins
-export const getLateCheckIn = async (req, res) => {
-  try {
-    const { startDate, endDate } = req.query;
+// // get lateCheckins
+// export const getLateCheckIn = async (req, res) => {
+//   try {
+//     const { startDate, endDate } = req.query;
 
-    const filter = {};
-    if (startDate || endDate) {
-      filter.date = {};
-      if (startDate) filter.date.$gte = new Date(startDate);
-      if (endDate) filter.date.$lte = new Date(endDate);
-    }
+//     const filter = {};
+//     if (startDate || endDate) {
+//       filter.date = {};
+//       if (startDate) filter.date.$gte = new Date(startDate);
+//       if (endDate) filter.date.$lte = new Date(endDate);
+//     }
 
-    filter.lateCheckIn = true;
+//     filter.lateCheckIn = true;
 
-    const lateCheckIns = await Attendance.find(filter).populate('employee', 'name email');
+//     const lateCheckIns = await Attendance.find(filter).populate('employee', 'name email');
 
-    res.status(200).json({ message: 'Late check-ins fetched successfully', lateCheckIns });
-  } catch (err) {
-    res.status(500).json({ message: 'Error fetching late check-ins', error: err.message });
-  }
-};
+//     res.status(200).json({ message: 'Late check-ins fetched successfully', lateCheckIns });
+//   } catch (err) {
+//     res.status(500).json({ message: 'Error fetching late check-ins', error: err.message });
+//   }
+// };
 
 // get late check by employee ID and date
 export const getLateCheckInReport = async (req, res) => {

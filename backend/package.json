@@ -17,11 +17,11 @@
     ]
   },
   "husky": {
-  "hooks": {
-    "pre-commit": "lint-staged",
-    "commit-msg": "npx --no-install commitlint --edit $1"
-  }
-},
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "commit-msg": "npx --no-install commitlint --edit $1"
+    }
+  },
   "keywords": [],
   "author": "Rahil Vahora",
   "link": "github.com/rahil1202",

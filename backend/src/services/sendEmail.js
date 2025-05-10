@@ -29,11 +29,13 @@ const sendEmail = async (email, subject, htmlContent) => {
       // text: `Hi ${name},\n\nYour OTP is: ${otp}\n\nThis OTP will expire in 15 minutes.\n\nThe One Branding Team`, // Plain text content
     };
 
+    // eslint-disable-next-line no-unused-vars
     const info = await transporter.sendMail(mailOptions);
+
     // console.log('Email sent:', info.response);
   } catch (error) {
     // console.error('Error sending email:', error);
-    throw new Error('Email could not be sent');
+    throw new Error('Email could not be sent', error);
   }
 };
 

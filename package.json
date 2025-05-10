@@ -1,12 +1,24 @@
 {
-  "name": "one-it",
+  "name": "employee-management-system",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev" : "concurrently \"cd company-frontend && npm run dev\" \"cd company-backend && npm run dev\"",
-    "build" : "concurrently \"cd company-frontend && npm run build\"",
-    "start" : "concurrently \"cd company-frontend && npm run start\" \"cd company-backend && npm run start\""
+    "dev": "concurrently \"cd company-frontend && npm run dev\" \"cd company-backend && npm run dev\"",
+    "build": "concurrently \"cd company-frontend && npm run build\"",
+    "start": "concurrently \"cd company-frontend && npm run start\" \"cd company-backend && npm run start\"",
+    "lint-all": "npm --prefix backend run lint && npm --prefix frontend run lint && npm --prefix backend run format && npm --prefix frontend run format",
+    "prepare": "husky install"
+  },
+  "lint-staged": {
+    "backend/**/*.js": [
+      "npm --prefix backend run lint",
+      "npm --prefix backend run format"
+    ],
+    "frontend/**/*.js": [
+      "npm --prefix frontend run lint",
+      "npm --prefix frontend run format"
+    ]
   },
   "keywords": [],
   "author": "Rahil Vahora",
@@ -14,6 +26,10 @@
   "type": "module",
   "description": "",
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "concurrently": "^9.1.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2"
   }
 }
