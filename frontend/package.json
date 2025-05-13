@@ -11,7 +11,7 @@
     "lint-fix": "eslint src/**/*.{js,jsx} --fix --no-cache",
     "lint-strict": "eslint src/**/*.{js,jsx} --report-unused-disable-directives --max-warnings 0",
     "format": "prettier --write .",
-    "prepare": "husky"    
+    "prepare": "husky"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
