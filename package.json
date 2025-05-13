@@ -3,12 +3,18 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "concurrently \"cd company-frontend && npm run dev\" \"cd company-backend && npm run dev\"",
-    "build": "concurrently \"cd company-frontend && npm run build\"",
-    "start": "concurrently \"cd company-frontend && npm run start\" \"cd company-backend && npm run start\"",
-    "lint-all": "npx chalk.bold.green '📦 Linting Backend...' && npm --prefix backend run lint && npx chalk.bold.green '📦 Linting Frontend...' && npm --prefix frontend run lint && npx chalk.bold.yellow '✨ Formatting Backend...' && npm --prefix backend run format && npx chalk.bold.yellow '✨ Formatting Frontend...' && npm --prefix frontend run format",
-    "prepare": "husky install"
+    "dev": "concurrently \"cd frontend && npm run dev\" \"cd backend && npm run dev\"",
+    "build": "concurrently \"cd frontend && npm run build\"",
+    "start": "concurrently \"cd frontend && npm run dev\" \"cd backend && npm run dev\"",
+    "install-server": "cd backend && npm install",
+    "start-server": "cd backend && node src/index.js",
+    "install-client": "cd frontend && npm install",
+    "build-client": "cd frontend && npm run build",
+    "start-client": "cd frontend && npm run dev",    
+    "lint-all": "node lint-all.js",
+    "prepare": "husky install",
+    "commit-force": "HUSKY=0 git commit -m",
+    "push-force": "HUSKY=0 git push"
   },
   "lint-staged": {
     "backend/**/*.js": [
