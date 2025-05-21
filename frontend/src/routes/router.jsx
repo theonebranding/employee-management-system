@@ -25,6 +25,7 @@ import DashboardHome from '../pages/employee/dashboard/home';
 import Leaves from '../pages/employee/dashboard/leaves';
 import Settings from '../pages/employee/dashboard/settings';
 import EmployeeSidebar from '../pages/employee/dashboard/sidebar';
+import Home from "../pages/home"
 import ProtectedRoute from '../routes/protectedRoute';
 
 const AppRouter = () => {
@@ -32,7 +33,7 @@ const AppRouter = () => {
     <Routes>
       {/* Public Routes */}
       <Route path="/" element={<Login />} />
-      <Route path="/home" element={<Login />} />
+      <Route path="/home" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/confirm-registration" element={<ConfirmRegistration />} />

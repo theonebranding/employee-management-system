@@ -56,7 +56,7 @@ const Home = () => {
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center h-16">
             <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-600">
-              OneBranding IT Solutions
+              The OneBranding 
             </h1>
 
             {/* Desktop Navigation */}
@@ -125,7 +125,7 @@ const Home = () => {
                 <h1 className="text-5xl lg:text-6xl font-extrabold leading-tight">
                   Manage Your{' '}
                   <span className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
-                    Employees & Clients
+                    Employees and Payroll
                   </span>{' '}
                   Effortlessly
                 </h1>
