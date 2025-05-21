@@ -56,7 +56,7 @@ const Home = () => {
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center h-16">
             <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-600">
-              The OneBranding 
+              The OneBranding
             </h1>
 
             {/* Desktop Navigation */}

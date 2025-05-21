@@ -25,7 +25,7 @@ import DashboardHome from '../pages/employee/dashboard/home';
 import Leaves from '../pages/employee/dashboard/leaves';
 import Settings from '../pages/employee/dashboard/settings';
 import EmployeeSidebar from '../pages/employee/dashboard/sidebar';
-import Home from "../pages/home"
+import Home from '../pages/home';
 import ProtectedRoute from '../routes/protectedRoute';
 
 const AppRouter = () => {
