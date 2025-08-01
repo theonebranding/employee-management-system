@@ -153,9 +153,34 @@ const MonthlyAttendance = () => {
     }
   };
 
+  const fetchAbsentDays = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(
+        `${BASE_URL}/attendance/absent-days?employeeId=${employeeId}&month=${month}&year=${year}`,
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        }
+      );
+
+      if (!response.ok) throw new Error('Failed to fetch absent days'); // Add this line
+
+      const data = await response.json();
+      toast.success(data.message || 'Absent days fetched successfully');
+      return data.absentDays || [];
+    } catch (error) {
+      console.error('Error fetching absent days:', error);
+      toast.error(error.message || 'Failed to fetch absent days');
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchMonthlyAttendance();
     fetchLateCheckIns();
+    fetchAbsentDays();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month, year]);
 

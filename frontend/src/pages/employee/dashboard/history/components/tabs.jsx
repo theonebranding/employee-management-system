@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { AlertTriangle, Bike, CalendarArrowDownIcon, CalendarOff, CheckSquare } from 'lucide-react';
 import React from 'react';
 
@@ -8,8 +9,8 @@ const Tabs = ({ activeTab, setActiveTab }) => {
         onClick={() => setActiveTab('attendance')}
         className={`pb-4 px-4 font-semibold transition-all ${
           activeTab === 'attendance'
-            ? 'text-primary border-b-2 border-primary'
-            : 'text-light-text dark:text-dark-text hover:text-primary'
+            ? 'text-warning border-b-2 border-warning'
+            : 'text-light-text dark:text-dark-text hover:text-warning'
         }`}
       >
         <div className="flex items-center gap-2">
@@ -44,9 +45,9 @@ const Tabs = ({ activeTab, setActiveTab }) => {
         </div>
       </button>
       <button
-        onClick={() => setActiveTab('late')}
+        onClick={() => setActiveTab('halfDays')}
         className={`pb-4 px-4 font-semibold transition-all ${
-          activeTab === 'late'
+          activeTab === 'halfDays'
             ? 'text-warning border-b-2 border-warning'
             : 'text-light-text dark:text-dark-text hover:text-warning'
         }`}
@@ -57,9 +58,9 @@ const Tabs = ({ activeTab, setActiveTab }) => {
         </div>
       </button>
       <button
-        onClick={() => setActiveTab('late')}
+        onClick={() => setActiveTab('holidays')}
         className={`pb-4 px-4 font-semibold transition-all ${
-          activeTab === 'late'
+          activeTab === 'holidays'
             ? 'text-warning border-b-2 border-warning'
             : 'text-light-text dark:text-dark-text hover:text-warning'
         }`}

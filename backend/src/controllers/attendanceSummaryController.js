@@ -96,6 +96,7 @@ export const getMonthlyAttendance = async (req, res) => {
       checkOutTime: record.checkOutTime || 'N/A',
       checkOutLocation: record.checkOutLocation || 'N/A',
       totalWorkingTime: record.totalWorkingTime || 0,
+      totalRecessDuration: record.totalRecessDuration || 0,
     }));
 
     res.status(200).json({
