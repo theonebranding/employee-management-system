@@ -1,2 +1,3 @@
-company.theonebranding.com
-apicompany.theonebranding.com
+https://company.theonebranding.com
+---
+https://apicompany.theonebranding.com
