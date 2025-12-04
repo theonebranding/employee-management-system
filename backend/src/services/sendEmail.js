@@ -31,6 +31,7 @@ const sendEmail = async (email, subject, htmlContent) => {
 
     // eslint-disable-next-line no-unused-vars
     const info = await transporter.sendMail(mailOptions);
+    console.log(info)
 
     // console.log('Email sent:', info.response);
   } catch (error) {
