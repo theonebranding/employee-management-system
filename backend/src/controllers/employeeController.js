@@ -35,8 +35,12 @@ export const addEmployee = async (req, res) => {
       phoneNumber,
       jobRole,
     });
+    console.log('New Employee Data:', employee);
+
+    // Send invitation email
 
     await sendInvitationRequestEmail(email);
+    console.log('Invitation email sent to:', email);
 
     await employee.save();
 
