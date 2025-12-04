@@ -1,6 +1,6 @@
 import Employee from '../models/employeeSchema.js';
 import bcrypt from 'bcrypt';
-import { sendInvitationRequestEmail } from '../services/emailService.js';
+// import { sendInvitationRequestEmail } from '../services/emailService.js';
 
 export const addEmployee = async (req, res) => {
   try {
@@ -39,8 +39,8 @@ export const addEmployee = async (req, res) => {
 
     // Send invitation email
 
-    await sendInvitationRequestEmail(email);
-    console.log('Invitation email sent to:', email);
+    // await sendInvitationRequestEmail(email);
+    // console.log('Invitation email sent to:', email);
 
     await employee.save();
 
