@@ -5,6 +5,8 @@ import {
   updatePassword,
   updateAttendanceSettings,
   getAttendanceSettings,
+  getPayslipSettings,
+  updatePayslipSettings,
 } from '../controllers/adminController.js';
 import verifyToken from '../middleware/verifyToken.js';
 import checkRole from '../middleware/checkRole.js';
@@ -21,5 +23,7 @@ router.patch(
   checkRole(['admin']),
   updateAttendanceSettings
 ); // Update admin attendance settings
+router.get('/payslip-settings', verifyToken, checkRole(['admin']), getPayslipSettings);
+router.patch('/payslip-settings', verifyToken, checkRole(['admin']), updatePayslipSettings);
 
 export default router;

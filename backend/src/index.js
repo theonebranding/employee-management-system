@@ -2,9 +2,11 @@ import express from 'express';
 import dotenv from './config/dotenv.js';
 import connectDB from './config/db.js';
 
-import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
+import helmet from 'helmet';
+import mongoSanitize from 'express-mongo-sanitize';
+import hpp from 'hpp';
 
 import authRoute from './routes/authRoute.js';
 import attendanceRoute from './routes/attendanceRoute.js';
@@ -15,26 +17,30 @@ import adminRoute from './routes/adminRoute.js';
 import leaveRoute from './routes/leaveRoute.js';
 import lateCheckInRoute from './routes/lateCheckInRoute.js';
 import salaryRoute from './routes/salaryRoute.js';
+import dailyReportRoute from './routes/dailyReportRoute.js';
+import { corsOptions, globalApiLimiter } from './middleware/security.js';
 
 dotenv();
 const app = express();
 const PORT = process.env.PORT || 8000;
-
-const corsOptions = {
-  origin: [
-    'https://company.theonebranding.com',
-    'https://theone-it-frontend.vercel.app',
-    'http://localhost:5173',
-  ],
-  method: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  credentials: true,
-};
+const BODY_LIMIT = process.env.BODY_SIZE_LIMIT || '10mb';
 
 // Middleware
-app.use(bodyParser.json());
-app.use(express.json());
+app.set('trust proxy', 1);
+app.disable('x-powered-by');
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
+app.use(mongoSanitize());
+app.use(hpp());
+app.use(express.json({ limit: BODY_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: BODY_LIMIT }));
 app.use(cookieParser());
 app.use(cors(corsOptions));
+app.options('/api/*', cors(corsOptions));
+app.use('/api', globalApiLimiter);
 
 // Connect to MongoDB
 connectDB();
@@ -54,6 +60,7 @@ app.use('/api/v1/admin', adminRoute);
 app.use('/api/v1/leaves', leaveRoute);
 app.use('/api/v1/late-checkins', lateCheckInRoute);
 app.use('/api/v1/salary', salaryRoute);
+app.use('/api/v1/daily-reports', dailyReportRoute);
 
 // Start Server
 app.listen(PORT, () => {

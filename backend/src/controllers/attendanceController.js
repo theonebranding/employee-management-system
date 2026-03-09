@@ -2,6 +2,8 @@ import Attendance from '../models/attendanceSchema.js';
 import Employee from '../models/employeeSchema.js';
 import LateCheckIn from '../models/lateCheckInSchema.js';
 import AdminAttendanceSettings from '../models/adminAttendanceSettingsSchema.js';
+import DailyReport from '../models/dailyReportSchema.js';
+import { getStartOfUtcDay, getUtcDayKey, normalizeReportText } from '../utils/dailyReportUtils.js';
 
 // Fetch Current Attendance Status
 export const getCurrentStatus = async (req, res) => {
@@ -252,7 +254,7 @@ export const checkOut = async (req, res) => {
     }
 
     // Validate and extract latitude and longitude from request body
-    const { latitude, longitude } = req.body;
+    const { latitude, longitude, dailyReport } = req.body;
     if (!latitude || !longitude) {
       return res.status(400).json({ message: 'Latitude and longitude are required' });
     }
@@ -290,6 +292,31 @@ export const checkOut = async (req, res) => {
       attendance.halfDay = true;
     }
 
+    const normalizedReport = normalizeReportText(dailyReport);
+    const hasDailyReportPayload = Object.prototype.hasOwnProperty.call(req.body, 'dailyReport');
+    const existingDailyReport = await DailyReport.findOne({
+      employee: employeeId,
+      dayKey: getUtcDayKey(),
+    });
+
+    if (!existingDailyReport) {
+      await DailyReport.create({
+        employee: employeeId,
+        dayKey: getUtcDayKey(),
+        reportDate: getStartOfUtcDay(),
+        reportText: hasDailyReportPayload ? normalizedReport : 'N/A',
+        createdBy: employeeId,
+        createdByRole: req.user.role,
+        updatedBy: employeeId,
+        updatedByRole: req.user.role,
+      });
+    } else if (hasDailyReportPayload) {
+      existingDailyReport.reportText = normalizedReport;
+      existingDailyReport.updatedBy = employeeId;
+      existingDailyReport.updatedByRole = req.user.role;
+      await existingDailyReport.save();
+    }
+
     await attendance.save();
 
     // Format total working time as hours and minutes for response
@@ -310,7 +337,7 @@ export const checkOut = async (req, res) => {
 
 export const updateAttendance = async (req, res) => {
   try {
-    const { attendanceId } = req.params;
+    const attendanceId = req.params.attendanceId || req.body.attendanceId;
     const { checkInTime, checkOutTime, totalRecessDuration } = req.body;
 
     const attendance = await Attendance.findById(attendanceId);
@@ -320,7 +347,7 @@ export const updateAttendance = async (req, res) => {
 
     if (checkInTime) attendance.checkInTime = new Date(checkInTime);
     if (checkOutTime) attendance.checkOutTime = new Date(checkOutTime);
-    if (totalRecessDuration) attendance.totalRecessDuration = totalRecessDuration;
+    if (totalRecessDuration !== undefined) attendance.totalRecessDuration = totalRecessDuration;
 
     // Recalculate totalWorkingTime if check-out and check-in times exist
     if (attendance.checkOutTime && attendance.checkInTime) {

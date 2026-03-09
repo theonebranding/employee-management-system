@@ -33,6 +33,22 @@ const employeeSchema = new mongoose.Schema(
     isVerified: { type: Boolean, default: false },
     otp: { type: String },
     otpExpires: { type: Date },
+    resetPasswordToken: { type: String },
+    resetPasswordTokenExpires: { type: Date },
+    documents: [
+      {
+        title: { type: String, required: true },
+        type: {
+          type: String,
+          enum: ['offer-letter', 'aadhaar-card', 'pan-card', 'other'],
+          default: 'other',
+        },
+        fileName: { type: String },
+        mimeType: { type: String },
+        fileData: { type: String, required: true },
+        uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

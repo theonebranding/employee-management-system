@@ -7,6 +7,8 @@ import {
   getMyProfile,
   addPredefinedCheckInTime,
   deleteEmployee,
+  addEmployeeDocument,
+  deleteEmployeeDocument,
 } from '../controllers/employeeController.js';
 import verifyToken from '../middleware/verifyToken.js';
 import checkRole from '../middleware/checkRole.js';
@@ -24,6 +26,10 @@ router.patch('/update/:id?', verifyToken, checkRole(['employee', 'admin']), upda
 router.get('/my-profile', verifyToken, checkRole(['employee']), getMyProfile);
 
 router.patch('/add-checkin-time/:id?', verifyToken, checkRole(['admin']), addPredefinedCheckInTime);
+
+router.post('/:id/documents', verifyToken, checkRole(['admin']), addEmployeeDocument);
+
+router.delete('/:id/documents/:documentId', verifyToken, checkRole(['admin']), deleteEmployeeDocument);
 
 router.delete('/delete/:id?', verifyToken, checkRole(['admin']), deleteEmployee);
 

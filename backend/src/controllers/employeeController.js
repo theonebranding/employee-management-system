@@ -235,3 +235,62 @@ export const addPredefinedCheckInTime = async (req, res) => {
     res.status(500).json({ message: 'Error adding predefined check-in time', error: err.message });
   }
 };
+
+export const addEmployeeDocument = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, type = 'other', fileName = '', mimeType = '', fileData } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ message: 'Employee id is required' });
+    }
+
+    if (!title || !fileData) {
+      return res.status(400).json({ message: 'Document title and file data are required' });
+    }
+
+    const employee = await Employee.findById(id);
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    employee.documents.push({
+      title,
+      type,
+      fileName,
+      mimeType,
+      fileData,
+      uploadedAt: new Date(),
+    });
+
+    await employee.save();
+
+    return res.status(201).json({
+      message: 'Document uploaded successfully',
+      documents: employee.documents,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Error uploading document', error: error.message });
+  }
+};
+
+export const deleteEmployeeDocument = async (req, res) => {
+  try {
+    const { id, documentId } = req.params;
+
+    const employee = await Employee.findById(id);
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    employee.documents = employee.documents.filter(doc => doc._id.toString() !== documentId);
+    await employee.save();
+
+    return res.status(200).json({
+      message: 'Document deleted successfully',
+      documents: employee.documents,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Error deleting document', error: error.message });
+  }
+};

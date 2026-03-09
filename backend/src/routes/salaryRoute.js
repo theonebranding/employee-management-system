@@ -3,8 +3,12 @@ import {
   addSalaryWithDeductions,
   getSalaryDeductions,
   addSalary,
+  generatePayslip,
+  getPayslipHtmlBySalaryId,
+  sendPayslipEmail,
   getAllSalaries,
   getSalaryByEmployee,
+  getMyPayslips,
   updateSalary,
   deleteSalary,
 } from '../controllers/salaryController.js';
@@ -20,7 +24,15 @@ router.post('/add/:employeeId', verifyToken, checkRole(['admin']), addSalary);
 router.get('/', verifyToken, checkRole(['admin']), getAllSalaries);
 
 // Admin - Get Salaries by Employee ID
-router.get('/find/:employeeId', verifyToken, checkRole(['admin']), getSalaryByEmployee);
+router.get('/find/:employeeId', verifyToken, checkRole(['admin', 'employee']), getSalaryByEmployee);
+
+router.get('/my-payslips', verifyToken, checkRole(['employee']), getMyPayslips);
+
+router.post('/generate/:employeeId', verifyToken, checkRole(['admin']), generatePayslip);
+
+router.get('/payslip-html/:salaryId', verifyToken, checkRole(['admin', 'employee']), getPayslipHtmlBySalaryId);
+
+router.post('/:salaryId/send-email', verifyToken, checkRole(['admin']), sendPayslipEmail);
 
 // Admin - Update Salary
 router.patch('/:salaryId', verifyToken, checkRole(['admin']), updateSalary);

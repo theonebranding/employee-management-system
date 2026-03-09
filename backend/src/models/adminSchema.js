@@ -9,6 +9,8 @@ const adminSchema = new mongoose.Schema(
     role: { type: String, default: 'admin', immutable: true },
     otp: { type: String },
     otpExpires: { type: Date },
+    resetPasswordToken: { type: String },
+    resetPasswordTokenExpires: { type: Date },
     isVerified: { type: Boolean, default: false },
   },
   { timestamps: true }

@@ -1,6 +1,8 @@
 import Admin from '../models/adminSchema.js';
 import AdminAttendanceSettings from '../models/adminAttendanceSettingsSchema.js';
+import PayslipSettings from '../models/payslipSettingsSchema.js';
 import bcrypt from 'bcrypt';
+import { getDefaultPayslipSettings } from '../utils/payslipUtils.js';
 
 // Update Admin Profile
 export const updateAdminProfile = async (req, res) => {
@@ -130,5 +132,54 @@ export const updateAttendanceSettings = async (req, res) => {
   } catch (error) {
     console.error('Error updating attendance settings:', error);
     res.status(500).json({ message: 'Error updating settings', error: error.message });
+  }
+};
+
+export const getPayslipSettings = async (req, res) => {
+  try {
+    let settings = await PayslipSettings.findOne();
+
+    if (!settings) {
+      settings = new PayslipSettings(getDefaultPayslipSettings());
+      await settings.save();
+    }
+
+    res.status(200).json({ message: 'Payslip settings fetched successfully', settings });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching payslip settings', error: error.message });
+  }
+};
+
+export const updatePayslipSettings = async (req, res) => {
+  try {
+    let settings = await PayslipSettings.findOne();
+    if (!settings) {
+      settings = new PayslipSettings(getDefaultPayslipSettings());
+    }
+
+    const allowedFields = [
+      'companyName',
+      'companyAddress',
+      'companyEmail',
+      'companyPhone',
+      'logoData',
+      'signatureData',
+      'primaryColor',
+      'secondaryColor',
+      'footerNote',
+      'activeTemplateId',
+      'templates',
+    ];
+
+    for (const key of allowedFields) {
+      if (req.body[key] !== undefined) {
+        settings[key] = req.body[key];
+      }
+    }
+
+    await settings.save();
+    res.status(200).json({ message: 'Payslip settings updated successfully', settings });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating payslip settings', error: error.message });
   }
 };

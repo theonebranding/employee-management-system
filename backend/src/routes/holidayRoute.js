@@ -13,9 +13,19 @@ import checkRole from '../middleware/checkRole.js';
 
 const router = express.Router();
 
-router.post('/add-predefined-holidays', addPredefinedHoliday); // Add predefined holidays
-router.get('/predefined', getPredefinedHolidays); // Fetch predefined holidays
-router.delete('/delete-predefined-holidays/:holidayId', deletePredefinedHoliday); // Delete predefined holiday
+router.post(
+  '/add-predefined-holidays',
+  verifyToken,
+  checkRole(['admin']),
+  addPredefinedHoliday
+); // Add predefined holidays
+router.get('/predefined', verifyToken, checkRole(['admin', 'employee']), getPredefinedHolidays); // Fetch predefined holidays
+router.delete(
+  '/delete-predefined-holidays/:holidayId',
+  verifyToken,
+  checkRole(['admin']),
+  deletePredefinedHoliday
+); // Delete predefined holiday
 router.post('/select', verifyToken, selectHolidays); // Select holidays (max 10 including custom)
 router.get('/selected/:id?', verifyToken, checkRole(['admin', 'employee']), getSelectedHolidays); // Fetch selected employee holidays
 router.delete('/delete-custom-holidays/:holidayId', verifyToken, deleteCustomHoliday); // Delete custom holiday

@@ -11,6 +11,14 @@ import {
 } from '../services/emailService.js';
 import { generateTokens } from '../utils/tokenutils.js';
 
+const isProduction = process.env.NODE_ENV === 'production';
+const refreshTokenCookieOptions = {
+  httpOnly: true,
+  secure: isProduction,
+  sameSite: isProduction ? 'strict' : 'lax',
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+};
+
 // Register User with OTP
 export const register = async (req, res) => {
   let { name, phoneNumber, email, password, role } = req.body;
@@ -136,12 +144,7 @@ export const login = async (req, res) => {
     const { accessToken, refreshToken } = generateTokens(user);
 
     // Set Refresh Token in an HTTP-only cookie
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'Strict', // Prevent CSRF
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
+    res.cookie('refreshToken', refreshToken, refreshTokenCookieOptions);
 
     // Return user details along with tokens
     res.status(200).json({
@@ -169,14 +172,9 @@ export const refreshAccessToken = async (req, res) => {
     const user = (await Admin.findById(payload._id)) || (await Employee.findById(payload._id));
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const { accessToken, newRefreshToken } = generateTokens(user);
+    const { accessToken, refreshToken: newRefreshToken } = generateTokens(user);
 
-    res.cookie('refreshToken', newRefreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
-      sameSite: 'Strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
+    res.cookie('refreshToken', newRefreshToken, refreshTokenCookieOptions);
 
     res.status(200).json({ accessToken });
   } catch (err) {
@@ -190,9 +188,9 @@ export const logout = (req, res) => {
   try {
     // Clear the refresh token cookie
     res.clearCookie('refreshToken', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Secure in production
-      sameSite: 'Strict', // Protect against CSRF
+      httpOnly: refreshTokenCookieOptions.httpOnly,
+      secure: refreshTokenCookieOptions.secure,
+      sameSite: refreshTokenCookieOptions.sameSite,
     });
 
     res.status(200).json({ message: 'Logged out successfully' });
@@ -218,6 +216,8 @@ export const forgotPassword = async (req, res) => {
 
     user.otp = hashedOtp;
     user.otpExpires = Date.now() + 15 * 60 * 1000; // OTP expires in 15 minutes
+    user.resetPasswordToken = null;
+    user.resetPasswordTokenExpires = null;
     await user.save();
 
     // Send OTP via email
@@ -255,9 +255,12 @@ export const verifyOtp = async (req, res) => {
     // Clear OTP after successful verification
     user.otp = null;
     user.otpExpires = null;
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    user.resetPasswordTokenExpires = new Date(Date.now() + 10 * 60 * 1000);
     await user.save();
 
-    return res.status(200).json({ message: 'OTP verified successfully' });
+    return res.status(200).json({ message: 'OTP verified successfully', resetToken });
   } catch (err) {
     res.status(500).json({ message: 'Error verifying OTP', error: err });
   }
@@ -265,21 +268,35 @@ export const verifyOtp = async (req, res) => {
 
 // Set New Password After OTP Verification
 export const resetPassword = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, resetToken } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password are required' });
+  if (!email || !password || !resetToken) {
+    return res.status(400).json({ message: 'Email, password and reset token are required' });
   }
 
   try {
     const user = (await Admin.findOne({ email })) || (await Employee.findOne({ email }));
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    const hashedResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    if (
+      !user.resetPasswordToken ||
+      !user.resetPasswordTokenExpires ||
+      user.resetPasswordToken !== hashedResetToken ||
+      user.resetPasswordTokenExpires < Date.now()
+    ) {
+      return res.status(403).json({
+        message: 'Invalid or expired reset token. Please verify OTP again.',
+      });
+    }
+
     // Update the password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
     user.password = hashedPassword;
+    user.resetPasswordToken = null;
+    user.resetPasswordTokenExpires = null;
     await user.save();
 
     // Notify the user
