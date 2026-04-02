@@ -6,6 +6,38 @@ import PayslipSettings from '../models/payslipSettingsSchema.js';
 import sendEmail from '../services/sendEmail.js';
 import { generatePayslipHtml, getDefaultPayslipSettings } from '../utils/payslipUtils.js';
 
+const toSalaryResponse = (salaryDoc) => {
+  const salary = typeof salaryDoc?.toObject === 'function' ? salaryDoc.toObject() : salaryDoc;
+  if (!salary) return salary;
+
+  return {
+    ...salary,
+    email: salary.employeeEmail,
+    salary: salary.totalSalary,
+  };
+};
+
+const toSalaryArrayResponse = (salaryDocs = []) => salaryDocs.map((entry) => toSalaryResponse(entry));
+
+const ensureSalaryEditable = (salary) => {
+  if (!salary) {
+    return { editable: false, message: 'Salary record not found', status: 404 };
+  }
+
+  if (salary.payrollLockState === 'locked' || salary.payrollLockState === 'released') {
+    return {
+      editable: false,
+      status: 409,
+      message:
+        salary.payrollLockState === 'released'
+          ? 'Salary record is part of a released payroll run and cannot be modified'
+          : 'Salary record is part of a locked payroll run and cannot be modified',
+    };
+  }
+
+  return { editable: true };
+};
+
 const resolvePayslipSettings = async () => {
   let settings = await PayslipSettings.findOne();
   if (!settings) {
@@ -18,7 +50,7 @@ const resolvePayslipSettings = async () => {
 const pickTemplate = (settings, templateId) => {
   const selectedId = templateId || settings.activeTemplateId;
   return (
-    settings.templates.find(template => template.id === selectedId) ||
+    settings.templates.find((template) => template.id === selectedId) ||
     settings.templates[0] || {
       id: 'classic-template',
       name: 'Classic Ledger',
@@ -59,6 +91,20 @@ export const addSalary = async (req, res) => {
       return res.status(404).json({ message: 'Employee not found' });
     }
 
+    const existingLockedSalary = await Salary.findOne({
+      employee: employeeId,
+      salaryMonth: Number(salaryMonth) || new Date().getMonth() + 1,
+      salaryYear: Number(salaryYear) || new Date().getFullYear(),
+      payrollLockState: { $in: ['locked', 'released'] },
+    }).select('_id payrollLockState');
+
+    if (existingLockedSalary) {
+      return res.status(409).json({
+        message:
+          'Salary is locked by payroll lifecycle for this period. Create an unlock request before editing.',
+      });
+    }
+
     const normalized = normalizeSalaryValues({ baseSalary, bonuses, deductions });
 
     const salary = new Salary({
@@ -72,7 +118,7 @@ export const addSalary = async (req, res) => {
 
     await salary.save();
 
-    return res.status(201).json({ message: 'Salary added successfully', salary });
+    return res.status(201).json({ message: 'Salary added successfully', salary: toSalaryResponse(salary) });
   } catch (err) {
     return res.status(500).json({ message: 'Error adding salary', error: err.message });
   }
@@ -81,7 +127,16 @@ export const addSalary = async (req, res) => {
 export const generatePayslip = async (req, res) => {
   try {
     const { employeeId } = req.params;
-    const { salaryId, month, year, templateId, sendByEmail = false, baseSalary, bonuses, deductions } = req.body;
+    const {
+      salaryId,
+      month,
+      year,
+      templateId,
+      sendByEmail = false,
+      baseSalary,
+      bonuses,
+      deductions,
+    } = req.body;
 
     if (!employeeId || !mongoose.Types.ObjectId.isValid(employeeId)) {
       return res.status(400).json({ message: 'Invalid employee ID' });
@@ -113,7 +168,9 @@ export const generatePayslip = async (req, res) => {
 
     if (!salary) {
       if (!normalized.baseSalary) {
-        return res.status(400).json({ message: 'Base salary is required for new payslip generation' });
+        return res
+          .status(400)
+          .json({ message: 'Base salary is required for new payslip generation' });
       }
 
       salary = new Salary({
@@ -126,9 +183,12 @@ export const generatePayslip = async (req, res) => {
       });
     } else if (baseSalary !== undefined || bonuses !== undefined || deductions !== undefined) {
       salary.baseSalary = normalized.baseSalary || salary.baseSalary;
-      salary.bonuses = baseSalary !== undefined || bonuses !== undefined ? normalized.bonuses : salary.bonuses;
+      salary.bonuses =
+        baseSalary !== undefined || bonuses !== undefined ? normalized.bonuses : salary.bonuses;
       salary.deductions =
-        baseSalary !== undefined || deductions !== undefined ? normalized.deductions : salary.deductions;
+        baseSalary !== undefined || deductions !== undefined
+          ? normalized.deductions
+          : salary.deductions;
       salary.totalSalary = salary.baseSalary + salary.bonuses - salary.deductions;
     }
 
@@ -164,7 +224,11 @@ export const generatePayslip = async (req, res) => {
     });
 
     if (sendByEmail) {
-      await sendEmail(employee.email, `Payslip - ${salary.salaryMonth}/${salary.salaryYear}`, payslipHtml);
+      await sendEmail(
+        employee.email,
+        `Payslip - ${salary.salaryMonth}/${salary.salaryYear}`,
+        payslipHtml
+      );
       salary.emailedAt = new Date();
       await salary.save();
     }
@@ -173,7 +237,7 @@ export const generatePayslip = async (req, res) => {
       message: sendByEmail
         ? 'Payslip generated and emailed successfully'
         : 'Payslip generated successfully',
-      salary,
+      salary: toSalaryResponse(salary),
       payslipHtml,
     });
   } catch (err) {
@@ -194,6 +258,11 @@ export const sendPayslipEmail = async (req, res) => {
       return res.status(404).json({ message: 'Salary record not found' });
     }
 
+    const editableStatus = ensureSalaryEditable(salary);
+    if (!editableStatus.editable) {
+      return res.status(editableStatus.status).json({ message: editableStatus.message });
+    }
+
     const employee = await Employee.findById(salary.employee);
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
@@ -210,7 +279,11 @@ export const sendPayslipEmail = async (req, res) => {
       : (await resolvePayslipSettings()).toObject();
 
     const payslipHtml = generatePayslipHtml({ salary, employee, settings, template });
-    await sendEmail(employee.email, `Payslip - ${salary.salaryMonth}/${salary.salaryYear}`, payslipHtml);
+    await sendEmail(
+      employee.email,
+      `Payslip - ${salary.salaryMonth}/${salary.salaryYear}`,
+      payslipHtml
+    );
 
     salary.emailedAt = new Date();
     await salary.save();
@@ -232,6 +305,11 @@ export const getPayslipHtmlBySalaryId = async (req, res) => {
     const salary = await Salary.findById(salaryId);
     if (!salary) {
       return res.status(404).json({ message: 'Salary record not found' });
+    }
+
+    const editableStatus = ensureSalaryEditable(salary);
+    if (!editableStatus.editable) {
+      return res.status(editableStatus.status).json({ message: editableStatus.message });
     }
 
     if (req.user.role === 'employee' && req.user._id !== String(salary.employee)) {
@@ -267,7 +345,10 @@ export const getAllSalaries = async (req, res) => {
     const salaries = await Salary.find()
       .populate('employee', 'name email')
       .sort({ paymentDate: -1, createdAt: -1 });
-    return res.status(200).json({ message: 'Salaries fetched successfully', salaries });
+    return res.status(200).json({
+      message: 'Salaries fetched successfully',
+      salaries: toSalaryArrayResponse(salaries),
+    });
   } catch (err) {
     return res.status(500).json({ message: 'Error fetching salaries', error: err.message });
   }
@@ -282,12 +363,18 @@ export const getSalaryByEmployee = async (req, res) => {
       return res.status(403).json({ message: 'You can only access your own salary records' });
     }
 
-    const salaries = await Salary.find({ employee: employeeId }).sort({ paymentDate: -1, createdAt: -1 });
+    const salaries = await Salary.find({ employee: employeeId }).sort({
+      paymentDate: -1,
+      createdAt: -1,
+    });
     if (!salaries || salaries.length === 0) {
       return res.status(404).json({ message: 'No salary records found for this employee' });
     }
 
-    return res.status(200).json({ message: 'Salaries fetched successfully', salaries });
+    return res.status(200).json({
+      message: 'Salaries fetched successfully',
+      salaries: toSalaryArrayResponse(salaries),
+    });
   } catch (err) {
     return res.status(500).json({ message: 'Error fetching salaries', error: err.message });
   }
@@ -295,13 +382,18 @@ export const getSalaryByEmployee = async (req, res) => {
 
 export const getMyPayslips = async (req, res) => {
   try {
-    const salaries = await Salary.find({ employee: req.user._id, payslipStatus: 'generated' }).sort({
-      salaryYear: -1,
-      salaryMonth: -1,
-      createdAt: -1,
-    });
+    const salaries = await Salary.find({ employee: req.user._id, payslipStatus: 'generated' }).sort(
+      {
+        salaryYear: -1,
+        salaryMonth: -1,
+        createdAt: -1,
+      }
+    );
 
-    return res.status(200).json({ message: 'Payslips fetched successfully', salaries });
+    return res.status(200).json({
+      message: 'Payslips fetched successfully',
+      salaries: toSalaryArrayResponse(salaries),
+    });
   } catch (error) {
     return res.status(500).json({ message: 'Error fetching payslips', error: error.message });
   }
@@ -325,7 +417,7 @@ export const updateSalary = async (req, res) => {
 
     await salary.save();
 
-    return res.status(200).json({ message: 'Salary updated successfully', salary });
+    return res.status(200).json({ message: 'Salary updated successfully', salary: toSalaryResponse(salary) });
   } catch (err) {
     return res.status(500).json({ message: 'Error updating salary', error: err.message });
   }
@@ -336,10 +428,18 @@ export const deleteSalary = async (req, res) => {
   try {
     const { salaryId } = req.params;
 
-    const salary = await Salary.findByIdAndDelete(salaryId);
+    const salary = await Salary.findById(salaryId);
     if (!salary) {
       return res.status(404).json({ message: 'Salary record not found' });
     }
+
+    if (salary.payrollLockState === 'locked' || salary.payrollLockState === 'released') {
+      return res.status(409).json({
+        message: 'Salary record is payroll locked and cannot be deleted',
+      });
+    }
+
+    await salary.deleteOne();
 
     return res.status(200).json({ message: 'Salary record deleted successfully' });
   } catch (err) {
@@ -366,7 +466,9 @@ export const getSalaryDeductions = async (req, res) => {
       },
     });
   } catch (err) {
-    return res.status(500).json({ message: 'Error fetching salary deductions', error: err.message });
+    return res
+      .status(500)
+      .json({ message: 'Error fetching salary deductions', error: err.message });
   }
 };
 
@@ -380,6 +482,19 @@ export const addSalaryWithDeductions = async (req, res) => {
       return res.status(404).json({ message: 'Employee not found' });
     }
 
+    const existingLockedSalary = await Salary.findOne({
+      employee: employeeId,
+      salaryMonth: new Date().getMonth() + 1,
+      salaryYear: new Date().getFullYear(),
+      payrollLockState: { $in: ['locked', 'released'] },
+    }).select('_id payrollLockState');
+
+    if (existingLockedSalary) {
+      return res.status(409).json({
+        message: 'Salary for this period is payroll locked and cannot be recomputed',
+      });
+    }
+
     const startDate = new Date(new Date().setDate(1));
     const endDate = new Date(new Date().setMonth(new Date().getMonth() + 1, 0));
 
@@ -391,7 +506,7 @@ export const addSalaryWithDeductions = async (req, res) => {
     let lateComingDeductions = 0;
     const absences = Number(workingDaysInMonth) - attendances.length;
 
-    attendances.forEach(record => {
+    attendances.forEach((record) => {
       if (record.checkInTime) {
         const checkInHour = new Date(record.checkInTime).getHours();
         const lateBy = Math.max(0, checkInHour - 9);
@@ -418,8 +533,13 @@ export const addSalaryWithDeductions = async (req, res) => {
 
     await salary.save();
 
-    return res.status(201).json({ message: 'Salary with deductions added successfully', salary });
+    return res.status(201).json({
+      message: 'Salary with deductions added successfully',
+      salary: toSalaryResponse(salary),
+    });
   } catch (err) {
-    return res.status(500).json({ message: 'Error adding salary with deductions', error: err.message });
+    return res
+      .status(500)
+      .json({ message: 'Error adding salary with deductions', error: err.message });
   }
 };

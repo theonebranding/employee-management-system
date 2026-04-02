@@ -4,7 +4,10 @@ const objectIdRegex = /^[0-9a-fA-F]{24}$/;
 
 const locationSchema = z
   .object({
-    latitude: z.coerce.number().min(-90, 'Latitude must be >= -90').max(90, 'Latitude must be <= 90'),
+    latitude: z.coerce
+      .number()
+      .min(-90, 'Latitude must be >= -90')
+      .max(90, 'Latitude must be <= 90'),
     longitude: z.coerce
       .number()
       .min(-180, 'Longitude must be >= -180')

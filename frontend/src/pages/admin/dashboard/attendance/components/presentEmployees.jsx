@@ -1,7 +1,7 @@
 import 'react-toastify/dist/ReactToastify.css';
 
 import { CheckCircle, Loader2 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 const PresentEmployees = ({ startDate, endDate }) => {
   const [presentList, setPresentList] = useState([]);
@@ -9,20 +9,17 @@ const PresentEmployees = ({ startDate, endDate }) => {
 
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
-  // Helper function to format the date to DD-MM-YYYY for API requests
-  const formatDate = date => {
-    if (date instanceof Date) {
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are zero-based
-      const year = date.getFullYear();
-      return `${day}-${month}-${year}`;
-    }
-    return date; // If the date is already formatted, return as is
-  };
-
-  const fetchPresentList = async () => {
+  const fetchPresentList = useCallback(async () => {
     setLoading(true);
     try {
+      const formatDate = date => {
+        if (!(date instanceof Date)) return date;
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}-${month}-${year}`;
+      };
+
       const formattedStartDate = formatDate(startDate);
       const formattedEndDate = formatDate(endDate);
 
@@ -43,13 +40,13 @@ const PresentEmployees = ({ startDate, endDate }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [BASE_URL, endDate, startDate]);
 
   useEffect(() => {
     if (startDate && endDate) {
       fetchPresentList();
     }
-  }, [startDate, endDate]);
+  }, [endDate, fetchPresentList, startDate]);
 
   return (
     <div className="bg-light-card dark:bg-dark-card rounded-lg p-6 border border-light-border dark:border-dark-border shadow-lg">

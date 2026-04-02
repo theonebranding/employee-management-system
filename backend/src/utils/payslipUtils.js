@@ -49,9 +49,12 @@ const templateClassMap = {
 export const generatePayslipHtml = ({ salary, employee, settings, template }) => {
   const gross = Number(salary.baseSalary || 0) + Number(salary.bonuses || 0);
   const net = Number(salary.totalSalary || gross - Number(salary.deductions || 0));
-  const monthName = new Date(salary.salaryYear || new Date().getFullYear(), (salary.salaryMonth || 1) - 1)
-    .toLocaleString('en-US', { month: 'long' });
-  const headerStyle = templateClassMap[template?.accentStyle || 'classic'] || templateClassMap.classic;
+  const monthName = new Date(
+    salary.salaryYear || new Date().getFullYear(),
+    (salary.salaryMonth || 1) - 1
+  ).toLocaleString('en-US', { month: 'long' });
+  const headerStyle =
+    templateClassMap[template?.accentStyle || 'classic'] || templateClassMap.classic;
 
   return `
 <!doctype html>

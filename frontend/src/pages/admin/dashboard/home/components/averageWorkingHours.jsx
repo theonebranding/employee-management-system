@@ -23,8 +23,8 @@ const AverageWorkingHours = () => {
   const fetchAverageWorkingHours = async (startDate, endDate) => {
     setLoading(true);
     try {
-      const start = format(startDate, 'dd-MM-yyyy');
-      const end = format(endDate, 'dd-MM-yyyy');
+      const start = format(startDate, 'yyyy-MM-dd');
+      const end = format(endDate, 'yyyy-MM-dd');
       const response = await fetch(
         `${BASE_URL}/attendance-summary/average-working-hours?startDate=${start}&endDate=${end}`,
         {

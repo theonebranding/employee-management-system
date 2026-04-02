@@ -113,7 +113,19 @@ export const getAttendanceSettings = async (req, res) => {
 
 export const updateAttendanceSettings = async (req, res) => {
   try {
-    const { lateByMinutes, totalWorkingHours, halfDayHours, minAbsentHours } = req.body;
+    const {
+      lateByMinutes,
+      totalWorkingHours,
+      halfDayHours,
+      minAbsentHours,
+      maxLateCheckIns,
+      geoFenceEnabled,
+      officeLatitude,
+      officeLongitude,
+      geoFenceRadiusMeters,
+      ipAllowlistEnabled,
+      allowedIps,
+    } = req.body;
 
     let settings = await AdminAttendanceSettings.findOne();
 
@@ -126,6 +138,15 @@ export const updateAttendanceSettings = async (req, res) => {
     if (totalWorkingHours !== undefined) settings.totalWorkingHours = totalWorkingHours;
     if (halfDayHours !== undefined) settings.halfDayHours = halfDayHours;
     if (minAbsentHours !== undefined) settings.minAbsentHours = minAbsentHours;
+    if (maxLateCheckIns !== undefined) settings.maxLateCheckIns = maxLateCheckIns;
+    if (geoFenceEnabled !== undefined) settings.geoFenceEnabled = Boolean(geoFenceEnabled);
+    if (officeLatitude !== undefined) settings.officeLatitude = officeLatitude;
+    if (officeLongitude !== undefined) settings.officeLongitude = officeLongitude;
+    if (geoFenceRadiusMeters !== undefined) settings.geoFenceRadiusMeters = geoFenceRadiusMeters;
+    if (ipAllowlistEnabled !== undefined) settings.ipAllowlistEnabled = Boolean(ipAllowlistEnabled);
+    if (Array.isArray(allowedIps)) {
+      settings.allowedIps = [...new Set(allowedIps.map((ip) => String(ip).trim()).filter(Boolean))];
+    }
 
     await settings.save();
     res.status(200).json({ message: 'Attendance settings updated successfully', settings });

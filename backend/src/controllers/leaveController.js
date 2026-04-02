@@ -2,24 +2,81 @@ import mongoose from 'mongoose';
 import Leave from '../models/leaveSchema.js';
 import { sendLeaveRequestEmail, sendLeaveStatusEmail } from '../services/emailService.js';
 import Employee from '../models/employeeSchema.js';
+import {
+  createLeaveWorkflowInstance,
+  transitionLeaveWorkflow,
+} from '../services/workflowService.js';
+import {
+  calculateLeaveDays,
+  consumeLeaveBalance,
+  detectOverlapConflict,
+} from '../services/leavePolicyService.js';
 export const createLeave = async (req, res) => {
   try {
-    const { reason, startDate, endDate } = req.body;
+    const { reason, startDate, endDate, leaveTypeCode = 'ANNUAL' } = req.body;
     const { _id: employeeId, email: employeeEmail } = req.user;
 
     if (!reason || !startDate || !endDate) {
       return res.status(400).json({ message: 'Reason, start date, and end date are required' });
     }
 
+    const employee = await Employee.findById(employeeId).select('manager location');
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    const [leaveCalculation, overlap] = await Promise.all([
+      calculateLeaveDays({
+        startDate,
+        endDate,
+        leaveTypeCode,
+        location: employee.location || 'GLOBAL',
+      }),
+      detectOverlapConflict({ employeeId, startDate, endDate }),
+    ]);
+
+    if (leaveCalculation.error) {
+      return res.status(400).json({ message: leaveCalculation.error });
+    }
+
+    if (Number(leaveCalculation.numberOfDays || 0) <= 0) {
+      return res.status(400).json({
+        message:
+          'Requested leave duration has no payable/applicable days after weekend/holiday and sandwich policy evaluation',
+      });
+    }
+
+    if (overlap.hasConflict) {
+      return res.status(409).json({ message: overlap.message, overlapConflict: true });
+    }
+
     const leave = new Leave({
       employee: employeeId,
       employeeEmail,
       reason,
+      leaveTypeCode,
       startDate,
       endDate,
+      numberOfDays: leaveCalculation.numberOfDays,
+      sandwichDays: leaveCalculation.sandwichDays,
+      overlapConflict: false,
+      overlapConflictMessage: '',
     });
 
     await leave.save();
+
+    const workflowInstance = await createLeaveWorkflowInstance({
+      leaveId: leave._id,
+      requesterId: employeeId,
+      managerId: employee?.manager || null,
+      metadata: { reason, startDate, endDate },
+    });
+
+    if (workflowInstance) {
+      leave.workflowInstanceId = workflowInstance._id;
+      leave.currentApprovalStep = workflowInstance.currentStepIndex + 1;
+      await leave.save();
+    }
 
     // Send email to admin for leave request
     await sendLeaveRequestEmail(employeeEmail, reason, startDate, endDate);
@@ -60,6 +117,7 @@ export const getAllLeaves = async (req, res) => {
       leaves,
       totalPages: Math.ceil(totalLeaves / limit),
       currentPage: Number(page),
+      total: totalLeaves,
       totalLeaves,
     });
   } catch (err) {
@@ -88,23 +146,53 @@ export const getMyLeaves = async (req, res) => {
 export const updateLeaveStatus = async (req, res) => {
   try {
     const { leaveId } = req.params;
-    const { status } = req.body;
+    const { status, decisionNote = '' } = req.body;
 
-    if (!['pending', 'approved', 'rejected'].includes(status)) {
-      return res.status(400).json({ message: 'Invalid status' });
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status. Allowed values: approved, rejected' });
     }
 
-    const leave = await Leave.findByIdAndUpdate(
-      leaveId,
-      { status },
-      { new: true, runValidators: true }
-    );
+    const leave = await Leave.findById(leaveId);
 
     if (!leave) {
       return res.status(404).json({ message: 'Leave not found' });
     }
 
-    if (status === 'approved' || status === 'rejected') {
+    const workflowTransition = await transitionLeaveWorkflow({
+      leaveId: leave._id,
+      actorId: req.user._id,
+      decision: status,
+      note: decisionNote,
+    });
+
+    if (workflowTransition.workflow) {
+      leave.workflowInstanceId = workflowTransition.workflow._id;
+      leave.currentApprovalStep = workflowTransition.workflow.currentStepIndex + 1;
+    }
+
+    leave.status = workflowTransition.status === 'pending' ? 'pending' : workflowTransition.status;
+
+    if (leave.status === 'approved') {
+      const leaveYear = new Date(leave.startDate).getUTCFullYear();
+      const consumeResult = await consumeLeaveBalance({
+        employeeId: leave.employee,
+        leaveTypeCode: leave.leaveTypeCode || 'ANNUAL',
+        year: leaveYear,
+        numberOfDays: leave.numberOfDays || 0,
+      });
+
+      if (!consumeResult.success) {
+        return res.status(409).json({
+          message: consumeResult.message,
+          leave,
+          leaveBalance: consumeResult.balance || null,
+        });
+      }
+    }
+
+    await leave.save();
+
+    if (leave.status === 'approved' || leave.status === 'rejected') {
       // Send email to employee for leave approval/rejection
       await sendLeaveStatusEmail(
         leave.employeeEmail,

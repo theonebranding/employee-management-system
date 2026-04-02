@@ -57,14 +57,25 @@ const VerifyOTP = () => {
         body: JSON.stringify({ email, otp }),
       });
 
+      const data = await response.json();
+
       if (response.ok) {
+        const resetToken = data?.resetToken;
+
+        if (!resetToken) {
+          toast.error('Verification succeeded but reset token is missing. Please try again.');
+          return;
+        }
+
+        globalThis.sessionStorage.setItem('passwordResetEmail', email);
+        globalThis.sessionStorage.setItem('passwordResetToken', resetToken);
+
         toast.success('OTP verified successfully! Redirecting to reset password...');
         setTimeout(() => {
-          navigate('/reset-password', { state: { email } });
+          navigate('/reset-password', { state: { email, resetToken } });
         }, 1500);
       } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || 'Invalid OTP');
+        toast.error(data.message || 'Invalid OTP');
       }
     } catch (error) {
       console.error('An error occurred:', error);

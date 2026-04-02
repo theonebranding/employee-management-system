@@ -1,5 +1,5 @@
 import { Calendar, Loader2 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 
 const HolidayEmployees = ({ selectedDate }) => {
@@ -8,21 +8,14 @@ const HolidayEmployees = ({ selectedDate }) => {
 
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
-  // Helper function to format the date to YYYY-MM-DD
-  const formatDate = date => {
-    if (date instanceof Date) {
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are zero-based
-      const year = date.getFullYear();
-      return `${year}-${month}-${day}`;
-    }
-    return date; // Return as is if it's already formatted
-  };
-
-  const fetchHolidayList = async () => {
+  const fetchHolidayList = useCallback(async () => {
     setLoading(true);
     try {
-      const formattedDate = formatDate(selectedDate || new Date()); // Default to today
+      const date = selectedDate || new Date();
+      const formattedDate =
+        date instanceof Date
+          ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+          : date;
 
       const response = await fetch(
         `${BASE_URL}/holidays/employee-on-holiday?date=${formattedDate}`,
@@ -49,11 +42,11 @@ const HolidayEmployees = ({ selectedDate }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [BASE_URL, selectedDate]);
 
   useEffect(() => {
     fetchHolidayList();
-  }, [selectedDate]);
+  }, [fetchHolidayList]);
 
   return (
     <div className="bg-light-card dark:bg-dark-card rounded-lg p-6 border border-light-border dark:border-dark-border shadow-lg">

@@ -4,7 +4,7 @@ import React from 'react';
 
 const Tabs = ({ activeTab, setActiveTab }) => {
   return (
-    <div className="flex gap-4 mb-6 border-b border-light-border dark:border-dark-border">
+    <div className="flex gap-2 sm:gap-4 mb-6 border-b border-light-border dark:border-dark-border overflow-x-auto whitespace-nowrap pb-1">
       <button
         onClick={() => setActiveTab('attendance')}
         className={`pb-4 px-4 font-semibold transition-all ${

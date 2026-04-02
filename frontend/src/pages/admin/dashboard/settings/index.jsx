@@ -1,6 +1,8 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable sonarjs/no-duplicate-string */
+/* eslint-disable simple-import-sort/imports */
 import {
+  BadgeDollarSign,
   Clock,
   Eye,
   EyeOff,
@@ -17,6 +19,11 @@ import React, { useEffect, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 
 import Header from '../../../../components/pageHeader';
+import {
+  defaultPayslipSettings,
+  defaultPayslipTemplates,
+} from '../../../../utils/payslipTemplates';
+
 import AdminAttendanceSettings from './adminAttendanceSetting';
 
 const AdminSettings = () => {
@@ -32,12 +39,84 @@ const AdminSettings = () => {
   const [originalData, setOriginalData] = useState({});
   const [loading, setLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [mfaLoading, setMfaLoading] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [activeTab, setActiveTab] = useState('profile');
+  const [payslipSettings, setPayslipSettings] = useState(defaultPayslipSettings);
+  const [payslipLoading, setPayslipLoading] = useState(false);
 
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
+
+  const convertFileToDataUrl = file =>
+    new Promise((resolve, reject) => {
+      const reader = new window.FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+
+  const fetchPayslipSettings = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/payslip-settings`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch payslip settings');
+      }
+
+      const data = await response.json();
+      setPayslipSettings({
+        ...defaultPayslipSettings,
+        ...data.settings,
+        templates: data.settings?.templates?.length
+          ? data.settings.templates
+          : defaultPayslipTemplates,
+      });
+    } catch (error) {
+      toast.error(error.message || 'Failed to fetch payslip settings');
+    }
+  };
+
+  const updatePayslipSettings = async event => {
+    event.preventDefault();
+    try {
+      setPayslipLoading(true);
+      const response = await fetch(`${BASE_URL}/admin/payslip-settings`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify(payslipSettings),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update payslip settings');
+      }
+
+      toast.success('Payslip settings updated successfully');
+    } catch (error) {
+      toast.error(error.message || 'Failed to update payslip settings');
+    } finally {
+      setPayslipLoading(false);
+    }
+  };
+
+  const handleImageUpload = async (event, targetField) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const imageData = await convertFileToDataUrl(file);
+      setPayslipSettings(previous => ({ ...previous, [targetField]: imageData }));
+    } catch {
+      toast.error('Unable to process selected image');
+    }
+  };
 
   // Fetch Admin Profile
   const fetchAdminSettings = async () => {
@@ -60,6 +139,7 @@ const AdminSettings = () => {
         email: data.admin.email || '',
         phoneNumber: data.admin.phoneNumber || '',
       });
+      setMfaEnabled(Boolean(data.admin.mfaEnabled));
     } catch (error) {
       console.error('Error fetching admin settings:', error);
       toast.error(error.message || 'Failed to fetch admin settings.');
@@ -147,6 +227,32 @@ const AdminSettings = () => {
     }
   };
 
+  const updateMfaPreference = async enabled => {
+    try {
+      setMfaLoading(true);
+      const response = await fetch(`${BASE_URL}/auth/mfa-preference`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ enabled }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update MFA setting');
+      }
+
+      setMfaEnabled(Boolean(data.mfaEnabled));
+      toast.success(data.message || 'MFA preference updated');
+    } catch (error) {
+      toast.error(error.message || 'Failed to update MFA preference');
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
   // Handle Input Changes
   const handleChange = e => {
     const { name, value } = e.target;
@@ -206,11 +312,12 @@ const AdminSettings = () => {
 
   useEffect(() => {
     fetchAdminSettings();
+    fetchPayslipSettings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <div className="p-6 ml-8 min-h-screen pl-20 bg-light-bg dark:bg-dark-bg transition-colors duration-300">
+    <div className="min-h-screen pl-16 sm:pl-20 px-3 sm:px-5 lg:px-6 py-4 sm:py-6 bg-light-bg dark:bg-dark-bg transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <Header
@@ -252,6 +359,17 @@ const AdminSettings = () => {
             >
               <Clock size={18} />
               <span>Attendance Settings</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('payslip-settings')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
+                activeTab === 'payslip-settings'
+                  ? 'bg-primary text-white'
+                  : 'text-light-text dark:text-dark-text opacity-70 hover:bg-light-bg dark:hover:bg-dark-bg'
+              }`}
+            >
+              <BadgeDollarSign size={18} />
+              <span>Payslip Settings</span>
             </button>
           </div>
         </div>
@@ -377,6 +495,23 @@ const AdminSettings = () => {
                           <span>Save Changes</span>
                         </>
                       )}
+                    </button>
+                  </div>
+
+                  <div className="pt-4 border-t border-light-border dark:border-dark-border flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-light-text dark:text-dark-text">Multi-factor authentication</p>
+                      <p className="text-sm opacity-70 text-light-text dark:text-dark-text">
+                        Require OTP verification after password login.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => updateMfaPreference(!mfaEnabled)}
+                      disabled={mfaLoading}
+                      className={`px-4 py-2 rounded-lg text-white ${mfaEnabled ? 'bg-danger' : 'bg-success'} ${mfaLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {mfaLoading ? 'Updating...' : mfaEnabled ? 'Disable MFA' : 'Enable MFA'}
                     </button>
                   </div>
                 </form>
@@ -596,6 +731,164 @@ const AdminSettings = () => {
             )}
 
             {activeTab === 'attendance-settings' && <AdminAttendanceSettings />}
+
+            {activeTab === 'payslip-settings' && (
+              <div className="bg-light-card dark:bg-dark-card p-8 rounded-xl border border-light-border dark:border-dark-border shadow-lg">
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="p-3 bg-primary/20 rounded-lg">
+                    <BadgeDollarSign className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-light-text dark:text-dark-text">
+                      Payslip Branding and Template
+                    </h2>
+                    <p className="text-light-text dark:text-dark-text opacity-70 text-sm mt-1">
+                      Update payslip layout, logo, signature, and color structure.
+                    </p>
+                  </div>
+                </div>
+
+                <form onSubmit={updatePayslipSettings} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <input
+                      className="w-full py-3 px-4 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg"
+                      placeholder="Company Name"
+                      value={payslipSettings.companyName}
+                      onChange={event =>
+                        setPayslipSettings(previous => ({
+                          ...previous,
+                          companyName: event.target.value,
+                        }))
+                      }
+                    />
+                    <input
+                      className="w-full py-3 px-4 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg"
+                      placeholder="Company Email"
+                      value={payslipSettings.companyEmail}
+                      onChange={event =>
+                        setPayslipSettings(previous => ({
+                          ...previous,
+                          companyEmail: event.target.value,
+                        }))
+                      }
+                    />
+                    <input
+                      className="w-full py-3 px-4 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg"
+                      placeholder="Company Phone"
+                      value={payslipSettings.companyPhone}
+                      onChange={event =>
+                        setPayslipSettings(previous => ({
+                          ...previous,
+                          companyPhone: event.target.value,
+                        }))
+                      }
+                    />
+                    <input
+                      className="w-full py-3 px-4 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg"
+                      placeholder="Company Address"
+                      value={payslipSettings.companyAddress}
+                      onChange={event =>
+                        setPayslipSettings(previous => ({
+                          ...previous,
+                          companyAddress: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm mb-2">Primary Color</label>
+                      <input
+                        type="color"
+                        value={payslipSettings.primaryColor}
+                        onChange={event =>
+                          setPayslipSettings(previous => ({
+                            ...previous,
+                            primaryColor: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-2">Secondary Color</label>
+                      <input
+                        type="color"
+                        value={payslipSettings.secondaryColor}
+                        onChange={event =>
+                          setPayslipSettings(previous => ({
+                            ...previous,
+                            secondaryColor: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm mb-2">Company Logo</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={event => handleImageUpload(event, 'logoData')}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-2">Authorized Signature</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={event => handleImageUpload(event, 'signatureData')}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm mb-2">Payslip Template</label>
+                    <select
+                      value={payslipSettings.activeTemplateId}
+                      onChange={event =>
+                        setPayslipSettings(previous => ({
+                          ...previous,
+                          activeTemplateId: event.target.value,
+                        }))
+                      }
+                      className="w-full py-3 px-4 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg"
+                    >
+                      {payslipSettings.templates.map(template => (
+                        <option key={template.id} value={template.id}>
+                          {template.name} - {template.description}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm mb-2">Footer Note</label>
+                    <textarea
+                      value={payslipSettings.footerNote}
+                      onChange={event =>
+                        setPayslipSettings(previous => ({
+                          ...previous,
+                          footerNote: event.target.value,
+                        }))
+                      }
+                      className="w-full py-3 px-4 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg"
+                      rows={3}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={payslipLoading}
+                    className="px-6 py-3 bg-primary hover:bg-primary-dark text-white rounded-lg"
+                  >
+                    {payslipLoading ? 'Saving...' : 'Save Payslip Settings'}
+                  </button>
+                </form>
+              </div>
+            )}
           </div>
         )}
       </div>

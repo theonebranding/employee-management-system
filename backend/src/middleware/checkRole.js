@@ -1,19 +1,18 @@
+import checkPermission from './checkPermission.js';
+import { LEGACY_ROLE_TO_TEMPLATE, ROLE_TEMPLATE_PERMISSIONS } from '../constants/roleTemplates.js';
+
 const checkRole = (allowedRoles) => {
-  return (req, res, next) => {
-    try {
-      const { role } = req.user; // Assuming req.user is populated by verifyToken middleware
+  const allowedTemplates = (allowedRoles || [])
+    .map((role) => LEGACY_ROLE_TO_TEMPLATE[role])
+    .filter(Boolean);
 
-      if (!allowedRoles.includes(role)) {
-        return res
-          .status(403)
-          .json({ message: 'Access denied. You do not have the required permissions.' });
-      }
+  const permissionSet = new Set();
+  allowedTemplates.forEach((template) => {
+    const templatePermissions = ROLE_TEMPLATE_PERMISSIONS[template] || [];
+    templatePermissions.forEach((permission) => permissionSet.add(permission));
+  });
 
-      next();
-    } catch (err) {
-      res.status(500).json({ message: 'Error verifying role', error: err.message });
-    }
-  };
+  return checkPermission([...permissionSet]);
 };
 
 export default checkRole;

@@ -12,9 +12,10 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
 
-import LocationMap from '../../../../components/locationMap';
+import AppToastContainer from '../../../../components/feedback/appToastContainer';
+import LocationModal from '../../../../components/location/locationModal';
 import Header from '../../../../components/pageHeader';
 import StatCard from '../home/components/statCard';
 import AbsentEmployees from './components/absentEmployees';
@@ -30,6 +31,7 @@ const AdminAttendance = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showMapModal, setShowMapModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
+  const [selectedRecord, setSelectedRecord] = useState(null);
   const [locationType, setLocationType] = useState('');
 
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
@@ -102,16 +104,17 @@ const AdminAttendance = () => {
     fetchAttendanceSummary(newDate);
   };
 
-  const handleLocationClick = (location, type) => {
+  const handleLocationClick = (location, type, record) => {
     if (location && Object.keys(location).length > 0) {
       setSelectedLocation(location);
+      setSelectedRecord(record);
       setLocationType(type);
       setShowMapModal(true);
     }
   };
 
   return (
-    <div className="p-6 ml-8 min-h-screen pl-20 bg-light-bg dark:bg-dark-bg">
+    <div className="min-h-screen pl-16 sm:pl-20 px-3 sm:px-5 lg:px-6 py-4 sm:py-6 bg-light-bg dark:bg-dark-bg">
       <div className="max-w-7xl mx-auto">
         <Header
           title="Attendance Dashboard"
@@ -159,10 +162,10 @@ const AdminAttendance = () => {
 
           <div className="p-6 space-y-6">
             {/* Date Controls */}
-            <div className="flex items-center justify-between p-4 bg-light-card dark:bg-dark-card rounded-lg border border-light-border dark:border-dark-border">
-              <div className="flex items-center gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 p-4 bg-light-card dark:bg-dark-card rounded-lg border border-light-border dark:border-dark-border">
+              <div className="flex flex-wrap items-center gap-3">
                 <Filter className="w-5 h-5 text-primary" />
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={handlePrevDay}
                     className="p-2 hover:bg-light-bg dark:hover:bg-dark-bg rounded-lg transition-colors"
@@ -191,7 +194,7 @@ const AdminAttendance = () => {
               </div>
               <button
                 onClick={() => fetchAttendanceSummary(selectedDate)}
-                className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg font-Medium transition-all duration-200 flex items-center gap-2 focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-light-bg dark:focus:ring-offset-dark-bg transform hover:scale-105"
+                className="w-full lg:w-auto px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg font-Medium transition-all duration-200 flex items-center justify-center gap-2 focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-light-bg dark:focus:ring-offset-dark-bg transform hover:scale-105"
                 aria-label="Fetch attendance data"
               >
                 <Clock className="w-4 h-4" />
@@ -268,7 +271,7 @@ const AdminAttendance = () => {
                             ) : (
                               <button
                                 onClick={() =>
-                                  handleLocationClick(record.checkInLocation, 'checkIn')
+                                  handleLocationClick(record.checkInLocation, 'checkIn', record)
                                 }
                                 className="text-primary hover:underline"
                                 aria-label="View check-in location"
@@ -297,7 +300,7 @@ const AdminAttendance = () => {
                             ) : (
                               <button
                                 onClick={() =>
-                                  handleLocationClick(record.checkOutLocation, 'checkOut')
+                                  handleLocationClick(record.checkOutLocation, 'checkOut', record)
                                 }
                                 className="text-primary hover:underline"
                                 aria-label="View check-out location"
@@ -370,51 +373,16 @@ const AdminAttendance = () => {
         <HolidayEmployees selectedDate={selectedDate} />
 
         {/* Map Modal */}
-        {showMapModal && selectedLocation && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-light-bg dark:bg-dark-bg rounded-2xl p-6 w-full max-w-3xl">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-light-text dark:text-dark-text">
-                  {locationType === 'checkIn' ? 'Check-in' : 'Check-out'} Location
-                </h2>
-                <button
-                  onClick={() => setShowMapModal(false)}
-                  className="text-light-text dark:text-dark-text opacity-70 hover:text-primary"
-                  aria-label="Close map modal"
-                >
-                  ✕
-                </button>
-              </div>
-              <LocationMap
-                checkInLocation={locationType === 'checkIn' ? selectedLocation : {}}
-                checkOutLocation={locationType === 'checkOut' ? selectedLocation : {}}
-                isLocationPermissionGranted={true}
-                requestLocation={() => {}}
-                checkInTime={
-                  locationType === 'checkIn'
-                    ? attendanceData.find(r => r.checkInLocation === selectedLocation)?.checkInTime
-                    : null
-                }
-                checkOutTime={
-                  locationType === 'checkOut'
-                    ? attendanceData.find(r => r.checkOutLocation === selectedLocation)
-                        ?.checkOutTime
-                    : null
-                }
-                deviceLocation={{}}
-              />
-            </div>
-          </div>
-        )}
+        <LocationModal
+          open={showMapModal}
+          onClose={() => setShowMapModal(false)}
+          selectedLocation={selectedLocation}
+          locationType={locationType}
+          checkInTime={locationType === 'checkIn' ? selectedRecord?.checkInTime : null}
+          checkOutTime={locationType === 'checkOut' ? selectedRecord?.checkOutTime : null}
+        />
       </div>
-      <ToastContainer
-        toastClassName="bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text ring-1 ring-light-border dark:ring-dark-border"
-        position="top-right"
-        pauseOnHover={false}
-        limit={1}
-        closeOnClick={true}
-        autoClose={1000}
-      />
+      <AppToastContainer autoClose={1000} />
     </div>
   );
 };

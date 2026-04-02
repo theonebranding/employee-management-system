@@ -3,7 +3,70 @@ import Employee from '../models/employeeSchema.js';
 import LateCheckIn from '../models/lateCheckInSchema.js';
 import AdminAttendanceSettings from '../models/adminAttendanceSettingsSchema.js';
 import DailyReport from '../models/dailyReportSchema.js';
+import SelectedHoliday from '../models/selectedHolidaySchema.js';
 import { getStartOfUtcDay, getUtcDayKey, normalizeReportText } from '../utils/dailyReportUtils.js';
+
+const toRadians = (degrees) => (Number(degrees) * Math.PI) / 180;
+
+const haversineDistanceMeters = (lat1, lon1, lat2, lon2) => {
+  const earthRadius = 6371000;
+  const dLat = toRadians(lat2 - lat1);
+  const dLon = toRadians(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadius * c;
+};
+
+const normalizeIp = (value = '') => {
+  if (!value) return '';
+  const ip = String(value).trim();
+  return ip.startsWith('::ffff:') ? ip.replace('::ffff:', '') : ip;
+};
+
+const extractClientIp = (req) => {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.trim()) {
+    const [first] = forwarded.split(',');
+    return normalizeIp(first);
+  }
+  return normalizeIp(req.ip || req.socket?.remoteAddress || '');
+};
+
+const isIpAllowed = (clientIp, allowedIps = []) => {
+  if (!clientIp) return false;
+  if (!Array.isArray(allowedIps) || allowedIps.length === 0) return false;
+  return allowedIps.map((ip) => normalizeIp(ip)).includes(normalizeIp(clientIp));
+};
+
+const validateAttendanceAccessPolicy = ({ req, latitude, longitude, settings }) => {
+  if (!settings) return null;
+
+  if (settings.ipAllowlistEnabled) {
+    const clientIp = extractClientIp(req);
+    if (!isIpAllowed(clientIp, settings.allowedIps)) {
+      return `Attendance access blocked for IP ${clientIp || 'unknown'}. Contact admin to update allowlist.`;
+    }
+  }
+
+  if (settings.geoFenceEnabled) {
+    const officeLat = Number(settings.officeLatitude);
+    const officeLng = Number(settings.officeLongitude);
+    const radius = Number(settings.geoFenceRadiusMeters || 0);
+
+    if (!Number.isFinite(officeLat) || !Number.isFinite(officeLng) || !radius) {
+      return 'Geo-fence policy is enabled but office coordinates are not configured';
+    }
+
+    const distance = haversineDistanceMeters(officeLat, officeLng, Number(latitude), Number(longitude));
+    if (distance > radius) {
+      return `You are outside allowed office geo-fence. Distance ${Math.round(distance)}m exceeds ${radius}m.`;
+    }
+  }
+
+  return null;
+};
 
 // Fetch Current Attendance Status
 export const getCurrentStatus = async (req, res) => {
@@ -104,6 +167,17 @@ export const checkIn = async (req, res) => {
     const lng = parseFloat(longitude);
     if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
       return res.status(400).json({ message: 'Invalid latitude or longitude values' });
+    }
+
+    const accessPolicySettings = await AdminAttendanceSettings.findOne();
+    const policyViolation = validateAttendanceAccessPolicy({
+      req,
+      latitude: lat,
+      longitude: lng,
+      settings: accessPolicySettings,
+    });
+    if (policyViolation) {
+      return res.status(403).json({ message: policyViolation });
     }
 
     // Fetch employee's predefined check-in time (already stored in UTC)
@@ -266,6 +340,16 @@ export const checkOut = async (req, res) => {
       return res.status(400).json({ message: 'Invalid latitude or longitude values' });
     }
 
+    const policyViolation = validateAttendanceAccessPolicy({
+      req,
+      latitude: lat,
+      longitude: lng,
+      settings: await AdminAttendanceSettings.findOne(),
+    });
+    if (policyViolation) {
+      return res.status(403).json({ message: policyViolation });
+    }
+
     attendance.checkOutTime = new Date();
     attendance.currentStatus = 'Checked Out';
     attendance.checkOutLocation = {
@@ -360,5 +444,77 @@ export const updateAttendance = async (req, res) => {
     res.status(200).json({ message: 'Attendance record updated successfully', attendance });
   } catch (err) {
     res.status(500).json({ message: 'Error updating attendance', error: err.message });
+  }
+};
+
+export const getMonthlyAbsenceDays = async (req, res) => {
+  try {
+    const month = Number(req.query.month);
+    const year = Number(req.query.year);
+    const requestedEmployeeId = req.query.employeeId || req.user._id;
+
+    if (!month || !year || month < 1 || month > 12) {
+      return res.status(400).json({ message: 'Valid month and year are required' });
+    }
+
+    if (req.user.role === 'employee' && requestedEmployeeId !== String(req.user._id)) {
+      return res.status(403).json({ message: 'You can only access your own absence history' });
+    }
+
+    const employee = await Employee.findById(requestedEmployeeId).select('_id name email');
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+    const end = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+
+    const attendanceRecords = await Attendance.find({
+      employee: requestedEmployeeId,
+      date: { $gte: start, $lte: end },
+      checkInTime: { $ne: null },
+    }).select('date');
+
+    const selectedHoliday = await SelectedHoliday.findOne({ employee: requestedEmployeeId }).select(
+      'selectedHolidays'
+    );
+
+    const presentDays = new Set(
+      attendanceRecords.map((record) => new Date(record.date).toISOString().split('T')[0])
+    );
+
+    const holidayDays = new Set(
+      (selectedHoliday?.selectedHolidays || [])
+        .map((holiday) => new Date(holiday.date))
+        .filter((holidayDate) => holidayDate >= start && holidayDate <= end)
+        .map((holidayDate) => holidayDate.toISOString().split('T')[0])
+    );
+
+    const absentDays = [];
+    const cursor = new Date(start);
+
+    while (cursor <= end) {
+      const dayOfWeek = cursor.getUTCDay();
+      const dateKey = cursor.toISOString().split('T')[0];
+      const isSunday = dayOfWeek === 0;
+
+      if (!isSunday && !holidayDays.has(dateKey) && !presentDays.has(dateKey)) {
+        absentDays.push(dateKey);
+      }
+
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+
+    return res.status(200).json({
+      message: 'Absent days fetched successfully',
+      employeeId: employee._id,
+      employeeName: employee.name,
+      month,
+      year,
+      totalAbsentDays: absentDays.length,
+      absentDays,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Error fetching absent days', error: error.message });
   }
 };

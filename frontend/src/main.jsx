@@ -22,3 +22,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </React.StrictMode>
 );
+
+if (typeof window !== 'undefined' && 'serviceWorker' in window.navigator) {
+  window.addEventListener('load', () => {
+    window.navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}

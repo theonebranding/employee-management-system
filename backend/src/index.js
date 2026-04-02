@@ -18,7 +18,25 @@ import leaveRoute from './routes/leaveRoute.js';
 import lateCheckInRoute from './routes/lateCheckInRoute.js';
 import salaryRoute from './routes/salaryRoute.js';
 import dailyReportRoute from './routes/dailyReportRoute.js';
-import { corsOptions, globalApiLimiter } from './middleware/security.js';
+import workflowRoute from './routes/workflowRoute.js';
+import auditRoute from './routes/auditRoute.js';
+import orgRoute from './routes/orgRoute.js';
+import attendancePolicyRoute from './routes/attendancePolicyRoute.js';
+import payrollRoute from './routes/payrollRoute.js';
+import sessionRoute from './routes/sessionRoute.js';
+import integrationRoute from './routes/integrationRoute.js';
+import jobRoute from './routes/jobRoute.js';
+import reportingRoute from './routes/reportingRoute.js';
+import leavePolicyRoute from './routes/leavePolicyRoute.js';
+import { corsOptions, globalApiLimiter, mutationApiLimiter } from './middleware/security.js';
+import { seedRbacCore } from './services/rbacService.js';
+import { ensureDefaultWorkflows } from './services/workflowService.js';
+import { registerIntegrationProcessors } from './services/integrationJobProcessors.js';
+import { registerReportingProcessors } from './services/reportingJobProcessors.js';
+import { registerLeaveProcessors } from './services/leaveJobProcessors.js';
+import { startAsyncJobScheduler } from './services/asyncJobService.js';
+import { startReportSchedulePolling } from './services/reportScheduleService.js';
+import { ensureDefaultLeaveTypes } from './services/leavePolicyService.js';
 
 dotenv();
 const app = express();
@@ -41,9 +59,24 @@ app.use(cookieParser());
 app.use(cors(corsOptions));
 app.options('/api/*', cors(corsOptions));
 app.use('/api', globalApiLimiter);
+app.use('/api/v1', (req, res, next) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    return next();
+  }
 
-// Connect to MongoDB
-connectDB();
+  return mutationApiLimiter(req, res, next);
+});
+
+const bootstrapPlatform = async () => {
+  try {
+    await seedRbacCore();
+    await ensureDefaultWorkflows();
+    await ensureDefaultLeaveTypes();
+    console.log('RBAC and workflow templates are ready');
+  } catch (error) {
+    console.error('Bootstrap error:', error.message);
+  }
+};
 
 // Home Route
 app.get('/', (req, res) => {
@@ -61,8 +94,32 @@ app.use('/api/v1/leaves', leaveRoute);
 app.use('/api/v1/late-checkins', lateCheckInRoute);
 app.use('/api/v1/salary', salaryRoute);
 app.use('/api/v1/daily-reports', dailyReportRoute);
+app.use('/api/v1/workflows', workflowRoute);
+app.use('/api/v1/audit-logs', auditRoute);
+app.use('/api/v1/org', orgRoute);
+app.use('/api/v1/attendance-policy', attendancePolicyRoute);
+app.use('/api/v1/payroll', payrollRoute);
+app.use('/api/v1/sessions', sessionRoute);
+app.use('/api/v1/integrations', integrationRoute);
+app.use('/api/v1/jobs', jobRoute);
+app.use('/api/v1/reporting', reportingRoute);
+app.use('/api/v1/leave-policy', leavePolicyRoute);
 
-// Start Server
-app.listen(PORT, () => {
-  console.log(`Server running on port http://localhost:${PORT}`);
+const startServer = async () => {
+  await connectDB();
+  await bootstrapPlatform();
+  registerIntegrationProcessors();
+  registerReportingProcessors();
+  registerLeaveProcessors();
+  startAsyncJobScheduler();
+  startReportSchedulePolling();
+
+  app.listen(PORT, () => {
+    console.log(`Server running on port http://localhost:${PORT}`);
+  });
+};
+
+startServer().catch((error) => {
+  console.error('Fatal startup error:', error.message);
+  process.exit(1);
 });

@@ -12,7 +12,7 @@ import {
   Loader2,
   Settings,
 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 
 // Conversion helper functions
@@ -40,6 +40,12 @@ const AdminAttendanceSettings = () => {
     halfDayHours: '',
     minAbsentHours: '',
     maxLateCheckIns: '',
+    geoFenceEnabled: false,
+    officeLatitude: '',
+    officeLongitude: '',
+    geoFenceRadiusMeters: '',
+    ipAllowlistEnabled: false,
+    allowedIps: '',
   });
   const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
@@ -50,7 +56,7 @@ const AdminAttendanceSettings = () => {
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
   // Fetch existing settings and convert specific fields from minutes to hours
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`${BASE_URL}/admin/get-attendance-settings`, {
@@ -64,6 +70,24 @@ const AdminAttendanceSettings = () => {
         halfDayHours: minutesToHours(data.settings.halfDayHours),
         minAbsentHours: minutesToHours(data.settings.minAbsentHours),
         maxLateCheckIns: data.settings.maxLateCheckIns,
+        geoFenceEnabled: Boolean(data.settings.geoFenceEnabled),
+        officeLatitude:
+          data.settings.officeLatitude !== null && data.settings.officeLatitude !== undefined
+            ? String(data.settings.officeLatitude)
+            : '',
+        officeLongitude:
+          data.settings.officeLongitude !== null && data.settings.officeLongitude !== undefined
+            ? String(data.settings.officeLongitude)
+            : '',
+        geoFenceRadiusMeters:
+          data.settings.geoFenceRadiusMeters !== null &&
+          data.settings.geoFenceRadiusMeters !== undefined
+            ? String(data.settings.geoFenceRadiusMeters)
+            : '',
+        ipAllowlistEnabled: Boolean(data.settings.ipAllowlistEnabled),
+        allowedIps: Array.isArray(data.settings.allowedIps)
+          ? data.settings.allowedIps.join(', ')
+          : '',
       };
       setSettings(convertedSettings);
       setOriginalSettings(convertedSettings);
@@ -72,16 +96,16 @@ const AdminAttendanceSettings = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [BASE_URL]);
 
   useEffect(() => {
     fetchSettings();
-  }, []);
+  }, [fetchSettings]);
 
   // Handle input changes
   const handleChange = e => {
-    const { name, value } = e.target;
-    setSettings(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setSettings(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
   // Save settings, converting specific fields back to minutes
@@ -96,6 +120,24 @@ const AdminAttendanceSettings = () => {
       halfDayHours: hoursToMinutes(settings.halfDayHours),
       minAbsentHours: hoursToMinutes(settings.minAbsentHours),
       maxLateCheckIns: settings.maxLateCheckIns,
+      geoFenceEnabled: Boolean(settings.geoFenceEnabled),
+      officeLatitude:
+        settings.officeLatitude === '' || settings.officeLatitude === null
+          ? null
+          : Number(settings.officeLatitude),
+      officeLongitude:
+        settings.officeLongitude === '' || settings.officeLongitude === null
+          ? null
+          : Number(settings.officeLongitude),
+      geoFenceRadiusMeters:
+        settings.geoFenceRadiusMeters === '' || settings.geoFenceRadiusMeters === null
+          ? null
+          : Number(settings.geoFenceRadiusMeters),
+      ipAllowlistEnabled: Boolean(settings.ipAllowlistEnabled),
+      allowedIps: settings.allowedIps
+        .split(',')
+        .map(ip => ip.trim())
+        .filter(Boolean),
     };
 
     try {
@@ -183,6 +225,34 @@ const AdminAttendanceSettings = () => {
       color: 'secondary',
     },
   ];
+
+  const sectionColorClasses = {
+    warning: {
+      cardHover: 'hover:border-warning-500/50',
+      iconBg: 'bg-warning/20',
+      inputRing: 'focus:ring-warning',
+    },
+    success: {
+      cardHover: 'hover:border-success-500/50',
+      iconBg: 'bg-success/20',
+      inputRing: 'focus:ring-success',
+    },
+    info: {
+      cardHover: 'hover:border-info-500/50',
+      iconBg: 'bg-info/20',
+      inputRing: 'focus:ring-info',
+    },
+    danger: {
+      cardHover: 'hover:border-danger-500/50',
+      iconBg: 'bg-danger/20',
+      inputRing: 'focus:ring-danger',
+    },
+    secondary: {
+      cardHover: 'hover:border-secondary-500/50',
+      iconBg: 'bg-secondary/20',
+      inputRing: 'focus:ring-secondary',
+    },
+  };
 
   return (
     <div className="relative p-6 min-h-screen bg-light-bg dark:bg-dark-bg transition-colors duration-300">
@@ -285,77 +355,142 @@ const AdminAttendanceSettings = () => {
 
             {/* Settings Fields */}
             <div className="grid gap-6 md:grid-cols-2">
-              {settingsSections.map(section => (
-                <div
-                  key={section.name}
-                  className={`bg-light-card dark:bg-dark-card p-5 rounded-xl border border-light-border dark:border-dark-border hover:border-${section.color}-500/50 transition-all group relative`}
-                >
-                  <div className="flex items-start gap-3 mb-4">
-                    <div className={`bg-${section.color}/20 p-2 rounded-lg`}>{section.icon}</div>
-                    <div>
-                      <label className="block text-sm font-medium text-light-text dark:text-dark-text">
-                        {section.title}
-                      </label>
-                      <p className="text-xs text-light-text dark:text-dark-text opacity-70 mt-1">
-                        {section.description}
-                      </p>
-                    </div>
-                    <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="relative group/help">
-                        <HelpCircle
-                          size={16}
-                          className="text-light-text dark:text-dark-text opacity-50 hover:opacity-100 cursor-help"
-                        />
-                        <div className="absolute right-0 mt-1 w-64 bg-light-card dark:bg-dark-card p-3 rounded-lg shadow-lg border border-light-border dark:border-dark-border text-xs text-light-text dark:text-dark-text invisible group-hover/help:visible">
-                          {section.help}
+              {settingsSections.map(section => {
+                const colorClass = sectionColorClasses[section.color] || sectionColorClasses.info;
+
+                return (
+                  <div
+                    key={section.name}
+                    className={`bg-light-card dark:bg-dark-card p-5 rounded-xl border border-light-border dark:border-dark-border ${colorClass.cardHover} transition-all group relative`}
+                  >
+                    <div className="flex items-start gap-3 mb-4">
+                      <div className={`${colorClass.iconBg} p-2 rounded-lg`}>{section.icon}</div>
+                      <div>
+                        <label className="block text-sm font-medium text-light-text dark:text-dark-text">
+                          {section.title}
+                        </label>
+                        <p className="text-xs text-light-text dark:text-dark-text opacity-70 mt-1">
+                          {section.description}
+                        </p>
+                      </div>
+                      <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="relative group/help">
+                          <HelpCircle
+                            size={16}
+                            className="text-light-text dark:text-dark-text opacity-50 hover:opacity-100 cursor-help"
+                          />
+                          <div className="absolute right-0 mt-1 w-64 bg-light-card dark:bg-dark-card p-3 rounded-lg shadow-lg border border-light-border dark:border-dark-border text-xs text-light-text dark:text-dark-text invisible group-hover/help:visible">
+                            {section.help}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="mt-2">
-                    <div className="relative">
-                      <input
-                        type="number"
-                        name={section.name}
-                        value={settings[section.name]}
-                        onChange={handleChange}
-                        className={`w-full py-3 px-4 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-${section.color} transition-all text-light-text dark:text-dark-text`}
-                        placeholder={section.placeholder}
-                        required
-                        min="0"
-                        step={
-                          section.name === 'lateByMinutes' || section.name === 'maxLateCheckIns'
-                            ? '1'
-                            : '0.25'
-                        }
-                      />
-                      <span className="absolute right-4 top-3 text-light-text dark:text-dark-text opacity-50 text-sm">
-                        {section.unit}
-                      </span>
+                    <div className="mt-2">
+                      <div className="relative">
+                        <input
+                          type="number"
+                          name={section.name}
+                          value={settings[section.name]}
+                          onChange={handleChange}
+                          className={`w-full py-3 px-4 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 ${colorClass.inputRing} transition-all text-light-text dark:text-dark-text`}
+                          placeholder={section.placeholder}
+                          required
+                          min="0"
+                          step={
+                            section.name === 'lateByMinutes' || section.name === 'maxLateCheckIns'
+                              ? '1'
+                              : '0.25'
+                          }
+                        />
+                        <span className="absolute right-4 top-3 text-light-text dark:text-dark-text opacity-50 text-sm">
+                          {section.unit}
+                        </span>
+                      </div>
+                      {section.name !== 'maxLateCheckIns' && (
+                        <p className="text-xs text-light-text dark:text-dark-text opacity-70 mt-1">
+                          ={' '}
+                          {
+                            minutesToHoursDisplay(
+                              section.name === 'lateByMinutes'
+                                ? settings[section.name]
+                                : hoursToMinutes(settings[section.name])
+                            ).hours
+                          }
+                          {' / '}
+                          {
+                            minutesToHoursDisplay(
+                              section.name === 'lateByMinutes'
+                                ? settings[section.name]
+                                : hoursToMinutes(settings[section.name])
+                            ).minutes
+                          }
+                        </p>
+                      )}
                     </div>
-                    {section.name !== 'maxLateCheckIns' && (
-                      <p className="text-xs text-light-text dark:text-dark-text opacity-70 mt-1">
-                        ={' '}
-                        {
-                          minutesToHoursDisplay(
-                            section.name === 'lateByMinutes'
-                              ? settings[section.name]
-                              : hoursToMinutes(settings[section.name])
-                          ).hours
-                        }
-                        {' / '}
-                        {
-                          minutesToHoursDisplay(
-                            section.name === 'lateByMinutes'
-                              ? settings[section.name]
-                              : hoursToMinutes(settings[section.name])
-                          ).minutes
-                        }
-                      </p>
-                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
+            </div>
+
+            <div className="bg-light-card dark:bg-dark-card p-5 rounded-xl border border-light-border dark:border-dark-border">
+              <h3 className="text-lg font-semibold mb-4 text-light-text dark:text-dark-text">
+                Access Controls (Geo/IP)
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label className="flex items-center gap-2 text-sm text-light-text dark:text-dark-text">
+                  <input
+                    type="checkbox"
+                    name="geoFenceEnabled"
+                    checked={Boolean(settings.geoFenceEnabled)}
+                    onChange={handleChange}
+                  />
+                  Enable office geo-fence
+                </label>
+                <label className="flex items-center gap-2 text-sm text-light-text dark:text-dark-text">
+                  <input
+                    type="checkbox"
+                    name="ipAllowlistEnabled"
+                    checked={Boolean(settings.ipAllowlistEnabled)}
+                    onChange={handleChange}
+                  />
+                  Enable IP allowlist
+                </label>
+                <input
+                  type="number"
+                  step="0.000001"
+                  name="officeLatitude"
+                  value={settings.officeLatitude}
+                  onChange={handleChange}
+                  placeholder="Office Latitude"
+                  className="w-full py-3 px-4 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg"
+                />
+                <input
+                  type="number"
+                  step="0.000001"
+                  name="officeLongitude"
+                  value={settings.officeLongitude}
+                  onChange={handleChange}
+                  placeholder="Office Longitude"
+                  className="w-full py-3 px-4 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg"
+                />
+                <input
+                  type="number"
+                  min="50"
+                  name="geoFenceRadiusMeters"
+                  value={settings.geoFenceRadiusMeters}
+                  onChange={handleChange}
+                  placeholder="Geo-fence Radius (meters)"
+                  className="w-full py-3 px-4 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg"
+                />
+                <input
+                  type="text"
+                  name="allowedIps"
+                  value={settings.allowedIps}
+                  onChange={handleChange}
+                  placeholder="Allowed IPs (comma separated)"
+                  className="w-full py-3 px-4 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg"
+                />
+              </div>
             </div>
 
             {/* Example Scenarios */}

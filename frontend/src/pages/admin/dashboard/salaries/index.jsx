@@ -50,8 +50,8 @@ const AdminSalaryManagement = () => {
   }, []);
 
   const getEmployeeSalary = email => {
-    const salaryEntry = salaries.find(salary => salary.email === email);
-    return salaryEntry ? salaryEntry.salary : 'N/A';
+    const salaryEntry = salaries.find(salary => salary.employeeEmail === email || salary.email === email);
+    return salaryEntry ? salaryEntry.totalSalary ?? salaryEntry.salary ?? 'N/A' : 'N/A';
   };
 
   const filteredEmployees = employees
@@ -84,7 +84,7 @@ const AdminSalaryManagement = () => {
   ];
 
   return (
-    <div className="ml-20 p-6 min-h-screen bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text">
+    <div className="min-h-screen pl-16 sm:pl-20 px-3 sm:px-5 lg:px-6 py-4 sm:py-6 bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text">
       <div className="max-w-7xl mx-auto">
         <Header
           title="Salary Management"

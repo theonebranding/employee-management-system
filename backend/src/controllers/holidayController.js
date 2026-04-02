@@ -1,6 +1,10 @@
 import mongoose from 'mongoose';
 import SelectedHoliday from '../models/selectedHolidaySchema.js';
 import PredefinedHoliday from '../models/predefinedHolidaySchema.js';
+import Employee from '../models/employeeSchema.js';
+import Leave from '../models/leaveSchema.js';
+
+const toIsoDate = (value) => new Date(value).toISOString().split('T')[0];
 
 // Add Predefined Holidays
 export const addPredefinedHoliday = async (req, res) => {
@@ -14,21 +18,21 @@ export const addPredefinedHoliday = async (req, res) => {
     const addedHolidays = [];
 
     for (const holiday of holidays) {
-      const { name, date } = holiday;
+      const { name, date, location = 'GLOBAL', calendarCode = 'INDIA-GLOBAL', isOptional = false } = holiday;
 
       if (!name || !date) {
         return res.status(400).json({ message: 'Holiday name and date are required.' });
       }
 
       // Check if the holiday already exists
-      const existingHoliday = await PredefinedHoliday.findOne({ name, date });
+      const existingHoliday = await PredefinedHoliday.findOne({ name, date, location });
 
       if (existingHoliday) {
         continue; // Skip adding duplicate holidays
       }
 
       // Save the new holiday
-      const newHoliday = new PredefinedHoliday({ name, date });
+      const newHoliday = new PredefinedHoliday({ name, date, location, calendarCode, isOptional });
       await newHoliday.save();
       addedHolidays.push(newHoliday);
     }
@@ -45,10 +49,166 @@ export const addPredefinedHoliday = async (req, res) => {
 // Fetch Predefined Holidays
 export const getPredefinedHolidays = async (req, res) => {
   try {
-    const holidays = await PredefinedHoliday.find().sort({ date: 1 });
+    const { location = 'GLOBAL', year, calendarCode } = req.query;
+    const filters = {
+      location: { $in: ['GLOBAL', location] },
+    };
+
+    if (calendarCode) {
+      filters.calendarCode = calendarCode;
+    }
+
+    if (year) {
+      const start = new Date(`${year}-01-01T00:00:00.000Z`);
+      const end = new Date(`${year}-12-31T23:59:59.999Z`);
+      filters.date = { $gte: start, $lte: end };
+    }
+
+    const holidays = await PredefinedHoliday.find(filters).sort({
+      date: 1,
+      location: 1,
+    });
     res.status(200).json({ message: 'Predefined holidays fetched successfully', holidays });
   } catch (err) {
     res.status(500).json({ message: 'Error fetching predefined holidays', error: err.message });
+  }
+};
+
+export const listHolidayLocations = async (req, res) => {
+  try {
+    const [holidayLocations, employeeLocations] = await Promise.all([
+      PredefinedHoliday.distinct('location'),
+      Employee.distinct('location'),
+    ]);
+
+    const merged = [...holidayLocations, ...employeeLocations]
+      .map((item) => (item || '').trim())
+      .filter(Boolean);
+    const locations = Array.from(new Set(['GLOBAL', ...merged])).sort();
+
+    return res.status(200).json({ message: 'Holiday locations fetched successfully', locations });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: 'Error fetching holiday locations', error: error.message });
+  }
+};
+
+export const exportPredefinedHolidays = async (req, res) => {
+  try {
+    const { location, year, calendarCode, format = 'json' } = req.query;
+    const filters = {};
+
+    if (location) {
+      filters.location = location;
+    }
+    if (calendarCode) {
+      filters.calendarCode = calendarCode;
+    }
+    if (year) {
+      const start = new Date(`${year}-01-01T00:00:00.000Z`);
+      const end = new Date(`${year}-12-31T23:59:59.999Z`);
+      filters.date = { $gte: start, $lte: end };
+    }
+
+    const holidays = await PredefinedHoliday.find(filters).sort({ date: 1, location: 1 }).lean();
+
+    if (format === 'csv') {
+      const rows = [
+        'name,date,location,calendarCode,isOptional',
+        ...holidays.map((item) =>
+          [
+            `"${String(item.name || '').replace(/"/g, '""')}"`,
+            toIsoDate(item.date),
+            item.location || 'GLOBAL',
+            item.calendarCode || 'INDIA-GLOBAL',
+            item.isOptional ? 'true' : 'false',
+          ].join(',')
+        ),
+      ];
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="holiday-export-${year || 'all'}.csv"`
+      );
+      return res.status(200).send(rows.join('\n'));
+    }
+
+    return res.status(200).json({
+      message: 'Predefined holidays exported successfully',
+      count: holidays.length,
+      holidays: holidays.map((item) => ({
+        name: item.name,
+        date: toIsoDate(item.date),
+        location: item.location || 'GLOBAL',
+        calendarCode: item.calendarCode || 'INDIA-GLOBAL',
+        isOptional: Boolean(item.isOptional),
+      })),
+    });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: 'Error exporting predefined holidays', error: error.message });
+  }
+};
+
+export const importPredefinedHolidaysBulk = async (req, res) => {
+  try {
+    const { holidays } = req.body;
+    if (!Array.isArray(holidays) || holidays.length === 0) {
+      return res.status(400).json({ message: 'holidays array is required' });
+    }
+
+    const accepted = [];
+    const skipped = [];
+
+    for (const holiday of holidays) {
+      const name = (holiday?.name || '').trim();
+      const date = holiday?.date;
+      const location = (holiday?.location || 'GLOBAL').trim() || 'GLOBAL';
+      const calendarCode = (holiday?.calendarCode || 'INDIA-GLOBAL').trim() || 'INDIA-GLOBAL';
+      const isOptional = Boolean(holiday?.isOptional);
+
+      if (!name || !date) {
+        skipped.push({ holiday, reason: 'name and date are required' });
+        continue;
+      }
+
+      try {
+        const existing = await PredefinedHoliday.findOne({
+          name,
+          date: new Date(date),
+          location,
+        }).lean();
+
+        if (existing) {
+          skipped.push({ holiday: { name, date, location }, reason: 'duplicate' });
+          continue;
+        }
+
+        const created = await PredefinedHoliday.create({
+          name,
+          date,
+          location,
+          calendarCode,
+          isOptional,
+        });
+        accepted.push(created);
+      } catch (entryError) {
+        skipped.push({ holiday: { name, date, location }, reason: entryError.message });
+      }
+    }
+
+    return res.status(201).json({
+      message: 'Holiday bulk import processed',
+      createdCount: accepted.length,
+      skippedCount: skipped.length,
+      holidays: accepted,
+      skipped,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Error importing holidays', error: error.message });
   }
 };
 
@@ -79,7 +239,7 @@ export const deletePredefinedHoliday = async (req, res) => {
 // select employee holidays
 export const selectHolidays = async (req, res) => {
   try {
-    const { selectedHolidays } = req.body;
+    const { selectedHolidays, location } = req.body;
     const { _id: employeeId } = req.user; // Employee ID from token
 
     if (!selectedHolidays || !Array.isArray(selectedHolidays)) {
@@ -90,10 +250,13 @@ export const selectHolidays = async (req, res) => {
       return res.status(400).json({ message: 'You can select a maximum of 10 holidays.' });
     }
 
+    const employee = await Employee.findById(employeeId).select('location');
+    const locationContext = location || employee?.location || 'GLOBAL';
+
     // Save selected holidays
     const updatedHolidays = await SelectedHoliday.findOneAndUpdate(
       { employee: employeeId },
-      { selectedHolidays },
+      { selectedHolidays, location: locationContext },
       { new: true, upsert: true } // Create new record if not existing
     );
 
@@ -253,5 +416,55 @@ export const getEmployeeOnHoliday = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: 'Error fetching employees on holiday', error: err.message });
+  }
+};
+
+export const checkHolidayLeaveOverlap = async (req, res) => {
+  try {
+    const { employeeId, startDate, endDate } = req.query;
+    if (!employeeId || !startDate || !endDate) {
+      return res.status(400).json({ message: 'employeeId, startDate, and endDate are required' });
+    }
+
+    const employee = await Employee.findById(employeeId).select('location');
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    start.setUTCHours(0, 0, 0, 0);
+    end.setUTCHours(23, 59, 59, 999);
+
+    const [holidays, leaves] = await Promise.all([
+      PredefinedHoliday.find({
+        date: { $gte: start, $lte: end },
+        location: { $in: ['GLOBAL', employee.location || 'GLOBAL'] },
+      })
+        .select('name date location')
+        .lean(),
+      Leave.find({
+        employee: employeeId,
+        status: { $in: ['pending', 'approved'] },
+        startDate: { $lte: end },
+        endDate: { $gte: start },
+      })
+        .select('startDate endDate leaveTypeCode status numberOfDays')
+        .lean(),
+    ]);
+
+    return res.status(200).json({
+      message: 'Holiday and leave overlap analysis fetched successfully',
+      employeeId,
+      location: employee.location || 'GLOBAL',
+      period: { startDate: start, endDate: end },
+      holidayCount: holidays.length,
+      leaveCount: leaves.length,
+      holidays,
+      leaves,
+      hasOverlapRisk: holidays.length > 0 && leaves.length > 0,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Error checking holiday overlap', error: error.message });
   }
 };

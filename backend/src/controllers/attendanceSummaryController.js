@@ -3,6 +3,7 @@ import Employee from '../models/employeeSchema.js';
 import SelectedHoliday from '../models/selectedHolidaySchema.js';
 import Salary from '../models/salarySchema.js';
 import mongoose from 'mongoose';
+import { parseApiDate, toIsoDate } from '../utils/dateUtils.js';
 
 // Get Daily Attendance
 export const getDailyAttendance = async (req, res) => {
@@ -10,7 +11,10 @@ export const getDailyAttendance = async (req, res) => {
     const { date } = req.query;
     if (!date) return res.status(400).json({ message: 'Date is required' });
 
-    const formattedDate = new Date(date).toISOString().split('T')[0];
+    const formattedDate = toIsoDate(date);
+    if (!formattedDate) {
+      return res.status(400).json({ message: 'Invalid date format. Use ISO-8601 date.' });
+    }
 
     // Get all employees count
     const totalEmployees = await Employee.countDocuments();
@@ -74,8 +78,8 @@ export const getMonthlyAttendance = async (req, res) => {
       return res.status(400).json({ message: 'Invalid Employee ID' });
     }
 
-    const startDate = new Date(`${year}-${month}-01`);
-    const endDate = new Date(new Date(startDate).setMonth(startDate.getMonth() + 1));
+    const startDate = new Date(Date.UTC(Number(year), Number(month) - 1, 1, 0, 0, 0, 0));
+    const endDate = new Date(Date.UTC(Number(year), Number(month), 1, 0, 0, 0, 0));
 
     // Fetch attendance records
     const records = await Attendance.find({
@@ -117,18 +121,12 @@ export const getAbsenteeList = async (req, res) => {
       return res.status(400).json({ message: 'Start date and end date are required' });
     }
 
-    // Parse dates in dd-mm-yyyy format
-    const parseDate = (dateStr) => {
-      const [day, month, year] = dateStr.split('-').map(Number);
-      return new Date(year, month - 1, day, 0, 0, 0, 0); // Ensure midnight for accurate comparison
-    };
-
-    const start = parseDate(startDate);
-    const end = parseDate(endDate);
+    const start = parseApiDate(startDate);
+    const end = parseApiDate(endDate);
 
     // Validate parsed dates
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      return res.status(400).json({ message: 'Invalid date format. Use dd-mm-yyyy.' });
+      return res.status(400).json({ message: 'Invalid date format. Use ISO-8601 (YYYY-MM-DD).' });
     }
 
     // Adjust end date to include the entire day
@@ -205,18 +203,12 @@ export const getEmployeeAbsenteeList = async (req, res) => {
       return res.status(404).json({ message: 'Salary information not found for employee' });
     }
 
-    // Parse dates in dd-mm-yyyy format
-    const parseDate = (dateStr) => {
-      const [day, month, year] = dateStr.split('-').map(Number);
-      return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0)); // Force UTC
-    };
-
-    const start = parseDate(startDate);
-    const end = parseDate(endDate);
+    const start = parseApiDate(startDate);
+    const end = parseApiDate(endDate);
 
     // Validate parsed dates
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      return res.status(400).json({ message: 'Invalid date format. Use dd-mm-yyyy.' });
+      return res.status(400).json({ message: 'Invalid date format. Use ISO-8601 (YYYY-MM-DD).' });
     }
 
     // Get current date at start of day for consistent comparison
@@ -332,18 +324,12 @@ export const getPresentList = async (req, res) => {
       return res.status(400).json({ message: 'Start date and end date are required' });
     }
 
-    // Parse dates in dd-mm-yyyy format
-    const parseDate = (dateStr) => {
-      const [day, month, year] = dateStr.split('-').map(Number);
-      return new Date(year, month - 1, day); // Month is zero-indexed in JavaScript
-    };
-
-    const start = parseDate(startDate);
-    const end = parseDate(endDate);
+    const start = parseApiDate(startDate);
+    const end = parseApiDate(endDate);
 
     // Validate parsed dates
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      return res.status(400).json({ message: 'Invalid date format. Use dd-mm-yyyy.' });
+      return res.status(400).json({ message: 'Invalid date format. Use ISO-8601 (YYYY-MM-DD).' });
     }
 
     // Adjust end date to include the entire day
@@ -383,18 +369,12 @@ export const getEmployeeHalfDays = async (req, res) => {
       return res.status(400).json({ message: 'Start date and end date are required' });
     }
 
-    // Parse dates in dd-mm-yyyy format
-    const parseDate = (dateStr) => {
-      const [day, month, year] = dateStr.split('-').map(Number);
-      return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0)); // Force UTC
-    };
-
-    const start = parseDate(startDate);
-    const end = parseDate(endDate);
+    const start = parseApiDate(startDate);
+    const end = parseApiDate(endDate);
 
     // Validate parsed dates
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      return res.status(400).json({ message: 'Invalid date format. Use dd-mm-yyyy.' });
+      return res.status(400).json({ message: 'Invalid date format. Use ISO-8601 (YYYY-MM-DD).' });
     }
 
     // Get current date at start of day
@@ -469,16 +449,11 @@ export const getAverageWorkingHoursByDayOfWeek = async (req, res) => {
       return res.status(400).json({ message: 'Start date and end date are required' });
     }
 
-    const parseDate = (dateStr) => {
-      const [day, month, year] = dateStr.split('-').map(Number);
-      return new Date(year, month - 1, day);
-    };
-
-    const start = parseDate(startDate);
-    const end = parseDate(endDate);
+    const start = parseApiDate(startDate);
+    const end = parseApiDate(endDate);
 
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      return res.status(400).json({ message: 'Invalid date format. Use dd-mm-yyyy.' });
+      return res.status(400).json({ message: 'Invalid date format. Use ISO-8601 (YYYY-MM-DD).' });
     }
 
     end.setHours(23, 59, 59, 999);

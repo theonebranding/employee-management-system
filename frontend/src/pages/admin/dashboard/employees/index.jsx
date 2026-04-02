@@ -6,6 +6,7 @@ import {
   ExternalLink,
   Filter,
   Loader2,
+  Lock,
   Mail,
   Phone,
   PlusCircle,
@@ -35,7 +36,7 @@ const AdminManageEmployees = () => {
     email: '',
     phoneNumber: '',
     jobRole: '',
-    password: '1234',
+    password: '',
   });
   const [addLoading, setAddLoading] = useState(false);
 
@@ -121,7 +122,8 @@ const AdminManageEmployees = () => {
       !addEmployeeForm.name ||
       !addEmployeeForm.email ||
       !addEmployeeForm.phoneNumber ||
-      !addEmployeeForm.jobRole
+      !addEmployeeForm.jobRole ||
+      !addEmployeeForm.password
     ) {
       toast.error('Please fill all required fields');
       return;
@@ -150,7 +152,7 @@ const AdminManageEmployees = () => {
         email: '',
         phoneNumber: '',
         jobRole: '',
-        password: '1234',
+        password: '',
       });
       fetchEmployees();
     } catch (error) {
@@ -172,7 +174,7 @@ const AdminManageEmployees = () => {
   }, []);
 
   return (
-    <div className="p-6 ml-8 min-h-screen pl-20 bg-light-bg dark:bg-dark-bg">
+    <div className="min-h-screen pl-16 sm:pl-20 px-3 sm:px-5 lg:px-6 py-4 sm:py-6 bg-light-bg dark:bg-dark-bg">
       <div className="max-w-7xl mx-auto space-y-6">
         <Header
           title="Manage Employees"
@@ -372,34 +374,20 @@ const AdminManageEmployees = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-light-text dark:text-dark-text  mb-1">
-                    Password
+                    Temporary Password *
                   </label>
                   <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-light-text dark:text-dark-text w-5 h-5" />
                     <input
-                      type="text"
-                      value="1234"
-                      className="w-full pl-4 pr-4 py-2.5 bg-light-bg/50 dark:bg-dark-bg/50 border border-light-border dark:border-dark-border rounded-lg text-light-text dark:text-dark-text  cursor-not-allowed"
-                      disabled
+                      type="password"
+                      name="password"
+                      value={addEmployeeForm.password}
+                      onChange={handleAddEmployeeChange}
+                      placeholder="Enter temporary password"
+                      className="w-full pl-10 pr-4 py-2.5 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-light-text dark:text-dark-text placeholder-light-text dark:placeholder-dark-text"
+                      required
                     />
                   </div>
-                  <p className="mt-1 text-sm text-warning">
-                    <span className="flex items-center gap-1">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      Default password is "1234". Employee can change it using the forgot password
-                      feature.
-                    </span>
-                  </p>
                 </div>
               </div>
 

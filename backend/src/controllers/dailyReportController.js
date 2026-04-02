@@ -1,11 +1,7 @@
 import mongoose from 'mongoose';
 import DailyReport from '../models/dailyReportSchema.js';
 import Employee from '../models/employeeSchema.js';
-import {
-  getStartOfUtcDay,
-  getUtcDayKey,
-  normalizeReportText,
-} from '../utils/dailyReportUtils.js';
+import { getStartOfUtcDay, getUtcDayKey, normalizeReportText } from '../utils/dailyReportUtils.js';
 
 const applyDateRangeFilter = (query, startDate, endDate) => {
   if (!startDate && !endDate) {

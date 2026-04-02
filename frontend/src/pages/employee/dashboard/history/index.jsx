@@ -1,8 +1,11 @@
+/* eslint-disable simple-import-sort/imports */
 import { Calendar } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
 
+import AppToastContainer from '../../../../components/feedback/appToastContainer';
 import Header from '../../../../components/pageHeader';
+
 import AttendanceTable from './components/attendanceTable';
 import EmptyState from './components/emptyState';
 import LateCheckInsTable from './components/lateCheckInsTable';
@@ -28,6 +31,7 @@ const MonthlyAttendance = () => {
   const [filteredLateCheckIns, setFilteredLateCheckIns] = useState([]);
   const [showMapModal, setShowMapModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
+  const [selectedRecord, setSelectedRecord] = useState(null);
   const [locationType, setLocationType] = useState('');
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
   const employeeId = localStorage.getItem('_id');
@@ -86,12 +90,13 @@ const MonthlyAttendance = () => {
     });
   };
 
-  const formatLocation = (location, type) => {
+  const formatLocation = (location, type, record) => {
     if (!location || Object.keys(location).length === 0) return 'N/A';
     return (
       <button
         onClick={() => {
           setSelectedLocation(location);
+          setSelectedRecord(record);
           setLocationType(type);
           setShowMapModal(true);
         }}
@@ -220,7 +225,7 @@ const MonthlyAttendance = () => {
   };
 
   return (
-    <div className="p-6 ml-8 min-h-screen pl-20 bg-light-bg dark:bg-dark-bg transition-colors duration-300">
+    <div className="min-h-screen pl-16 sm:pl-20 px-3 sm:px-5 lg:px-6 py-4 sm:py-6 bg-light-bg dark:bg-dark-bg transition-colors duration-300">
       <div className="max-w-7xl mx-auto space-y-6">
         <Header
           title="Monthly Attendance"
@@ -278,16 +283,10 @@ const MonthlyAttendance = () => {
           setShowMapModal={setShowMapModal}
           selectedLocation={selectedLocation}
           locationType={locationType}
-          filteredRecords={filteredRecords}
+          selectedRecord={selectedRecord}
         />
       </div>
-      <ToastContainer
-        toastClassName="bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text ring-1 ring-light-border dark:ring-dark-border"
-        position="top-right"
-        pauseOnHover={false}
-        limit={1}
-        autoClose={2000}
-      />
+      <AppToastContainer autoClose={2000} />
     </div>
   );
 };

@@ -1,11 +1,11 @@
-/* eslint-disable unused-imports/no-unused-vars */
-/* eslint-disable no-unused-vars */
 import { AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 
 import AttendanceTab from './components/attendanceTab/index';
+import DailyReportsTab from './components/dailyReportsTab';
+import DocumentsTab from './components/documentsTab';
 import HolidaysTab from './components/holidaysTab';
 import InformationTab from './components/informationTab';
 import LeaveRequestsTab from './components/leaveRequestsTab';
@@ -39,9 +39,9 @@ const AdminEmployeeProfile = () => {
   };
 
   useEffect(() => {
-    if (activeTab === 'attendance') fetchEmployeeData();
+    fetchEmployeeData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [id]);
 
   const handleDeleteEmployee = async () => {
     if (confirmEmployeeId !== id) {
@@ -83,7 +83,7 @@ const AdminEmployeeProfile = () => {
   );
 
   return (
-    <div className="p-6 ml-8 min-h-screen pl-20 bg-light-bg dark:bg-dark-bg">
+    <div className="min-h-screen pl-16 sm:pl-20 px-3 sm:px-5 lg:px-6 py-4 sm:py-6 bg-light-bg dark:bg-dark-bg">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
@@ -112,6 +112,8 @@ const AdminEmployeeProfile = () => {
           <TabButton label="Holidays" tab="holidays" />
           <TabButton label="Leave Requests" tab="leaves" />
           <TabButton label="Attendance" tab="attendance" />
+          <TabButton label="Daily Reports" tab="daily-reports" />
+          <TabButton label="Documents" tab="documents" />
         </div>
 
         {loading ? (
@@ -124,6 +126,10 @@ const AdminEmployeeProfile = () => {
             {activeTab === 'holidays' && <HolidaysTab employeeId={id} />}
             {activeTab === 'leaves' && <LeaveRequestsTab employeeId={id} />}
             {activeTab === 'attendance' && <AttendanceTab employeeId={id} />}
+            {activeTab === 'daily-reports' && (
+              <DailyReportsTab employeeId={id} employeeName={employeeDetails?.name || ''} />
+            )}
+            {activeTab === 'documents' && <DocumentsTab employeeId={id} />}
           </>
         )}
 

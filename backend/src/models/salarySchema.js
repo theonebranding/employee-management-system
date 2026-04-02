@@ -13,6 +13,13 @@ const salarySchema = new mongoose.Schema(
     totalSalary: { type: Number, required: true, default: 0 },
     salaryMonth: { type: Number, min: 1, max: 12 },
     salaryYear: { type: Number },
+    payrollRun: { type: mongoose.Schema.Types.ObjectId, ref: 'PayrollRun', default: null, index: true },
+    payrollLockState: {
+      type: String,
+      enum: ['unlocked', 'locked', 'released'],
+      default: 'unlocked',
+      index: true,
+    },
     payslipStatus: { type: String, enum: ['draft', 'generated'], default: 'draft' },
     templateId: { type: String, default: 'classic-template' },
     templateName: { type: String, default: 'Classic Ledger' },

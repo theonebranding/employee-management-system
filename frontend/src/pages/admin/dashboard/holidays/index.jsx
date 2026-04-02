@@ -11,32 +11,52 @@ import React, { useEffect, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 
 import Header from '../../../../components/pageHeader';
+import { apiGet, apiPost } from '../../../../services/apiClient';
+
+const DEFAULT_LOCATION = 'GLOBAL';
+const DEFAULT_CALENDAR_CODE = 'INDIA-GLOBAL';
 
 const AdminHolidays = () => {
   const [holidays, setHolidays] = useState([]);
-  const [newHoliday, setNewHoliday] = useState({ name: '', date: '' });
+  const [newHoliday, setNewHoliday] = useState({
+    name: '',
+    date: '',
+    location: DEFAULT_LOCATION,
+    calendarCode: DEFAULT_CALENDAR_CODE,
+  });
+  const [locations, setLocations] = useState([DEFAULT_LOCATION]);
+  const [locationFilter, setLocationFilter] = useState(DEFAULT_LOCATION);
+  const [yearFilter, setYearFilter] = useState(new Date().getFullYear());
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
-
-  const BASE_URL = import.meta.env.VITE_BACKEND_URL;
+  const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const fetchPredefinedHolidays = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${BASE_URL}/holidays/predefined`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      const data = await apiGet('/holidays/predefined', {
+        location: locationFilter,
+        year: yearFilter,
       });
-
-      if (!response.ok) throw new Error('Failed to fetch predefined holidays.');
-
-      const data = await response.json();
       setHolidays(data.holidays || []);
-      toast.success('Predefined holidays fetched successfully.');
     } catch (error) {
-      console.error('Error fetching holidays:', error);
       toast.error(error.message || 'Failed to fetch holidays.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchLocations = async () => {
+    try {
+      const data = await apiGet('/holidays/locations');
+      const values = data.locations?.length ? data.locations : [DEFAULT_LOCATION];
+      setLocations(values);
+      if (!values.includes(locationFilter)) {
+        setLocationFilter(DEFAULT_LOCATION);
+      }
+    } catch (error) {
+      toast.error(error.message || 'Failed to fetch holiday locations.');
     }
   };
 
@@ -48,23 +68,27 @@ const AdminHolidays = () => {
 
     try {
       setAdding(true);
-      const response = await fetch(`${BASE_URL}/holidays/add-predefined-holidays`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({ holidays: [newHoliday] }),
-      });
+      const payload = {
+        holidays: [
+          {
+            name: newHoliday.name,
+            date: newHoliday.date,
+            location: newHoliday.location || DEFAULT_LOCATION,
+            calendarCode: newHoliday.calendarCode || DEFAULT_CALENDAR_CODE,
+          },
+        ],
+      };
+      const data = await apiPost('/holidays/add-predefined-holidays', payload);
 
-      if (!response.ok) throw new Error('Failed to add holiday.');
-
-      const data = await response.json();
       toast.success(data.message || 'Holiday added successfully.');
-      setNewHoliday({ name: '', date: '' });
+      setNewHoliday({
+        name: '',
+        date: '',
+        location: newHoliday.location || DEFAULT_LOCATION,
+        calendarCode: newHoliday.calendarCode || DEFAULT_CALENDAR_CODE,
+      });
       fetchPredefinedHolidays();
     } catch (error) {
-      console.error('Error adding holiday:', error);
       toast.error(error.message || 'Failed to add holiday.');
     } finally {
       setAdding(false);
@@ -76,12 +100,15 @@ const AdminHolidays = () => {
 
     try {
       setLoading(true);
-      const response = await fetch(`${BASE_URL}/holidays/delete-predefined-holidays/${holidayId}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/holidays/delete-predefined-holidays/${holidayId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
+        }
+      );
 
       if (!response.ok) throw new Error('Failed to delete holiday.');
 
@@ -96,12 +123,94 @@ const AdminHolidays = () => {
     }
   };
 
+  const handleExport = async format => {
+    try {
+      setExporting(true);
+      const query = new URLSearchParams({
+        location: locationFilter,
+        year: String(yearFilter),
+        format,
+      });
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/holidays/predefined/export?${query.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || 'Failed to export holidays.');
+      }
+
+      const blob = await response.blob();
+      const extension = format === 'csv' ? 'csv' : 'json';
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `holiday-export-${locationFilter.toLowerCase()}.${extension}`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      toast.success('Holiday export downloaded.');
+    } catch (error) {
+      toast.error(error.message || 'Failed to export holidays.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleImportFile = async event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setImporting(true);
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const holidays = Array.isArray(parsed) ? parsed : parsed?.holidays;
+
+      if (!Array.isArray(holidays) || holidays.length === 0) {
+        throw new Error('Import file must contain a holidays array.');
+      }
+
+      const payload = {
+        holidays: holidays.map(item => ({
+          name: item.name,
+          date: item.date,
+          location: item.location || locationFilter || DEFAULT_LOCATION,
+          calendarCode: item.calendarCode || DEFAULT_CALENDAR_CODE,
+          isOptional: Boolean(item.isOptional),
+        })),
+      };
+
+      const data = await apiPost('/holidays/predefined/import', payload);
+      toast.success(
+        `${data.message || 'Import completed'} • created ${data.createdCount || 0}, skipped ${data.skippedCount || 0}`
+      );
+      fetchLocations();
+      fetchPredefinedHolidays();
+    } catch (error) {
+      toast.error(error.message || 'Failed to import holidays.');
+    } finally {
+      event.target.value = '';
+      setImporting(false);
+    }
+  };
+
   useEffect(() => {
-    fetchPredefinedHolidays();
+    fetchLocations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    fetchPredefinedHolidays();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationFilter, yearFilter]);
+
   return (
-    <div className="p-6 ml-8 min-h-screen pl-20 bg-light-bg dark:bg-dark-bg">
+    <div className="min-h-screen pl-16 sm:pl-20 px-3 sm:px-5 lg:px-6 py-4 sm:py-6 bg-light-bg dark:bg-dark-bg">
       <div className="max-w-7xl mx-auto">
         {/* Enhanced Header */}
         <Header
@@ -109,6 +218,68 @@ const AdminHolidays = () => {
           description="Add, view, and manage predefined holidays for your organization."
           icon={<Calendar className="w-8 h-8 text-primary" />}
         />
+
+        <div className="bg-light-card dark:bg-dark-card rounded-xl p-4 border border-light-border dark:border-dark-border mb-6 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 items-end">
+            <div>
+              <label className="block text-xs mb-1 text-light-text dark:text-dark-text opacity-75">
+                View Location
+              </label>
+              <select
+                value={locationFilter}
+                onChange={e => setLocationFilter(e.target.value)}
+                className="w-full p-2.5 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg text-light-text dark:text-dark-text"
+              >
+                {locations.map(location => (
+                  <option key={location} value={location}>
+                    {location}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs mb-1 text-light-text dark:text-dark-text opacity-75">
+                Year
+              </label>
+              <input
+                type="number"
+                min="2000"
+                max="2100"
+                value={yearFilter}
+                onChange={e => setYearFilter(Number(e.target.value || new Date().getFullYear()))}
+                className="w-full p-2.5 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg text-light-text dark:text-dark-text"
+              />
+            </div>
+
+            <button
+              onClick={() => handleExport('json')}
+              disabled={exporting}
+              className="px-4 py-2.5 rounded-lg bg-info text-white hover:bg-info/90 disabled:opacity-50"
+            >
+              {exporting ? 'Exporting...' : 'Export JSON'}
+            </button>
+
+            <button
+              onClick={() => handleExport('csv')}
+              disabled={exporting}
+              className="px-4 py-2.5 rounded-lg bg-secondary text-white hover:bg-secondary/90 disabled:opacity-50"
+            >
+              {exporting ? 'Exporting...' : 'Export CSV'}
+            </button>
+
+            <label className="px-4 py-2.5 rounded-lg bg-primary text-white hover:bg-primary-dark cursor-pointer text-center">
+              {importing ? 'Importing...' : 'Import JSON'}
+              <input
+                type="file"
+                accept="application/json"
+                onChange={handleImportFile}
+                className="hidden"
+                disabled={importing}
+              />
+            </label>
+          </div>
+        </div>
 
         {loading ? (
           <div className="flex justify-center items-center min-h-[300px]">
@@ -123,7 +294,7 @@ const AdminHolidays = () => {
                 <PlusCircle className="w-6 h-6 text-success" />
                 Add New Holiday
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-light-text dark:text-dark-text">
                     Holiday Name
@@ -153,6 +324,34 @@ const AdminHolidays = () => {
                     className="w-full p-3 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg
                              focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-light-text dark:text-dark-text"
                     required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-light-text dark:text-dark-text">
+                    Location
+                  </label>
+                  <select
+                    value={newHoliday.location}
+                    onChange={e => setNewHoliday({ ...newHoliday, location: e.target.value })}
+                    className="w-full p-3 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg text-light-text dark:text-dark-text"
+                  >
+                    {locations.map(location => (
+                      <option key={location} value={location}>
+                        {location}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-light-text dark:text-dark-text">
+                    Calendar Code
+                  </label>
+                  <input
+                    type="text"
+                    value={newHoliday.calendarCode}
+                    onChange={e => setNewHoliday({ ...newHoliday, calendarCode: e.target.value })}
+                    className="w-full p-3 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg text-light-text dark:text-dark-text"
+                    placeholder="INDIA-GLOBAL"
                   />
                 </div>
               </div>
@@ -191,6 +390,8 @@ const AdminHolidays = () => {
                       <tr>
                         <th className="text-left py-4 px-6 font-semibold">Holiday Name</th>
                         <th className="text-left py-4 px-6 font-semibold">Date</th>
+                        <th className="text-left py-4 px-6 font-semibold">Location</th>
+                        <th className="text-left py-4 px-6 font-semibold">Calendar</th>
                         <th className="text-center py-4 px-6 font-semibold">Actions</th>
                       </tr>
                     </thead>
@@ -210,6 +411,12 @@ const AdminHolidays = () => {
                               month: 'long',
                               day: 'numeric',
                             })}
+                          </td>
+                          <td className="py-4 px-6 text-light-text dark:text-dark-text">
+                            {holiday.location || 'GLOBAL'}
+                          </td>
+                          <td className="py-4 px-6 text-light-text dark:text-dark-text">
+                            {holiday.calendarCode || 'INDIA-GLOBAL'}
                           </td>
                           <td className="py-4 px-6">
                             <div className="flex justify-center">

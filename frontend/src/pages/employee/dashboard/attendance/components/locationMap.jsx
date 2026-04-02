@@ -7,6 +7,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import { FullscreenControl } from 'react-leaflet-fullscreen';
 
+import SurfaceCard from '../../../../../components/ui/surfaceCard';
+
 // Custom map controller
 const MapController = ({
   manualCenter,
@@ -132,7 +134,7 @@ const LocationMap = ({
   };
 
   return (
-    <div className="bg-light-card dark:bg-dark-card rounded-2xl p-6 shadow-card ring-1 ring-light-border dark:ring-dark-border relative">
+    <SurfaceCard className="relative">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-3">
         <h3 className="text-lg font-semibold text-light-text dark:text-dark-text">
           Location Tracking
@@ -364,7 +366,7 @@ const LocationMap = ({
           </MapContainer>
         </div>
       )}
-    </div>
+    </SurfaceCard>
   );
 };
 

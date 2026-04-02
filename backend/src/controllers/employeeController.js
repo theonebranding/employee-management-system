@@ -4,7 +4,19 @@ import bcrypt from 'bcrypt';
 
 export const addEmployee = async (req, res) => {
   try {
-    const { name, email, password, phoneNumber, jobRole } = req.body;
+    const {
+      name,
+      email,
+      password,
+      phoneNumber,
+      jobRole,
+      department,
+      team,
+      location,
+      costCenter,
+      manager,
+      roleTemplate,
+    } = req.body;
 
     // Check if all required fields are provided
     if (!name || !email || !password || !phoneNumber || !jobRole) {
@@ -34,6 +46,12 @@ export const addEmployee = async (req, res) => {
       password: hashedPassword, // Store the hashed password
       phoneNumber,
       jobRole,
+      department,
+      team,
+      location,
+      costCenter,
+      manager: manager || null,
+      roleTemplate,
     });
     console.log('New Employee Data:', employee);
 
@@ -65,6 +83,8 @@ export const updateEmployee = async (req, res) => {
       'otp',
       'otpExpires',
       'role',
+      'roleTemplate',
+      'permissions',
       '_id',
       'isVerified',
       'createdAt',
@@ -129,17 +149,26 @@ export const getAllEmployees = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
+    const { department, team, location, costCenter, managerId } = req.query;
+
+    const filters = {};
+    if (department) filters.department = department;
+    if (team) filters.team = team;
+    if (location) filters.location = location;
+    if (costCenter) filters.costCenter = costCenter;
+    if (managerId) filters.manager = managerId;
 
     // Fetch employees with pagination
-    const employees = await Employee.find()
+    const employees = await Employee.find(filters)
       .skip(skip)
       .limit(limit)
       .sort({ createdAt: -1 })
+      .populate('manager', 'name email jobRole department team')
       .select('-password -role -otp -otpExpires -isVerified -createdAt -updatedAt -__v -salary')
       .lean();
 
     // Get total count of employees for pagination meta
-    const totalEmployees = await Employee.countDocuments();
+    const totalEmployees = await Employee.countDocuments(filters);
 
     res.status(200).json({
       message: 'Employee list fetched successfully',
@@ -182,27 +211,37 @@ export const getMyProfile = async (req, res) => {
 // Find employee by id, phoneNumber, name or email
 export const getEmployee = async (req, res) => {
   try {
-    const { id, email, phoneNumber, name } = req.query;
+    const { id, email, phoneNumber, name, department, team, location, costCenter } = req.query;
 
     // Validate query parameters
-    if (!id && !email && !phoneNumber && !name) {
+    if (!id && !email && !phoneNumber && !name && !department && !team && !location && !costCenter) {
       return res.status(400).json({
-        message: 'Please provide at least one of the following: id, email, phoneNumber, or name',
+        message:
+          'Please provide at least one of the following: id, email, phoneNumber, name, department, team, location, or costCenter',
       });
     }
 
     // Construct a dynamic query object
-    const query = {
-      $or: [
-        id ? { _id: id } : null,
-        email ? { email } : null,
-        phoneNumber ? { phoneNumber } : null,
-        name ? { name: { $regex: name, $options: 'i' } } : null, // Partial case-insensitive match for name
-      ].filter(Boolean), // Remove null values
-    };
+    const orFilters = [
+      id ? { _id: id } : null,
+      email ? { email } : null,
+      phoneNumber ? { phoneNumber } : null,
+      name ? { name: { $regex: name, $options: 'i' } } : null,
+    ].filter(Boolean);
+
+    const query = {};
+    if (orFilters.length > 0) {
+      query.$or = orFilters;
+    }
+    if (department) query.department = department;
+    if (team) query.team = team;
+    if (location) query.location = location;
+    if (costCenter) query.costCenter = costCenter;
 
     // Find employee
-    const employee = await Employee.findOne(query).select('-password -role -otp -otpExpires');
+    const employee = await Employee.findOne(query)
+      .populate('manager', 'name email jobRole')
+      .select('-password -role -otp -otpExpires');
 
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
@@ -283,7 +322,7 @@ export const deleteEmployeeDocument = async (req, res) => {
       return res.status(404).json({ message: 'Employee not found' });
     }
 
-    employee.documents = employee.documents.filter(doc => doc._id.toString() !== documentId);
+    employee.documents = employee.documents.filter((doc) => doc._id.toString() !== documentId);
     await employee.save();
 
     return res.status(200).json({

@@ -1,42 +1,16 @@
+/* eslint-disable simple-import-sort/imports */
 import { Home } from 'lucide-react';
 import React from 'react';
 
 import Header from '../../../../components/pageHeader';
-import { useTheme } from '../../../../context/themeContext';
+
 import AverageWorkingHours from './components/averageWorkingHours';
 import EmployeeHolidayAlerts from './components/employeeHolidayAlerts';
 import EmployeeLeaveAlerts from './components/employeeLeaveAlerts';
+import ExecutiveKpiStrip from './components/executiveKpiStrip';
 import StatCard from './components/statCard';
 
 const AdminDashboardHome = () => {
-  const { theme } = useTheme();
-  const attendanceData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      {
-        label: 'Present',
-        data: [92, 88, 95, 90, 87, 93],
-        borderColor: '#6366f1',
-        tension: 0.4,
-        fill: false,
-      },
-      {
-        label: 'Absent',
-        data: [8, 12, 5, 10, 13, 7],
-        borderColor: '#ef4444',
-        tension: 0.4,
-        fill: false,
-      },
-      {
-        label: 'Late',
-        data: [4, 6, 3, 5, 7, 4],
-        borderColor: '#facc15',
-        tension: 0.4,
-        fill: false,
-      },
-    ],
-  };
-
   // const leaveData = {
   //   labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
   //   datasets: [
@@ -68,43 +42,8 @@ const AdminDashboardHome = () => {
   //   ],
   // };
 
-  const chartConfig = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'bottom',
-        labels: {
-          color: theme === 'dark' ? '#e2e8f0' : '#1E293B',
-          padding: 20,
-          font: {
-            size: 12,
-          },
-        },
-      },
-    },
-    scales: {
-      x: {
-        grid: {
-          color: theme === 'dark' ? '#475569' : '#CBD5E1',
-        },
-        ticks: {
-          color: theme === 'dark' ? '#e2e8f0' : '#1E293B',
-        },
-      },
-      y: {
-        grid: {
-          color: theme === 'dark' ? '#475569' : '#CBD5E1',
-        },
-        ticks: {
-          color: theme === 'dark' ? '#e2e8f0' : '#1E293B',
-        },
-      },
-    },
-  };
-
   return (
-    <div className="p-6 ml-8 min-h-screen pl-20 bg-light-bg dark:bg-dark-bg">
+    <div className="min-h-screen pl-16 sm:pl-20 px-3 sm:px-5 lg:px-6 py-4 sm:py-6 bg-light-bg dark:bg-dark-bg">
       <div className="max-w-7xl mx-auto">
         <Header
           title="Dashboard Home"
@@ -117,9 +56,11 @@ const AdminDashboardHome = () => {
           <StatCard />
         </div>
 
+        <ExecutiveKpiStrip />
+
         {/* Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-8">
-          <AverageWorkingHours data={attendanceData} config={chartConfig} />
+          <AverageWorkingHours />
           {/* <LeaveChart data={leaveData} config={chartConfig} /> */}
         </div>
 

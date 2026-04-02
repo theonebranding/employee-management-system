@@ -1,21 +1,35 @@
 /* eslint-disable unused-imports/no-unused-vars */
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable no-unused-vars */
+/* eslint-disable simple-import-sort/imports */
 import 'react-toastify/dist/ReactToastify.css';
 import 'leaflet/dist/leaflet.css';
 
 import confetti from 'canvas-confetti';
 import L from 'leaflet';
-import { Clock, Coffee, LogIn, LogOut, StopCircle, Timer } from 'lucide-react';
+import { Clock, Coffee, FileText, LogIn, LogOut, StopCircle, Timer } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 
 import Header from '../../../../components/pageHeader';
 import { useLocation } from '../../../../context/locationContext';
+import {
+  enqueueAttendanceAction,
+  flushAttendanceQueue,
+  getAttendanceOfflineQueue,
+} from '../../../../services/offlineAttendanceQueue';
+
 import CheckoutModal from './components/checkoutModal';
+import DailyReportModal from './components/dailyReportModal';
 import HeaderSection from './components/headerSection';
 import LocationMap from './components/locationMap';
 import StatsCard from './components/statsCard';
+
+const DAILY_REPORT_ACTION = 'daily-report';
+const STATUS_CHECKED_IN = 'Checked In';
+const STATUS_CHECKED_OUT = 'Checked Out';
+const STATUS_IN_RECESS = 'In Recess';
+const isBrowserOnline = () => (typeof window !== 'undefined' ? window.navigator.onLine : true);
 
 const Attendance = () => {
   const [status, setStatus] = useState('');
@@ -27,10 +41,15 @@ const Attendance = () => {
   const [loading, setLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isLate, setIsLate] = useState(false);
-  const [countdown, setCountdown] = useState(10);
   const [showModal, setShowModal] = useState(false);
+  const [showDailyReportModal, setShowDailyReportModal] = useState(false);
+  const [dailyReportLoading, setDailyReportLoading] = useState(false);
+  const [todayDailyReport, setTodayDailyReport] = useState(null);
   const [showCheckIn, setShowCheckIn] = useState(true);
   const [showBoth, setShowBoth] = useState(false);
+  const [isOnline, setIsOnline] = useState(isBrowserOnline());
+  const [pendingOfflineActions, setPendingOfflineActions] = useState(0);
+  const [syncingQueue, setSyncingQueue] = useState(false);
   const { location: deviceLocation, isLocationPermissionGranted, requestLocation } = useLocation();
   const [checkInLocation, setCheckInLocation] = useState({
     latitude: null,
@@ -42,6 +61,7 @@ const Attendance = () => {
   });
 
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
+  const employeeId = localStorage.getItem('_id');
 
   const checkInIcon = new L.Icon({
     iconUrl:
@@ -69,25 +89,114 @@ const Attendance = () => {
 
   const handleCheckoutConfirmation = () => {
     setShowModal(true);
-    setCountdown(10);
   };
-
-  useEffect(() => {
-    let timer;
-    if (showModal && countdown > 0) {
-      timer = setInterval(() => setCountdown(prev => prev - 1), 1000);
-    } else if (countdown === 0) {
-      setShowModal(false);
-      handleAttendanceAction('checkout');
-    }
-    return () => clearInterval(timer);
-  }, [showModal, countdown]);
 
   const handleButtonClick = action => {
     if (action === 'checkout') {
       handleCheckoutConfirmation();
+    } else if (action === DAILY_REPORT_ACTION) {
+      handleOpenDailyReportModal();
     } else {
       handleAttendanceAction(action);
+    }
+  };
+
+  const fetchTodayDailyReport = async () => {
+    if (!employeeId) {
+      setTodayDailyReport(null);
+      return;
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const query = new URLSearchParams({
+      startDate: today,
+      endDate: today,
+      page: '1',
+      limit: '1',
+    });
+
+    const response = await fetch(`${BASE_URL}/daily-reports/employee/${employeeId}?${query}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      throw new Error(errorBody.message || 'Failed to fetch daily report');
+    }
+
+    const data = await response.json();
+    setTodayDailyReport(data.reports?.[0] || null);
+  };
+
+  const handleOpenDailyReportModal = async () => {
+    setDailyReportLoading(true);
+    try {
+      await fetchTodayDailyReport();
+      setShowDailyReportModal(true);
+    } catch (error) {
+      toast.error(error.message || 'Unable to open daily report');
+    } finally {
+      setDailyReportLoading(false);
+    }
+  };
+
+  const handleSaveDailyReport = async reportText => {
+    setDailyReportLoading(true);
+    try {
+      const hasExisting = Boolean(todayDailyReport?._id);
+      const endpoint = hasExisting
+        ? `${BASE_URL}/daily-reports/${todayDailyReport._id}`
+        : `${BASE_URL}/daily-reports`;
+      const method = hasExisting ? 'PATCH' : 'POST';
+
+      const response = await fetch(endpoint, {
+        method,
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ report: reportText }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody.message || 'Failed to save daily report');
+      }
+
+      const data = await response.json();
+      setTodayDailyReport(data.dailyReport || null);
+      toast.success(data.message || 'Daily report saved successfully');
+      setShowDailyReportModal(false);
+    } catch (error) {
+      toast.error(error.message || 'Failed to save daily report');
+    } finally {
+      setDailyReportLoading(false);
+    }
+  };
+
+  const handleDeleteDailyReport = async () => {
+    if (!todayDailyReport?._id) return;
+
+    setDailyReportLoading(true);
+    try {
+      const response = await fetch(`${BASE_URL}/daily-reports/${todayDailyReport._id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody.message || 'Failed to delete daily report');
+      }
+
+      const data = await response.json();
+      setTodayDailyReport(null);
+      setShowDailyReportModal(false);
+      toast.success(data.message || 'Daily report deleted successfully');
+    } catch (error) {
+      toast.error(error.message || 'Failed to delete daily report');
+    } finally {
+      setDailyReportLoading(false);
     }
   };
 
@@ -152,7 +261,39 @@ const Attendance = () => {
     }
   };
 
-  const handleAttendanceAction = async action => {
+  const refreshQueueCount = () => {
+    setPendingOfflineActions(getAttendanceOfflineQueue().length);
+  };
+
+  const syncOfflineQueue = async () => {
+    if (syncingQueue) return;
+    if (!isBrowserOnline()) return;
+
+    setSyncingQueue(true);
+    try {
+      const result = await flushAttendanceQueue({
+        baseUrl: BASE_URL,
+        token: localStorage.getItem('token'),
+      });
+
+      refreshQueueCount();
+
+      if (result.processed > 0) {
+        toast.success(`${result.processed} offline attendance action(s) synced`);
+        await fetchAttendanceStatus();
+      }
+
+      if (result.failed > 0) {
+        toast.warning(`${result.failed} action(s) still pending sync`);
+      }
+    } catch {
+      toast.error('Failed to sync offline attendance queue');
+    } finally {
+      setSyncingQueue(false);
+    }
+  };
+
+  const handleAttendanceAction = async (action, additionalPayload = {}) => {
     setLoading(true);
     requestLocation();
 
@@ -168,7 +309,21 @@ const Attendance = () => {
     if (!isLocationPermissionGranted || !deviceLocation.latitude || !deviceLocation.longitude) {
       toast.error('Location unavailable. Enable location services.');
       setLoading(false);
-      return;
+      return false;
+    }
+
+    const payload = {
+      latitude: deviceLocation.latitude,
+      longitude: deviceLocation.longitude,
+      ...additionalPayload,
+    };
+
+    if (!isBrowserOnline()) {
+      const queueLength = enqueueAttendanceAction(action, payload);
+      setPendingOfflineActions(queueLength);
+      toast.info(`${action.replace('-', ' ')} queued. It will sync when you are online.`);
+      setLoading(false);
+      return true;
     }
 
     try {
@@ -178,10 +333,7 @@ const Attendance = () => {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          latitude: deviceLocation.latitude,
-          longitude: deviceLocation.longitude,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -223,16 +375,31 @@ const Attendance = () => {
 
       if (action === 'checkin' || action === 'checkout') triggerConfetti();
       await fetchAttendanceStatus();
+      return true;
     } catch (error) {
       console.error(`Error during ${action}:`, error.message);
+
+      const isNetworkFailure =
+        !isBrowserOnline() ||
+        error.name === 'TypeError' ||
+        /network|fetch|failed to fetch/i.test(error.message || '');
+
+      if (isNetworkFailure) {
+        const queueLength = enqueueAttendanceAction(action, payload);
+        setPendingOfflineActions(queueLength);
+        toast.info(`${action.replace('-', ' ')} queued due to network issue.`);
+        return true;
+      }
+
       toast.error(error.message || `Failed to ${action}.`);
+      return false;
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (status === 'Checked In') {
+    if (status === STATUS_CHECKED_IN) {
       const interval = setInterval(fetchAttendanceStatus, 120000);
       return () => clearInterval(interval);
     }
@@ -241,15 +408,39 @@ const Attendance = () => {
   useEffect(() => {
     fetchAttendanceStatus();
     requestLocation();
+    refreshQueueCount();
+  }, []);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      syncOfflineQueue();
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      refreshQueueCount();
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    if (isBrowserOnline()) {
+      syncOfflineQueue();
+    }
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   const getStatusColor = () => {
     switch (status) {
-      case 'Checked In':
+      case STATUS_CHECKED_IN:
         return 'bg-success/20 text-success ring-1 ring-success/50';
-      case 'Checked Out':
+      case STATUS_CHECKED_OUT:
         return 'bg-danger/20 text-danger ring-1 ring-danger/50';
-      case 'In Recess':
+      case STATUS_IN_RECESS:
         return 'bg-warning/20 text-warning ring-1 ring-warning/50';
       default:
         return 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/50';
@@ -266,6 +457,8 @@ const Attendance = () => {
         return 'bg-danger/10 text-danger ring-1 ring-danger/50 hover:bg-danger/20';
       case 'start-recess':
         return 'bg-warning/10 text-warning ring-1 ring-warning/50 hover:bg-warning/20';
+      case DAILY_REPORT_ACTION:
+        return 'bg-info/10 text-info ring-1 ring-info/50 hover:bg-info/20';
       case 'end-recess':
         return 'bg-primary/10 text-primary ring-1 ring-primary/50 hover:bg-primary/20';
       default:
@@ -274,15 +467,26 @@ const Attendance = () => {
   };
 
   const isDisabled = buttonStatus => {
+    if (buttonStatus === DAILY_REPORT_ACTION) {
+      return loading || ![STATUS_CHECKED_IN, STATUS_IN_RECESS].includes(status);
+    }
+
     if (loading) return true;
-    if (status === 'In Recess') return buttonStatus !== 'end-recess';
-    if (status !== 'Checked In' && buttonStatus !== 'checkin') return true;
-    if (buttonStatus === 'checkin' && status === 'Checked In') return true;
-    if (buttonStatus === 'checkout' && (status === 'Checked Out' || status === 'In Recess'))
+    if (status === STATUS_IN_RECESS)
+      return !['end-recess', DAILY_REPORT_ACTION].includes(buttonStatus);
+    if (status !== STATUS_CHECKED_IN && buttonStatus !== 'checkin') return true;
+    if (buttonStatus === 'checkin' && status === STATUS_CHECKED_IN) return true;
+    if (
+      buttonStatus === 'checkout' &&
+      (status === STATUS_CHECKED_OUT || status === STATUS_IN_RECESS)
+    )
       return true;
-    if (buttonStatus === 'start-recess' && (status === 'Checked Out' || status === 'In Recess'))
+    if (
+      buttonStatus === 'start-recess' &&
+      (status === STATUS_CHECKED_OUT || status === STATUS_IN_RECESS)
+    )
       return true;
-    if (buttonStatus === 'end-recess' && status !== 'In Recess') return true;
+    if (buttonStatus === 'end-recess' && status !== STATUS_IN_RECESS) return true;
     return false;
   };
 
@@ -290,11 +494,12 @@ const Attendance = () => {
     { id: 'checkin', icon: LogIn, label: 'Check In' },
     { id: 'checkout', icon: LogOut, label: 'Check Out' },
     { id: 'start-recess', icon: Coffee, label: 'Start Break' },
+    { id: DAILY_REPORT_ACTION, icon: FileText, label: 'Daily Report' },
     { id: 'end-recess', icon: StopCircle, label: 'End Break' },
   ];
 
   return (
-    <div className="p-6 ml-8 min-h-screen pl-20 bg-light-bg dark:bg-dark-bg transition-colors duration-300">
+    <div className="min-h-screen pl-16 sm:pl-20 px-3 sm:px-5 lg:px-6 py-4 sm:py-6 bg-light-bg dark:bg-dark-bg transition-colors duration-300">
       <div className="max-w-7xl mx-auto space-y-6">
         <Header
           title="Attendance"
@@ -308,6 +513,28 @@ const Attendance = () => {
           isLate={isLate}
           getStatusColor={getStatusColor}
         />
+
+        <div className="rounded-xl p-3 bg-light-card dark:bg-dark-card ring-1 ring-light-border dark:ring-dark-border flex items-center justify-between gap-3">
+          <div className="text-sm">
+            <span className={`font-medium ${isOnline ? 'text-success' : 'text-warning'}`}>
+              {isOnline ? 'Online' : 'Offline'}
+            </span>
+            <span className="ml-2 text-light-text dark:text-dark-text opacity-70">
+              Pending attendance sync: {pendingOfflineActions}
+            </span>
+          </div>
+          <button
+            onClick={syncOfflineQueue}
+            disabled={!isOnline || syncingQueue || pendingOfflineActions === 0}
+            className={`px-3 py-1.5 text-xs rounded-lg ${
+              !isOnline || syncingQueue || pendingOfflineActions === 0
+                ? 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 cursor-not-allowed'
+                : 'bg-primary text-white'
+            }`}
+          >
+            {syncingQueue ? 'Syncing...' : 'Sync now'}
+          </button>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatsCard
@@ -337,7 +564,7 @@ const Attendance = () => {
           />
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
           {actionButtons.map(({ id, icon: Icon, label }) => (
             <button
               key={id}
@@ -374,9 +601,23 @@ const Attendance = () => {
         <CheckoutModal
           showModal={showModal}
           setShowModal={setShowModal}
-          countdown={countdown}
-          setCountdown={setCountdown}
-          handleAttendanceAction={handleAttendanceAction}
+          loading={loading}
+          onSubmit={async () => {
+            const isSuccessful = await handleAttendanceAction('checkout');
+            return isSuccessful;
+          }}
+        />
+
+        <DailyReportModal
+          open={showDailyReportModal}
+          onClose={() => setShowDailyReportModal(false)}
+          initialReportText={
+            todayDailyReport?.reportText === 'N/A' ? '' : todayDailyReport?.reportText
+          }
+          hasExistingReport={Boolean(todayDailyReport?._id)}
+          loading={dailyReportLoading}
+          onSave={handleSaveDailyReport}
+          onDelete={handleDeleteDailyReport}
         />
       </div>
       <ToastContainer

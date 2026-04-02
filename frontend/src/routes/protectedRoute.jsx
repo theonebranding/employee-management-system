@@ -2,8 +2,8 @@ import { Navigate } from 'react-router-dom';
 
 import { useAuth } from '../context/authContext';
 
-const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { isAuthenticated, userRole } = useAuth();
+const ProtectedRoute = ({ children, allowedRoles = [], allowedPermissions = [] }) => {
+  const { isAuthenticated, userRole, hasPermission } = useAuth();
   const token = localStorage.getItem('token');
 
   // console.log("ProtectedRoute - Authenticated:", isAuthenticated);
@@ -13,8 +13,12 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (!allowedRoles.includes(userRole)) {
-    return <Navigate to="/login" replace />;
+  if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  if (allowedPermissions.length > 0 && !hasPermission(allowedPermissions)) {
+    return <Navigate to="/unauthorized" replace />;
   }
 
   return children;

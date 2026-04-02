@@ -9,20 +9,36 @@ import {
   getAverageWorkingHoursByDayOfWeek,
 } from '../controllers/attendanceSummaryController.js';
 import verifyToken from '../middleware/verifyToken.js';
-import checkRole from '../middleware/checkRole.js';
+import checkPermission from '../middleware/checkPermission.js';
+import { PERMISSIONS } from '../constants/permissions.js';
 
 const router = express.Router();
 
-router.get('/date', verifyToken, checkRole(['admin']), getDailyAttendance);
-router.get('/monthly', verifyToken, checkRole(['admin', 'employee']), getMonthlyAttendance);
-router.get('/absentee-list', verifyToken, checkRole(['admin']), getAbsenteeList);
-router.get('/present-list', verifyToken, checkRole(['admin']), getPresentList);
-router.get('/employee-absentee-list', verifyToken, checkRole(['admin']), getEmployeeAbsenteeList);
-router.get('/employee-halfdays-list', verifyToken, checkRole(['admin']), getEmployeeHalfDays);
+router.get('/date', verifyToken, checkPermission(PERMISSIONS.ATTENDANCE_SUMMARY_READ), getDailyAttendance);
+router.get(
+  '/monthly',
+  verifyToken,
+  checkPermission(PERMISSIONS.ATTENDANCE_SUMMARY_READ),
+  getMonthlyAttendance
+);
+router.get('/absentee-list', verifyToken, checkPermission(PERMISSIONS.ATTENDANCE_ABSENCE_READ), getAbsenteeList);
+router.get('/present-list', verifyToken, checkPermission(PERMISSIONS.ATTENDANCE_SUMMARY_READ), getPresentList);
+router.get(
+  '/employee-absentee-list',
+  verifyToken,
+  checkPermission(PERMISSIONS.ATTENDANCE_ABSENCE_READ),
+  getEmployeeAbsenteeList
+);
+router.get(
+  '/employee-halfdays-list',
+  verifyToken,
+  checkPermission(PERMISSIONS.ATTENDANCE_SUMMARY_READ),
+  getEmployeeHalfDays
+);
 router.get(
   '/average-working-hours',
   verifyToken,
-  checkRole(['admin']),
+  checkPermission(PERMISSIONS.ATTENDANCE_SUMMARY_READ),
   getAverageWorkingHoursByDayOfWeek
 );
 

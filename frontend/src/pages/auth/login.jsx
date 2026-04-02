@@ -16,6 +16,10 @@ const Login = () => {
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaSessionToken, setMfaSessionToken] = useState('');
+  const [mfaEmail, setMfaEmail] = useState('');
   const [initialDelay, setInitialDelay] = useState(true);
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -53,6 +57,11 @@ const Login = () => {
   const handleSubmit = async e => {
     e.preventDefault();
 
+    if (mfaRequired) {
+      await handleVerifyMfa();
+      return;
+    }
+
     if (!isLocationPermissionGranted || !location.latitude || !location.longitude) {
       toast.error('Cannot login without location access. Please enable location services.');
       return;
@@ -79,7 +88,24 @@ const Login = () => {
 
       if (response.ok) {
         const result = await response.json();
-        login(result.token, result.role, result._id, result.email);
+
+        if (result.requiresMfa) {
+          setMfaRequired(true);
+          setMfaSessionToken(result.mfaSessionToken || '');
+          setMfaEmail(result.email || formData.email);
+          toast.info('MFA code sent to your email. Please verify to continue.');
+          return;
+        }
+
+        login(
+          result.token,
+          result.role,
+          result._id,
+          result.email,
+          result.roleTemplate,
+          result.permissions,
+          result.sessionId
+        );
         toast.success('Login successful! Redirecting to dashboard...');
         if (result.role === 'admin') {
           setTimeout(() => {
@@ -98,6 +124,59 @@ const Login = () => {
     } catch (error) {
       setErrors({ apiError: 'Network error. Please try again later.' });
       toast.error('Network error. Please try again later.', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyMfa = async () => {
+    if (!mfaCode || mfaCode.length !== 6) {
+      toast.error('Enter a valid 6-digit MFA code');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/verify-mfa`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          email: mfaEmail,
+          otp: mfaCode,
+          mfaSessionToken,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to verify MFA');
+      }
+
+      login(
+        result.token,
+        result.role,
+        result._id,
+        result.email,
+        result.roleTemplate,
+        result.permissions,
+        result.sessionId
+      );
+
+      toast.success('MFA verified. Redirecting to dashboard...');
+      if (result.role === 'admin') {
+        setTimeout(() => {
+          navigate('/admin/dashboard/attendance');
+        }, 1000);
+      } else {
+        setTimeout(() => {
+          navigate('/employee/dashboard/attendance');
+        }, 1000);
+      }
+    } catch (error) {
+      toast.error(error.message || 'Failed to verify MFA');
     } finally {
       setIsLoading(false);
     }
@@ -175,51 +254,72 @@ const Login = () => {
         onSubmit={handleSubmit}
         className="w-full max-w-md bg-light-card dark:bg-dark-card rounded-lg shadow-card p-8 ring-1 ring-light-border dark:ring-dark-border"
       >
-        <h2 className="text-3xl font-extrabold text-center text-primary mb-6">Welcome Back</h2>
+        <h2 className="text-3xl font-extrabold text-center text-primary mb-6">
+          {mfaRequired ? 'Verify MFA' : 'Welcome Back'}
+        </h2>
 
         {errors.apiError && <p className="text-danger text-center mb-4">{errors.apiError}</p>}
 
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-2">
-            Email
-          </label>
-          <input
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            className={`w-full px-4 py-2 border ${
-              errors.email ? 'border-danger' : 'border-light-border dark:border-dark-border'
-            } rounded-md bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text placeholder-light-text placeholder-opacity-50 dark:placeholder-dark-text focus:ring-2 focus:ring-primary focus:border-primary transition-all`}
-            placeholder="Enter your email"
-            autoComplete="email"
-          />
-          {errors.email && <p className="mt-1 text-sm text-danger">{errors.email}</p>}
-        </div>
+        {!mfaRequired ? (
+          <>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                className={`w-full px-4 py-2 border ${
+                  errors.email ? 'border-danger' : 'border-light-border dark:border-dark-border'
+                } rounded-md bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text placeholder-light-text placeholder-opacity-50 dark:placeholder-dark-text focus:ring-2 focus:ring-primary focus:border-primary transition-all`}
+                placeholder="Enter your email"
+                autoComplete="email"
+              />
+              {errors.email && <p className="mt-1 text-sm text-danger">{errors.email}</p>}
+            </div>
 
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-2">
-            Password
-          </label>
-          <input
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            className={`w-full px-4 py-2 border ${
-              errors.password ? 'border-danger' : 'border-light-border dark:border-dark-border'
-            } rounded-md bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text placeholder-light-text placeholder-opacity-50 dark:placeholder-dark-text focus:ring-2 focus:ring-primary focus:border-primary transition-all`}
-            placeholder="Enter your password"
-            autoComplete="current-password"
-          />
-          {errors.password && <p className="mt-1 text-sm text-danger">{errors.password}</p>}
-        </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                className={`w-full px-4 py-2 border ${
+                  errors.password ? 'border-danger' : 'border-light-border dark:border-dark-border'
+                } rounded-md bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text placeholder-light-text placeholder-opacity-50 dark:placeholder-dark-text focus:ring-2 focus:ring-primary focus:border-primary transition-all`}
+                placeholder="Enter your password"
+                autoComplete="current-password"
+              />
+              {errors.password && <p className="mt-1 text-sm text-danger">{errors.password}</p>}
+            </div>
 
-        <div className="text-right mb-6">
-          <a href="/forgot-password" className="text-sm text-primary hover:underline">
-            Forgot Password?
-          </a>
-        </div>
+            <div className="text-right mb-6">
+              <a href="/forgot-password" className="text-sm text-primary hover:underline">
+                Forgot Password?
+              </a>
+            </div>
+          </>
+        ) : (
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-2">
+              MFA Code
+            </label>
+            <input
+              type="text"
+              maxLength={6}
+              value={mfaCode}
+              onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
+              className="w-full px-4 py-2 border border-light-border dark:border-dark-border rounded-md bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text"
+              placeholder="Enter 6-digit code"
+            />
+            <p className="mt-2 text-xs opacity-70">Code sent to {mfaEmail}</p>
+          </div>
+        )}
 
         <button
           type="submit"
@@ -228,15 +328,17 @@ const Login = () => {
             isLoading ? 'cursor-not-allowed opacity-50' : ''
           }`}
         >
-          {isLoading ? 'Logging in...' : 'Log In'}
+          {isLoading ? (mfaRequired ? 'Verifying...' : 'Logging in...') : mfaRequired ? 'Verify MFA' : 'Log In'}
         </button>
 
-        <p className="mt-6 text-center text-sm text-light-text dark:text-dark-text opacity-70">
-          Don't have an account?{' '}
-          <a href="/signup" className="text-primary hover:underline font-medium">
-            Sign Up
-          </a>
-        </p>
+        {!mfaRequired ? (
+          <p className="mt-6 text-center text-sm text-light-text dark:text-dark-text opacity-70">
+            Don't have an account?{' '}
+            <a href="/signup" className="text-primary hover:underline font-medium">
+              Sign Up
+            </a>
+          </p>
+        ) : null}
       </form>
 
       <ToastContainer

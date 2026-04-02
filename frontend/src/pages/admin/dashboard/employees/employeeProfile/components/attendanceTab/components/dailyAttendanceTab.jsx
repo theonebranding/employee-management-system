@@ -11,9 +11,10 @@ import {
   UserX,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
 
-import LocationMap from '../../../../../../../../components/locationMap';
+import AppToastContainer from '../../../../../../../../components/feedback/appToastContainer';
+import LocationModal from '../../../../../../../../components/location/locationModal';
 
 const formatUtils = {
   time: time => {
@@ -95,6 +96,7 @@ const DailyAttendanceTab = ({ employeeId, month, year, refreshTrigger }) => {
   const [sortDirection, setSortDirection] = useState('desc');
   const [showMapModal, setShowMapModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
+  const [selectedRecord, setSelectedRecord] = useState(null);
   const [locationType, setLocationType] = useState('');
 
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
@@ -136,9 +138,10 @@ const DailyAttendanceTab = ({ employeeId, month, year, refreshTrigger }) => {
     setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
   };
 
-  const handleLocationClick = (location, type) => {
+  const handleLocationClick = (location, type, record) => {
     if (location && Object.keys(location).length > 0) {
       setSelectedLocation(location);
+      setSelectedRecord(record);
       setLocationType(type);
       setShowMapModal(true);
     }
@@ -276,50 +279,16 @@ const DailyAttendanceTab = ({ employeeId, month, year, refreshTrigger }) => {
         </div>
       </div>
 
-      {showMapModal && selectedLocation && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-light-bg dark:bg-dark-bg rounded-2xl p-6 w-full max-w-3xl">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-light-text dark:text-dark-text">
-                {locationType === 'checkIn' ? 'Check-in' : 'Check-out'} Location
-              </h2>
-              <button
-                onClick={() => setShowMapModal(false)}
-                className="text-light-text dark:text-dark-text opacity-70 hover:text-light-text dark:hover:text-dark-text"
-                aria-label="Close map modal"
-              >
-                ✕
-              </button>
-            </div>
-            <LocationMap
-              checkInLocation={locationType === 'checkIn' ? selectedLocation : {}}
-              checkOutLocation={locationType === 'checkOut' ? selectedLocation : {}}
-              isLocationPermissionGranted={true}
-              requestLocation={() => {}}
-              checkInTime={
-                locationType === 'checkIn'
-                  ? sortedData.find(r => r.checkInLocation === selectedLocation)?.checkInTime
-                  : null
-              }
-              checkOutTime={
-                locationType === 'checkOut'
-                  ? sortedData.find(r => r.checkOutLocation === selectedLocation)?.checkOutTime
-                  : null
-              }
-              deviceLocation={{}}
-            />
-          </div>
-        </div>
-      )}
-
-      <ToastContainer
-        toastClassName="bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text ring-1 ring-light-border dark:ring-dark-border"
-        position="top-right"
-        pauseOnHover={false}
-        limit={1}
-        closeOnClick={true}
-        autoClose={1000}
+      <LocationModal
+        open={showMapModal}
+        onClose={() => setShowMapModal(false)}
+        selectedLocation={selectedLocation}
+        locationType={locationType}
+        checkInTime={locationType === 'checkIn' ? selectedRecord?.checkInTime : null}
+        checkOutTime={locationType === 'checkOut' ? selectedRecord?.checkOutTime : null}
       />
+
+      <AppToastContainer autoClose={1000} />
     </div>
   );
 };

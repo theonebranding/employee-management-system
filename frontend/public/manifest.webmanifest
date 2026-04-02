@@ -1,0 +1,11 @@
+{
+  "name": "Employee Management System",
+  "short_name": "EMS",
+  "description": "Attendance, leave, payroll, and workflow management",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "lang": "en-IN",
+  "scope": "/"
+}

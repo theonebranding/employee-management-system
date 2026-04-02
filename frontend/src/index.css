@@ -2,34 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 /* Global Styling */
 body {
   @apply bg-gray-100 text-gray-900 font-sans;
   margin: 0;
   padding: 0;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
-/* Link Styling */
-a {
-  @apply text-blue-600 hover:underline font-medium;
+#root {
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
-/* Form Input Styling */
+/* Keep native control styling opt-in via utility classes */
+button,
 input,
 textarea,
 select {
-  @apply border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500;
-}
-
-/* Button Styling */
-button {
-  @apply px-4 py-2 rounded-md font-medium transition-colors;
-}
-button.primary {
-  @apply bg-blue-600 text-white hover:bg-blue-700;
-}
-button.secondary {
-  @apply bg-gray-200 text-gray-700 hover:bg-gray-300;
+  font: inherit;
 }
 
 /* Custom Utility Overrides */

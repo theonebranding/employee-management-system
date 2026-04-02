@@ -1,3 +1,4 @@
+/* eslint-disable simple-import-sort/imports */
 import {
   AlertCircle,
   BadgeCheck,
@@ -6,16 +7,19 @@ import {
   ChevronLeft,
   ClipboardList,
   DollarSign,
+  Download,
   Info,
   Mail,
+  Send,
   UserCheck,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 
-// eslint-disable-next-line import/order
 import { useTheme } from '../../../../../context/themeContext';
+import { defaultPayslipTemplates } from '../../../../../utils/payslipTemplates';
+
 import AbsentDayDeduction from './components/absentDayDeduction';
 import HalfDayDeduction from './components/halfDayDeduction';
 import LateCheckinDeduction from './components/lateCheckinDeduction';
@@ -45,6 +49,8 @@ const AdminEmployeeSalaryProfile = () => {
     deductions: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [templates, setTemplates] = useState(defaultPayslipTemplates);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('classic-template');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const { theme } = useTheme();
@@ -100,6 +106,76 @@ const AdminEmployeeSalaryProfile = () => {
       toast.error('Failed to fetch salary details.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchPayslipSettings = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/payslip-settings`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data.settings?.templates?.length) {
+        setTemplates(data.settings.templates);
+      }
+      if (data.settings?.activeTemplateId) {
+        setSelectedTemplateId(data.settings.activeTemplateId);
+      }
+    } catch {
+      // fallback templates are already set
+    }
+  };
+
+  const generatePayslip = async sendByEmail => {
+    try {
+      const salary = salaryData[0];
+      const response = await fetch(`${BASE_URL}/salary/generate/${id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          salaryId: salary?._id,
+          month: selectedMonth,
+          year: selectedYear,
+          templateId: selectedTemplateId,
+          sendByEmail,
+          baseSalary: Number(salary?.baseSalary || 0),
+          bonuses: Number(salary?.bonuses || 0),
+          deductions: Number(salary?.deductions || 0),
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to generate payslip');
+      const data = await response.json();
+      toast.success(data.message || 'Payslip generated successfully');
+
+      if (!sendByEmail && data.payslipHtml) {
+        const printWindow = window.open('', '_blank', 'width=900,height=700');
+        printWindow.document.write(data.payslipHtml);
+        printWindow.document.close();
+        setTimeout(() => printWindow.print(), 400);
+      }
+
+      fetchSalaryDetails();
+    } catch (error) {
+      toast.error(error.message || 'Failed to generate payslip');
+    }
+  };
+
+  const sendExistingPayslipEmail = async salaryId => {
+    try {
+      const response = await fetch(`${BASE_URL}/salary/${salaryId}/send-email`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      if (!response.ok) throw new Error('Failed to send payslip email');
+      toast.success('Payslip emailed successfully');
+      fetchSalaryDetails();
+    } catch (error) {
+      toast.error(error.message || 'Failed to send payslip email');
     }
   };
 
@@ -178,6 +254,7 @@ const AdminEmployeeSalaryProfile = () => {
   useEffect(() => {
     fetchEmployeeDetails();
     fetchSalaryDetails();
+    fetchPayslipSettings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -308,6 +385,36 @@ const AdminEmployeeSalaryProfile = () => {
         <h2 className="text-2xl font-bold mb-6 text-light-text dark:text-dark-text">
           Salary Information
         </h2>
+        <div className="mb-5 p-4 rounded-lg bg-light-card/50 dark:bg-dark-card/50 border border-light-border dark:border-dark-border">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+            <div>
+              <label className="text-sm">Payslip Template</label>
+              <select
+                value={selectedTemplateId}
+                onChange={event => setSelectedTemplateId(event.target.value)}
+                className="w-full mt-1 px-3 py-2 rounded-lg bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border"
+              >
+                {templates.map(template => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={() => generatePayslip(false)}
+              className="px-4 py-2 bg-primary text-white rounded-lg inline-flex items-center justify-center gap-2"
+            >
+              <Download className="w-4 h-4" /> Generate & Download
+            </button>
+            <button
+              onClick={() => generatePayslip(true)}
+              className="px-4 py-2 bg-success text-white rounded-lg inline-flex items-center justify-center gap-2"
+            >
+              <Send className="w-4 h-4" /> Generate & Email
+            </button>
+          </div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-light-card/50 dark:bg-dark-card/50 p-6 rounded-lg">
             <DollarSign className="w-8 h-8 text-success mb-4" />
@@ -344,6 +451,19 @@ const AdminEmployeeSalaryProfile = () => {
         >
           Edit Salary
         </button>
+        <div className="mt-4 p-4 rounded-lg border border-light-border dark:border-dark-border bg-light-card/50 dark:bg-dark-card/50">
+          <p className="text-sm mb-2">Payslip Status: {salary.payslipStatus || 'draft'}</p>
+          <p className="text-sm mb-3">
+            Last emailed:{' '}
+            {salary.emailedAt ? new Date(salary.emailedAt).toLocaleString() : 'Not emailed yet'}
+          </p>
+          <button
+            onClick={() => sendExistingPayslipEmail(salary._id)}
+            className="px-4 py-2 bg-info text-white rounded-lg inline-flex items-center gap-2"
+          >
+            <Mail className="w-4 h-4" /> Send Existing Payslip Email
+          </button>
+        </div>
       </div>
     ));
   };
@@ -395,8 +515,8 @@ const AdminEmployeeSalaryProfile = () => {
   };
 
   return (
-    <div className="ml-10 p-6 min-h-screen bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text">
-      <div className="max-w-6xl mx-auto p-6">
+    <div className="min-h-screen pl-16 sm:pl-20 px-3 sm:px-5 lg:px-6 py-4 sm:py-6 bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text">
+      <div className="max-w-6xl mx-auto">
         <div className="mb-8">
           <button
             onClick={() => navigate(-1)}
@@ -431,7 +551,7 @@ const AdminEmployeeSalaryProfile = () => {
           </div>
         </div>
 
-        <div className="mb-6 flex gap-4">
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex-1">
             <label className="text-light-text dark:text-dark-text  block mb-1">Month</label>
             <select
@@ -464,7 +584,7 @@ const AdminEmployeeSalaryProfile = () => {
           </div>
         </div>
 
-        <div className="flex space-x-2 mb-6">
+        <div className="flex flex-wrap gap-2 mb-6">
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}

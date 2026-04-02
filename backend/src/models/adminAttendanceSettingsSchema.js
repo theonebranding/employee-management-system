@@ -27,6 +27,36 @@ const AdminAttendanceSettingsSchema = new mongoose.Schema(
       required: true,
       default: 5, // If employee is late more than this times, it's a half-day
     },
+    geoFenceEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    officeLatitude: {
+      type: Number,
+      default: null,
+      min: -90,
+      max: 90,
+    },
+    officeLongitude: {
+      type: Number,
+      default: null,
+      min: -180,
+      max: 180,
+    },
+    geoFenceRadiusMeters: {
+      type: Number,
+      default: 200,
+      min: 50,
+      max: 10000,
+    },
+    ipAllowlistEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    allowedIps: {
+      type: [String],
+      default: [],
+    },
   },
   { timestamps: true }
 );

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { ROLE_TEMPLATES } from '../constants/roleTemplates.js';
 
 const employeeSchema = new mongoose.Schema(
   {
@@ -7,6 +8,8 @@ const employeeSchema = new mongoose.Schema(
     phoneNumber: { type: String, unique: true, required: true },
     password: { type: String, required: true },
     role: { type: String, default: 'employee' },
+    roleTemplate: { type: String, default: ROLE_TEMPLATES.EMPLOYEE, index: true },
+    permissions: [{ type: String }],
     dateofBirth: { type: Date },
     // professional info
     jobRole: { type: String },
@@ -27,10 +30,19 @@ const employeeSchema = new mongoose.Schema(
     city: { type: String },
     district: { type: String },
     pinCode: { type: String },
+    department: { type: String, index: true },
+    team: { type: String, index: true },
+    location: { type: String, index: true },
+    costCenter: { type: String, index: true },
+    manager: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', index: true },
     // predefined Checkin time
     predefinedCheckInTime: { type: String, default: '10:00' },
     // email verification
     isVerified: { type: Boolean, default: false },
+    mfaEnabled: { type: Boolean, default: false },
+    mfaOtp: { type: String, default: null },
+    mfaOtpExpires: { type: Date, default: null },
+    mfaSessionToken: { type: String, default: null },
     otp: { type: String },
     otpExpires: { type: Date },
     resetPasswordToken: { type: String },

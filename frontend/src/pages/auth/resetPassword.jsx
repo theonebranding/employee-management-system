@@ -5,7 +5,9 @@ import { toast, ToastContainer } from 'react-toastify';
 const ResetPassword = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const email = location.state?.email; // Retrieve email from the ForgotPassword component
+  const email = location.state?.email || globalThis.sessionStorage.getItem('passwordResetEmail');
+  const resetToken =
+    location.state?.resetToken || globalThis.sessionStorage.getItem('passwordResetToken');
 
   const [formData, setFormData] = useState({
     password: '',
@@ -60,6 +62,15 @@ const ResetPassword = () => {
 
   const handleSubmit = async e => {
     e.preventDefault();
+
+    if (!email || !resetToken) {
+      toast.error('Reset session expired. Please verify OTP again.');
+      setTimeout(() => {
+        navigate('/forgot-password');
+      }, 1500);
+      return;
+    }
+
     Object.keys(formData).forEach(key => {
       validateField(key, formData[key]);
     });
@@ -75,10 +86,12 @@ const ResetPassword = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password: formData.password }),
+        body: JSON.stringify({ email, password: formData.password, resetToken }),
       });
 
       if (response.ok) {
+        globalThis.sessionStorage.removeItem('passwordResetEmail');
+        globalThis.sessionStorage.removeItem('passwordResetToken');
         toast.success('Password reset successfully! Redirecting to login...');
         setTimeout(() => {
           navigate('/login');
