@@ -31,6 +31,7 @@ export const getDailyAttendance = async (req, res) => {
           employeeName: '$employeeDetails.name',
           employeeEmail: '$employeeDetails.email',
           employeeId: '$employeeDetails._id',
+          employeeCode: '$employeeDetails.employeeCode',
           checkInTime: { $ifNull: ['$checkInTime', 'N/A'] },
           checkInLocation: { $ifNull: ['$checkInLocation', 'N/A'] },
           checkOutTime: { $ifNull: ['$checkOutTime', 'N/A'] },
@@ -135,7 +136,7 @@ export const getAbsenteeList = async (req, res) => {
     end.setHours(23, 59, 59, 999);
 
     // Step 1: Fetch all employees
-    const allEmployees = await Employee.find({}, '_id name email');
+    const allEmployees = await Employee.find({}, '_id name email employeeCode');
 
     // Step 2: Fetch attendance records within the date range
     const attendanceRecords = await Attendance.find({
@@ -349,7 +350,7 @@ export const getPresentList = async (req, res) => {
     // Adjust end date to include the entire day
     end.setHours(23, 59, 59, 999);
 
-    const allEmployees = await Employee.find({}, '_id name email');
+    const allEmployees = await Employee.find({}, '_id name email employeeCode');
     const attendanceRecords = await Attendance.find({
       date: { $gte: start, $lte: end },
     });

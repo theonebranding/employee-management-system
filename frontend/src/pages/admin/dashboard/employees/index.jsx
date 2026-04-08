@@ -10,6 +10,7 @@ import {
   Phone,
   PlusCircle,
   Search,
+  Trash2,
   User,
   Users,
   X,
@@ -38,6 +39,8 @@ const AdminManageEmployees = () => {
     password: '1234',
   });
   const [addLoading, setAddLoading] = useState(false);
+
+  const jobRoleOptions = uniqueRoles.filter(role => role !== 'All');
 
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -114,6 +117,42 @@ const AdminManageEmployees = () => {
     }));
   };
 
+  const handleRemoveRole = roleToRemove => {
+    if (roleToRemove === 'All') return;
+    setUniqueRoles(prev => prev.filter(role => role !== roleToRemove));
+    if (selectedRole === roleToRemove) {
+      setSelectedRole('All');
+    }
+    if (addEmployeeForm.jobRole === roleToRemove) {
+      setAddEmployeeForm(prev => ({ ...prev, jobRole: '' }));
+    }
+  };
+
+  const handleJobRoleChange = e => {
+    const { value } = e.target;
+    if (value === '__add_role__') {
+      const nextRole = window.prompt('Enter new role name');
+      const trimmed = (nextRole || '').trim();
+      if (!trimmed) return;
+      if (uniqueRoles.includes(trimmed)) {
+        toast.error('Role already exists');
+        return;
+      }
+      setUniqueRoles(prev => [...prev, trimmed]);
+      setAddEmployeeForm(prev => ({ ...prev, jobRole: trimmed }));
+      return;
+    }
+    if (value === '__remove_role__') {
+      if (!addEmployeeForm.jobRole) {
+        toast.error('Select a role to remove');
+        return;
+      }
+      handleRemoveRole(addEmployeeForm.jobRole);
+      return;
+    }
+    setAddEmployeeForm(prev => ({ ...prev, jobRole: value }));
+  };
+
   const handleAddEmployee = async e => {
     e.preventDefault();
 
@@ -170,6 +209,32 @@ const AdminManageEmployees = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const handleDeleteByCode = async employeeCode => {
+    if (!employeeCode) {
+      toast.error('Employee ID is missing');
+      return;
+    }
+    const confirmed = window.confirm(`Delete employee ${employeeCode}? This cannot be undone.`);
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`${BASE_URL}/employee/delete-by-code/${employeeCode}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete employee');
+      }
+
+      toast.success('Employee deleted successfully');
+      fetchEmployees();
+    } catch (error) {
+      toast.error(error.message || 'Failed to delete employee');
+    }
+  };
 
   return (
     <div className="p-6 ml-8 min-h-screen pl-20 bg-light-bg dark:bg-dark-bg">
@@ -262,7 +327,11 @@ const AdminManageEmployees = () => {
             </button>
 
             {searchResults.map(employee => (
-              <EmployeeCard key={employee._id} employee={employee} />
+              <EmployeeCard
+                key={employee._id}
+                employee={employee}
+                onDeleteByCode={handleDeleteByCode}
+              />
             ))}
           </div>
         ) : loading ? (
@@ -273,7 +342,11 @@ const AdminManageEmployees = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredEmployees.map(employee => (
-              <EmployeeCard key={employee._id} employee={employee} />
+              <EmployeeCard
+                key={employee._id}
+                employee={employee}
+                onDeleteByCode={handleDeleteByCode}
+              />
             ))}
           </div>
         )}
@@ -332,6 +405,9 @@ const AdminManageEmployees = () => {
                       required
                     />
                   </div>
+                  <p className="mt-1 text-xs text-light-text/60 dark:text-dark-text/60">
+                    Employees can sign in using either their email or employee code.
+                  </p>
                 </div>
 
                 <div>
@@ -358,15 +434,22 @@ const AdminManageEmployees = () => {
                   </label>
                   <div className="relative">
                     <Briefcase className="absolute left-3 top-1/2 transform -translate-y-1/2 text-light-text dark:text-dark-text  w-5 h-5" />
-                    <input
-                      type="text"
+                    <select
                       name="jobRole"
                       value={addEmployeeForm.jobRole}
-                      onChange={handleAddEmployeeChange}
-                      placeholder="Software Engineer"
-                      className="w-full pl-10 pr-4 py-2.5 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-light-text dark:text-dark-text placeholder-light-text dark:placeholder-dark-text"
+                      onChange={handleJobRoleChange}
+                      className="w-full pl-10 pr-4 py-2.5 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-light-text dark:text-dark-text"
                       required
-                    />
+                    >
+                      <option value="">Select a role</option>
+                      {jobRoleOptions.map(role => (
+                        <option key={role} value={role}>
+                          {role}
+                        </option>
+                      ))}
+                      <option value="__add_role__">Add new role...</option>
+                      <option value="__remove_role__">Remove selected role...</option>
+                    </select>
                   </div>
                 </div>
 
@@ -399,6 +482,9 @@ const AdminManageEmployees = () => {
                       Default password is "1234". Employee can change it using the forgot password
                       feature.
                     </span>
+                  </p>
+                  <p className="mt-2 text-xs text-light-text/60 dark:text-dark-text/60">
+                    Employee ID is auto-generated (e.g., JD26001) using initials + year + sequence.
                   </p>
                 </div>
               </div>
@@ -448,7 +534,7 @@ const AdminManageEmployees = () => {
   );
 };
 
-const EmployeeCard = ({ employee }) => (
+const EmployeeCard = ({ employee, onDeleteByCode }) => (
   <div className="group bg-light-card dark:bg-dark-card rounded-xl border border-light-border dark:border-dark-border hover:border-primary transition-all duration-300 overflow-hidden">
     <div className="p-6">
       <div className="flex items-center gap-4 mb-4">
@@ -464,6 +550,13 @@ const EmployeeCard = ({ employee }) => (
       </div>
 
       <div className="space-y-3">
+        <div className="flex items-center gap-3 text-sm text-light-text dark:text-dark-text ">
+          <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+            <Building2 className="w-4 h-4 text-primary" />
+          </div>
+          {employee.employeeCode || 'ID Pending'}
+        </div>
+
         <div className="flex items-center gap-3 text-sm text-light-text dark:text-dark-text ">
           <div className="w-8 h-8 bg-success bg-opacity-10 rounded-lg flex items-center justify-center">
             <Mail className="w-4 h-4 text-success" />
@@ -486,13 +579,23 @@ const EmployeeCard = ({ employee }) => (
         </div>
       </div>
 
-      <Link
-        to={`/admin/dashboard/employees/${employee._id}`}
-        className="mt-6 w-full px-4 py-2 bg-light-bg dark:bg-dark-bg hover:bg-light-bg/80 dark:hover:bg-dark-bg/80 rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 group-hover:bg-primary group-hover:text-white text-light-text dark:text-dark-text"
-      >
-        <ExternalLink className="w-4 h-4 group-hover:text-white" />
-        <span>View Profile</span>
-      </Link>
+      <div className="mt-6 grid grid-cols-2 gap-3">
+        <Link
+          to={`/admin/dashboard/employees/${employee._id}`}
+          className="w-full px-4 py-2 bg-light-bg dark:bg-dark-bg hover:bg-light-bg/80 dark:hover:bg-dark-bg/80 rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 group-hover:bg-primary group-hover:text-white text-light-text dark:text-dark-text"
+        >
+          <ExternalLink className="w-4 h-4 group-hover:text-white" />
+          <span>View Profile</span>
+        </Link>
+        <button
+          type="button"
+          onClick={() => onDeleteByCode(employee.employeeCode)}
+          className="w-full px-4 py-2 bg-danger/10 text-danger hover:bg-danger hover:text-white rounded-lg flex items-center justify-center gap-2 transition-colors duration-200"
+        >
+          <Trash2 className="w-4 h-4" />
+          <span>Delete</span>
+        </button>
+      </div>
     </div>
   </div>
 );

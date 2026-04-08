@@ -33,7 +33,7 @@ export const confirmRegistrationSchema = z
 
 export const loginSchema = z
   .object({
-    email: emailSchema,
+    identifier: z.string().trim().min(1, 'Email or employee ID is required').max(64),
     password: z.string().min(1, 'Password is required').max(128),
   })
   .strict();

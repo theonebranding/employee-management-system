@@ -70,7 +70,6 @@ const PresentEmployees = ({ startDate, endDate }) => {
             <thead className="bg-light-bg/50 dark:bg-dark-bg/50">
               <tr>
                 <th className="px-4 py-2 font-medium">Employee Name</th>
-                <th className="px-4 py-2 font-medium">Employee Email</th>
                 <th className="px-4 py-2 font-medium">Employee ID</th>
               </tr>
             </thead>
@@ -81,8 +80,7 @@ const PresentEmployees = ({ startDate, endDate }) => {
                   className="hover:bg-light-bg/50 dark:hover:bg-dark-bg/50 transition-colors"
                 >
                   <td className="px-4 py-2">{employee.name || 'N/A'}</td>
-                  <td className="px-4 py-2">{employee.email || 'N/A'}</td>
-                  <td className="px-4 py-2">{employee._id || 'N/A'}</td>
+                  <td className="px-4 py-2">{employee.employeeCode || 'ID Pending'}</td>
                 </tr>
               ))}
             </tbody>

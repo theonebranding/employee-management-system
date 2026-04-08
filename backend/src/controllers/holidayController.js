@@ -234,6 +234,7 @@ export const getEmployeeOnHoliday = async (req, res) => {
           employeeId: '$employeeDetails._id',
           name: '$employeeDetails.name',
           email: '$employeeDetails.email',
+          employeeCode: '$employeeDetails.employeeCode',
           holiday: '$filteredHolidays',
         },
       },

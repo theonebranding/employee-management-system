@@ -1,4 +1,5 @@
 import Employee from '../models/employeeSchema.js';
+import EmployeeSequence from '../models/employeeSequenceSchema.js';
 import bcrypt from 'bcrypt';
 // import { sendInvitationRequestEmail } from '../services/emailService.js';
 
@@ -27,9 +28,26 @@ export const addEmployee = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    const normalizedName = name.trim().replace(/\s+/g, ' ');
+    const initials = normalizedName
+      .split(' ')
+      .filter(Boolean)
+      .map(part => part[0].toUpperCase())
+      .join('')
+      .slice(0, 3);
+    const yearSuffix = new Date().getFullYear().toString().slice(-2);
+    const sequenceDoc = await EmployeeSequence.findOneAndUpdate(
+      { name: 'employee_code' },
+      { $inc: { sequence: 1 } },
+      { new: true, upsert: true }
+    );
+    const sequenceNumber = String(sequenceDoc.sequence).padStart(3, '0');
+    const employeeCode = `${initials}${yearSuffix}${sequenceNumber}`;
+
     // Create a new employee
     const employee = new Employee({
-      name,
+      name: normalizedName,
+      employeeCode,
       email,
       password: hashedPassword, // Store the hashed password
       phoneNumber,
@@ -118,6 +136,28 @@ export const deleteEmployee = async (req, res) => {
     }
 
     return res.status(200).json({ message: 'Employee deleted successfully' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Error deleting employee', error: error.message });
+  }
+};
+
+// Delete an employee by employeeCode
+export const deleteEmployeeByCode = async (req, res) => {
+  try {
+    const { employeeCode } = req.params;
+
+    if (!employeeCode) {
+      return res.status(400).json({ message: 'Bad Request: No employee code provided' });
+    }
+
+    const normalizedCode = employeeCode.trim().toUpperCase();
+    const deletedEmployee = await Employee.findOneAndDelete({ employeeCode: normalizedCode });
+
+    if (!deletedEmployee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    return res.status(200).json({ message: 'Employee deleted successfully', employee: deletedEmployee });
   } catch (error) {
     return res.status(500).json({ message: 'Error deleting employee', error: error.message });
   }

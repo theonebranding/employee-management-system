@@ -7,6 +7,7 @@ import {
   getMyProfile,
   addPredefinedCheckInTime,
   deleteEmployee,
+  deleteEmployeeByCode,
   addEmployeeDocument,
   deleteEmployeeDocument,
 } from '../controllers/employeeController.js';
@@ -32,5 +33,12 @@ router.post('/:id/documents', verifyToken, checkRole(['admin']), addEmployeeDocu
 router.delete('/:id/documents/:documentId', verifyToken, checkRole(['admin']), deleteEmployeeDocument);
 
 router.delete('/delete/:id?', verifyToken, checkRole(['admin']), deleteEmployee);
+
+router.delete(
+  '/delete-by-code/:employeeCode',
+  verifyToken,
+  checkRole(['admin']),
+  deleteEmployeeByCode
+);
 
 export default router;

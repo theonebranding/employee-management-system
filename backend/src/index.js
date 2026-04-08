@@ -18,6 +18,12 @@ import leaveRoute from './routes/leaveRoute.js';
 import lateCheckInRoute from './routes/lateCheckInRoute.js';
 import salaryRoute from './routes/salaryRoute.js';
 import dailyReportRoute from './routes/dailyReportRoute.js';
+import payrollRoute from './routes/payrollRoute.js';
+import taskRoute from './routes/taskRoute.js';
+import reportRoute from './routes/reportRoute.js';
+import roleRoute from './routes/roleRoute.js';
+import loanAdvanceRoute from './routes/loanAdvanceRoute.js';
+import extraAllowanceRoute from './routes/extraAllowanceRoute.js';
 import { corsOptions, globalApiLimiter } from './middleware/security.js';
 
 dotenv();
@@ -61,6 +67,12 @@ app.use('/api/v1/leaves', leaveRoute);
 app.use('/api/v1/late-checkins', lateCheckInRoute);
 app.use('/api/v1/salary', salaryRoute);
 app.use('/api/v1/daily-reports', dailyReportRoute);
+app.use('/api/v1/payroll', payrollRoute);
+app.use('/api/v1/tasks', taskRoute);
+app.use('/api/v1/reports', reportRoute);
+app.use('/api/v1/roles', roleRoute);
+app.use('/api/v1/loan-advances', loanAdvanceRoute);
+app.use('/api/v1/extra-allowances', extraAllowanceRoute);
 
 // Start Server
 app.listen(PORT, () => {
