@@ -3,16 +3,25 @@ import Employee from '../models/employeeSchema.js';
 import LateCheckIn from '../models/lateCheckInSchema.js';
 import AdminAttendanceSettings from '../models/adminAttendanceSettingsSchema.js';
 import DailyReport from '../models/dailyReportSchema.js';
-import { getStartOfUtcDay, getUtcDayKey, normalizeReportText } from '../utils/dailyReportUtils.js';
+import {
+  getStartOfIstDay,
+  getEndOfIstDay,
+  getIstDayKey,
+  normalizeReportText,
+} from '../utils/dailyReportUtils.js';
 
 // Fetch Current Attendance Status
 export const getCurrentStatus = async (req, res) => {
   try {
     const { _id: employeeId } = req.user;
-    const today = new Date().toISOString().split('T')[0];
+    const dayStart = getStartOfIstDay();
+    const dayEnd = getEndOfIstDay(dayStart);
 
     // Find today's attendance record
-    const attendance = await Attendance.findOne({ employee: employeeId, date: today });
+    const attendance = await Attendance.findOne({
+      employee: employeeId,
+      date: { $gte: dayStart, $lte: dayEnd },
+    });
 
     if (!attendance) {
       return res
@@ -85,10 +94,14 @@ export const getCurrentStatus = async (req, res) => {
 export const checkIn = async (req, res) => {
   try {
     const { _id: employeeId, email: employeeEmail } = req.user;
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    const dayStart = getStartOfIstDay();
+    const dayEnd = getEndOfIstDay(dayStart);
 
     // Prevent multiple check-ins
-    const existingAttendance = await Attendance.findOne({ employee: employeeId, date: today });
+    const existingAttendance = await Attendance.findOne({
+      employee: employeeId,
+      date: { $gte: dayStart, $lte: dayEnd },
+    });
     if (existingAttendance) {
       return res.status(400).json({ message: 'Already checked in for today' });
     }
@@ -106,33 +119,24 @@ export const checkIn = async (req, res) => {
       return res.status(400).json({ message: 'Invalid latitude or longitude values' });
     }
 
-    // Fetch employee's predefined check-in time (already stored in UTC)
+    // Fetch employee's predefined check-in time (stored as HH:mm, treated as IST)
     const employee = await Employee.findById(employeeId);
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
 
-    const predefinedCheckInTimeUTC = employee.predefinedCheckInTime; // Example: "03:30"
-    if (!predefinedCheckInTimeUTC) {
+    const predefinedCheckInTime = employee.predefinedCheckInTime; // Example: "10:00"
+    if (!predefinedCheckInTime) {
       return res.status(400).json({ message: 'No predefined check-in time found' });
     }
 
-    // Convert predefined check-in time (HH:mm) to a full UTC Date object
-    const [predefinedHour, predefinedMinute] = predefinedCheckInTimeUTC.split(':').map(Number);
-    const now = new Date(); // Current timestamp in UTC
+    // Convert predefined IST check-in time (HH:mm) to UTC by adding to IST day start
+    const [predefinedHour, predefinedMinute] = predefinedCheckInTime.split(':').map(Number);
     const predefinedTimeUTC = new Date(
-      Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate(),
-        predefinedHour,
-        predefinedMinute,
-        0,
-        0
-      )
-    ); // Ensures the predefined check-in time is a full UTC date
+      dayStart.getTime() + (predefinedHour * 60 + predefinedMinute) * 60 * 1000
+    );
 
-    const actualCheckInTimeUTC = new Date(); // Check-in time is already in UTC
+    const actualCheckInTimeUTC = new Date();
 
     // Calculate delay in minutes
     const delayInMinutes = Math.floor((actualCheckInTimeUTC - predefinedTimeUTC) / (1000 * 60));
@@ -150,7 +154,7 @@ export const checkIn = async (req, res) => {
       const lateCheckIn = new LateCheckIn({
         employee: employeeId,
         employeeEmail,
-        date: today,
+        date: dayStart,
         lateByMinutes: delayInMinutes,
         predefinedCheckInTime: predefinedTimeUTC.toISOString(),
         actualCheckInTime: actualCheckInTimeUTC.toISOString(),
@@ -162,7 +166,7 @@ export const checkIn = async (req, res) => {
     const attendance = new Attendance({
       employee: employeeId,
       employeeEmail,
-      date: today,
+      date: dayStart,
       checkInTime: actualCheckInTimeUTC.toISOString(),
       checkInLocation: {
         latitude: lat,
@@ -190,9 +194,13 @@ export const checkIn = async (req, res) => {
 export const startRecess = async (req, res) => {
   try {
     const { _id: employeeId } = req.user;
-    const today = new Date().toISOString().split('T')[0];
+    const dayStart = getStartOfIstDay();
+    const dayEnd = getEndOfIstDay(dayStart);
 
-    const attendance = await Attendance.findOne({ employee: employeeId, date: today });
+    const attendance = await Attendance.findOne({
+      employee: employeeId,
+      date: { $gte: dayStart, $lte: dayEnd },
+    });
     if (!attendance || !attendance.checkInTime) {
       return res.status(400).json({ message: 'Cannot start recess without checking in first' });
     }
@@ -216,9 +224,13 @@ export const startRecess = async (req, res) => {
 export const endRecess = async (req, res) => {
   try {
     const { _id: employeeId } = req.user;
-    const today = new Date().toISOString().split('T')[0];
+    const dayStart = getStartOfIstDay();
+    const dayEnd = getEndOfIstDay(dayStart);
 
-    const attendance = await Attendance.findOne({ employee: employeeId, date: today });
+    const attendance = await Attendance.findOne({
+      employee: employeeId,
+      date: { $gte: dayStart, $lte: dayEnd },
+    });
     if (!attendance || !attendance.isRecess) {
       return res.status(400).json({ message: 'No ongoing recess to end' });
     }
@@ -242,9 +254,13 @@ export const endRecess = async (req, res) => {
 export const checkOut = async (req, res) => {
   try {
     const { _id: employeeId } = req.user;
-    const today = new Date().toISOString().split('T')[0];
+    const dayStart = getStartOfIstDay();
+    const dayEnd = getEndOfIstDay(dayStart);
 
-    const attendance = await Attendance.findOne({ employee: employeeId, date: today });
+    const attendance = await Attendance.findOne({
+      employee: employeeId,
+      date: { $gte: dayStart, $lte: dayEnd },
+    });
     if (!attendance || !attendance.checkInTime) {
       return res.status(400).json({ message: 'Cannot check out without checking in first' });
     }
@@ -296,14 +312,14 @@ export const checkOut = async (req, res) => {
     const hasDailyReportPayload = Object.prototype.hasOwnProperty.call(req.body, 'dailyReport');
     const existingDailyReport = await DailyReport.findOne({
       employee: employeeId,
-      dayKey: getUtcDayKey(),
+      dayKey: getIstDayKey(),
     });
 
     if (!existingDailyReport) {
       await DailyReport.create({
         employee: employeeId,
-        dayKey: getUtcDayKey(),
-        reportDate: getStartOfUtcDay(),
+        dayKey: getIstDayKey(),
+        reportDate: getStartOfIstDay(),
         reportText: hasDailyReportPayload ? normalizedReport : 'N/A',
         createdBy: employeeId,
         createdByRole: req.user.role,

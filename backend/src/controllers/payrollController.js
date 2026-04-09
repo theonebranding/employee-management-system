@@ -11,6 +11,13 @@ import PayrollSettings from '../models/payrollSettingsSchema.js';
 import LoanAdvance from '../models/loanAdvanceSchema.js';
 import ExtraAllowance from '../models/extraAllowanceSchema.js';
 import { generatePayslipHtml, getDefaultPayslipSettings } from '../utils/payslipUtils.js';
+import {
+  getIstDayKey,
+  getIstDayOfWeek,
+  getIstDayStartFromParts,
+  getIstMonthRange,
+  toIstDate,
+} from '../utils/timezoneUtils.js';
 
 const HOURS_PER_DAY = 8;
 
@@ -50,19 +57,15 @@ const pickTemplate = (settings) => {
   );
 };
 
-const getMonthRange = (month, year) => {
-  const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
-  const end = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
-  return { start, end };
-};
+const getMonthRange = (month, year) => getIstMonthRange(month, year);
 
 const countWorkingDays = (month, year) => {
   const daysInMonth = new Date(year, month, 0).getDate();
   let workingDays = 0;
 
   for (let day = 1; day <= daysInMonth; day += 1) {
-    const date = new Date(Date.UTC(year, month - 1, day));
-    if (date.getUTCDay() !== 0) {
+    const date = getIstDayStartFromParts(year, month, day);
+    if (getIstDayOfWeek(date) !== 0) {
       workingDays += 1;
     }
   }
@@ -70,20 +73,18 @@ const countWorkingDays = (month, year) => {
   return workingDays;
 };
 
-const toUtcDateKey = (date) => {
-  const utc = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  return utc.toISOString().split('T')[0];
-};
+const toDateKey = (date) => getIstDayKey(date);
 
 const toMonthIndex = (year, month) => year * 12 + (month - 1);
 
 const getLoanAdvanceDeduction = async (employeeId, month, year) => {
   const records = await LoanAdvance.find({ employee: employeeId, status: 'active' }).lean();
   const targetIndex = toMonthIndex(year, month);
+  const completedIds = [];
 
-  return records.reduce((total, record) => {
-    const transactionDate = record.transactionDate ? new Date(record.transactionDate) : null;
-    if (!transactionDate) return total;
+  const total = records.reduce((sum, record) => {
+    const transactionDate = record.transactionDate ? toIstDate(record.transactionDate) : null;
+    if (!transactionDate) return sum;
 
     const startIndex = toMonthIndex(
       transactionDate.getUTCFullYear(),
@@ -91,29 +92,59 @@ const getLoanAdvanceDeduction = async (employeeId, month, year) => {
     );
 
     if (record.type === 'advance') {
-      return targetIndex === startIndex ? total + Number(record.amount || 0) : total;
+      if (targetIndex === startIndex) {
+        return sum + Number(record.amount || 0);
+      }
+      if (targetIndex > startIndex) {
+        completedIds.push(record._id);
+      }
+      return sum;
     }
 
     if (record.type !== 'loan') {
-      return total;
+      return sum;
     }
 
-    if (targetIndex < startIndex) return total;
+    if (targetIndex < startIndex) return sum;
+
+    const totalAmount = Number(record.amount || 0);
+    const monthlyInstallment = Number(record.monthlyInstallment || 0);
+    const installmentMonths = record.tenureMonths
+      ? Number(record.tenureMonths)
+      : totalAmount && monthlyInstallment
+        ? Math.ceil(totalAmount / monthlyInstallment)
+        : 0;
+    const lastIndex = installmentMonths ? startIndex + installmentMonths - 1 : startIndex;
+
+    if (installmentMonths && targetIndex > lastIndex) {
+      completedIds.push(record._id);
+      return sum;
+    }
 
     if (record.tenureMonths && targetIndex >= startIndex + Number(record.tenureMonths)) {
-      return total;
+      return sum;
     }
 
     if (record.installmentType === 'monthly') {
-      return total + Number(record.monthlyInstallment || 0);
+      if (!monthlyInstallment) return sum;
+      return sum + monthlyInstallment;
     }
 
     if (record.installmentType === 'tenure' && record.tenureMonths) {
-      return total + Number(record.amount || 0) / Number(record.tenureMonths);
+      return sum + Number(record.amount || 0) / Number(record.tenureMonths);
     }
 
-    return total;
+    return sum;
   }, 0);
+
+  if (completedIds.length) {
+    await LoanAdvance.updateMany(
+      { _id: { $in: completedIds }, status: 'active' },
+      { $set: { status: 'completed' } }
+    );
+  }
+
+  return total;
 };
 
 const getExtraAllowanceTotal = async (employeeId, month, year) => {
@@ -121,7 +152,7 @@ const getExtraAllowanceTotal = async (employeeId, month, year) => {
   const targetIndex = toMonthIndex(year, month);
 
   return records.reduce((total, record) => {
-    const transactionDate = record.transactionDate ? new Date(record.transactionDate) : null;
+    const transactionDate = record.transactionDate ? toIstDate(record.transactionDate) : null;
     if (!transactionDate) return total;
 
     const startIndex = toMonthIndex(
@@ -157,8 +188,7 @@ const getComputedNetPay = (payroll, loanAmountOverride) => {
 
 const countApprovedLeaves = (leaves, month, year, attendanceDays, holidayDays) => {
   let total = 0;
-  const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
-  const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+  const { start: startOfMonth, end: endOfMonth } = getIstMonthRange(month, year);
 
   leaves.forEach((leave) => {
     const start = new Date(leave.startDate);
@@ -168,9 +198,9 @@ const countApprovedLeaves = (leaves, month, year, attendanceDays, holidayDays) =
 
     const current = new Date(rangeStart);
     while (current <= rangeEnd) {
-      const dateKey = toUtcDateKey(current);
+      const dateKey = toDateKey(current);
       if (
-        current.getUTCDay() !== 0 &&
+        getIstDayOfWeek(current) !== 0 &&
         !attendanceDays.has(dateKey) &&
         !holidayDays.has(dateKey)
       ) {
@@ -228,12 +258,12 @@ const computePayroll = async ({
   const attendanceDays = new Set(
     attendanceRecords
       .filter((record) => record.checkInTime)
-      .map((record) => toUtcDateKey(new Date(record.date)))
+      .map((record) => toDateKey(new Date(record.date)))
   );
 
   const selectedHoliday = await SelectedHoliday.findOne({ employee: employee._id });
   const holidayDays = new Set(
-    selectedHoliday?.selectedHolidays?.map((holiday) => toUtcDateKey(new Date(holiday.date))) || []
+    selectedHoliday?.selectedHolidays?.map((holiday) => toDateKey(new Date(holiday.date))) || []
   );
 
   const paidLeaves = countApprovedLeaves(approvedLeaves, month, year, attendanceDays, holidayDays);

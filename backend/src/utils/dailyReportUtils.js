@@ -1,11 +1,14 @@
-export const getStartOfUtcDay = (inputDate = new Date()) => {
-  const date = new Date(inputDate);
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-};
+import {
+  getIstDayKey as getIstDayKeyUtil,
+  getStartOfIstDay as getStartOfIstDayUtil,
+  getEndOfIstDay as getEndOfIstDayUtil,
+} from './timezoneUtils.js';
 
-export const getUtcDayKey = (inputDate = new Date()) => {
-  return getStartOfUtcDay(inputDate).toISOString().split('T')[0];
-};
+export const getStartOfIstDay = (inputDate = new Date()) => getStartOfIstDayUtil(inputDate);
+
+export const getIstDayKey = (inputDate = new Date()) => getIstDayKeyUtil(inputDate);
+
+export const getEndOfIstDay = (inputDate = new Date()) => getEndOfIstDayUtil(inputDate);
 
 export const normalizeReportText = (value) => {
   if (typeof value !== 'string') {

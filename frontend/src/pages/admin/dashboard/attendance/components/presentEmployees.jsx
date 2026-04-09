@@ -69,8 +69,9 @@ const PresentEmployees = ({ startDate, endDate }) => {
           <table className="w-full text-left text-light-text dark:text-dark-text">
             <thead className="bg-light-bg/50 dark:bg-dark-bg/50">
               <tr>
-                <th className="px-4 py-2 font-medium">Employee Name</th>
                 <th className="px-4 py-2 font-medium">Employee ID</th>
+                <th className="px-4 py-2 font-medium">Employee Name</th>
+                <th className="px-4 py-2 font-medium">Employee Email</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-light-border dark:divide-dark-border">
@@ -79,8 +80,9 @@ const PresentEmployees = ({ startDate, endDate }) => {
                   key={employee._id}
                   className="hover:bg-light-bg/50 dark:hover:bg-dark-bg/50 transition-colors"
                 >
-                  <td className="px-4 py-2">{employee.name || 'N/A'}</td>
                   <td className="px-4 py-2">{employee.employeeCode || 'ID Pending'}</td>
+                  <td className="px-4 py-2">{employee.name || 'N/A'}</td>
+                  <td className="px-4 py-2">{employee.email || 'N/A'}</td>
                 </tr>
               ))}
             </tbody>

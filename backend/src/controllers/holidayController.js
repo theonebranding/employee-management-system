@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { getEndOfIstDay, getIstMonthRange, getStartOfIstDay } from '../utils/timezoneUtils.js';
 import SelectedHoliday from '../models/selectedHolidaySchema.js';
 import PredefinedHoliday from '../models/predefinedHolidaySchema.js';
 
@@ -172,14 +173,15 @@ export const getEmployeeOnHoliday = async (req, res) => {
     let start, end;
 
     if (date) {
-      start = new Date(date);
-      end = new Date(date);
+      start = getStartOfIstDay(date);
+      end = getEndOfIstDay(date);
     } else if (startDate && endDate) {
-      start = new Date(startDate);
-      end = new Date(endDate);
+      start = getStartOfIstDay(startDate);
+      end = getEndOfIstDay(endDate);
     } else if (month && year) {
-      start = new Date(`${year}-${month}-01`); // First day of the month
-      end = new Date(year, month, 0); // Last day of the month
+      const range = getIstMonthRange(Number(month), Number(year));
+      start = range.start;
+      end = range.end;
     } else {
       return res.status(400).json({
         message:
@@ -187,9 +189,7 @@ export const getEmployeeOnHoliday = async (req, res) => {
       });
     }
 
-    // Convert to UTC and remove time part for accurate matching
-    start.setUTCHours(0, 0, 0, 0);
-    end.setUTCHours(23, 59, 59, 999);
+    // Start/end already normalized to IST day boundaries
 
     let matchCondition = {
       'selectedHolidays.date': { $gte: start, $lte: end },

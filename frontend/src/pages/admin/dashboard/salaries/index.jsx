@@ -21,11 +21,18 @@ const AdminSalaryManagement = () => {
   const [previewPayrolls, setPreviewPayrolls] = useState([]);
   const [loanAdvances, setLoanAdvances] = useState([]);
   const [extraAllowances, setExtraAllowances] = useState([]);
+  const [extraDetails, setExtraDetails] = useState(null);
+  const [loanDetails, setLoanDetails] = useState(null);
+  const [loanFilterMode, setLoanFilterMode] = useState('all');
+  const [loanFilterMonth, setLoanFilterMonth] = useState(new Date().getMonth() + 1);
+  const [loanFilterYear, setLoanFilterYear] = useState(new Date().getFullYear());
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState('name');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [settingsPanel, setSettingsPanel] = useState(null);
@@ -49,7 +56,7 @@ const AdminSalaryManagement = () => {
     installmentType: 'monthly',
     monthlyInstallment: '',
     tenureMonths: '',
-    transactionDate: new Date().toISOString().slice(0, 10),
+    transactionDate: '',
     comment: '',
   });
   const [extraSettings, setExtraSettings] = useState({
@@ -59,7 +66,7 @@ const AdminSalaryManagement = () => {
     employeeId: '',
     reference: '',
     amount: '',
-    transactionDate: new Date().toISOString().slice(0, 10),
+    transactionDate: '',
     comment: '',
   });
   const [formState, setFormState] = useState({
@@ -69,6 +76,7 @@ const AdminSalaryManagement = () => {
     extraAmount: 0,
     status: 'unpaid',
   });
+  const [autoPenaltyValue, setAutoPenaltyValue] = useState(0);
   const [payslipSettings, setPayslipSettings] = useState({
     logoData: '',
     signatureData: '',
@@ -79,6 +87,14 @@ const AdminSalaryManagement = () => {
     halfDay: 0,
     absent: 0,
   });
+  const [lateCheckInCounts, setLateCheckInCounts] = useState({});
+  const IST_OFFSET_MINUTES = 330;
+  const toIstInputDate = (date = new Date()) => {
+    const shifted = new Date(date.getTime() + IST_OFFSET_MINUTES * 60 * 1000);
+    return shifted.toISOString().slice(0, 10);
+  };
+  const toIstDate = (dateValue) =>
+    new Date(new Date(dateValue).getTime() + IST_OFFSET_MINUTES * 60 * 1000);
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
   const authHeaders = useMemo(
     () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` }),
@@ -143,9 +159,36 @@ const AdminSalaryManagement = () => {
     }
   };
 
+  const fetchLateCheckInCounts = async () => {
+    try {
+      const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+      const lastDay = new Date(year, month, 0).getDate();
+      const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      const query = new URLSearchParams({ startDate, endDate });
+      const response = await fetch(`${BASE_URL}/late-checkins/find?${query.toString()}`, {
+        headers: authHeaders,
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message = data?.message || 'Failed to fetch late check-ins.';
+        throw new Error(message);
+      }
+
+      const counts = {};
+      (data?.lateCheckIns || []).forEach((record) => {
+        const employeeId = record.employee?._id || record.employee;
+        if (!employeeId) return;
+        counts[employeeId] = (counts[employeeId] || 0) + 1;
+      });
+      setLateCheckInCounts(counts);
+    } catch (error) {
+      toast.error(error.message || 'Failed to fetch late check-ins.');
+    }
+  };
+
   const fetchLoanAdvances = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/loan-advances?status=active`, {
+      const response = await fetch(`${BASE_URL}/loan-advances`, {
         headers: authHeaders,
       });
       const data = await response.json().catch(() => null);
@@ -169,7 +212,7 @@ const AdminSalaryManagement = () => {
         const message = data?.message || 'Failed to fetch extra allowances.';
         throw new Error(message);
       }
-      setExtraAllowances(data.extraAllowances || []);
+      setExtraAllowances(data.extraAllowances || data.allowances || []);
     } catch (error) {
       toast.error(error.message || 'Failed to fetch extra allowances.');
     }
@@ -242,18 +285,86 @@ const AdminSalaryManagement = () => {
     if (!extraForm.employeeId && employees.length > 0) {
       setExtraForm(prev => ({ ...prev, employeeId: employees[0]._id }));
     }
+    if (!loanForm.transactionDate) {
+      setLoanForm(prev => ({ ...prev, transactionDate: toIstInputDate() }));
+    }
+    if (!extraForm.transactionDate) {
+      setExtraForm(prev => ({ ...prev, transactionDate: toIstInputDate() }));
+    }
   }, [employees, loanForm.employeeId, extraForm.employeeId]);
 
   useEffect(() => {
     fetchPayrolls();
     fetchPayrollPreview();
+    fetchLateCheckInCounts();
   }, [month, year]);
 
   const toMonthIndex = (yearValue, monthValue) => yearValue * 12 + (monthValue - 1);
 
+  const isInSelectedMonth = (dateValue) => {
+    if (!dateValue) return false;
+    const parsed = toIstDate(dateValue);
+    if (Number.isNaN(parsed.getTime())) return false;
+    return parsed.getMonth() + 1 === month && parsed.getFullYear() === year;
+  };
+
+  const isInMonthYear = (dateValue, targetMonth, targetYear) => {
+    if (!dateValue) return false;
+    const parsed = toIstDate(dateValue);
+    if (Number.isNaN(parsed.getTime())) return false;
+    return parsed.getMonth() + 1 === targetMonth && parsed.getFullYear() === targetYear;
+  };
+
+  const getExtrasForEmployee = (employeeId) =>
+    extraAllowances.filter((record) => {
+      const recordEmployeeId = record.employee?._id || record.employee;
+      if (!recordEmployeeId || recordEmployeeId !== employeeId) return false;
+      return isInSelectedMonth(record.transactionDate);
+    });
+
+  const getLoansForEmployee = (employeeId) =>
+    loanAdvances.filter((record) => {
+      const recordEmployeeId = record.employee?._id || record.employee;
+      if (!recordEmployeeId || recordEmployeeId !== employeeId) return false;
+      if (loanFilterMode === 'all') return true;
+      return isInMonthYear(record.transactionDate, loanFilterMonth, loanFilterYear);
+    });
+
+  const getLoanScheduleStatus = (record, monthValue, yearValue) => {
+    if (record?.status === 'cancelled') return 'cancelled';
+    if (!record?.transactionDate) return record?.status || 'active';
+    const transactionDate = toIstDate(record.transactionDate);
+    if (Number.isNaN(transactionDate.getTime())) return record?.status || 'active';
+
+    const targetIndex = toMonthIndex(yearValue, monthValue);
+    const startIndex = toMonthIndex(
+      transactionDate.getUTCFullYear(),
+      transactionDate.getUTCMonth() + 1
+    );
+
+    if (record.type === 'advance') {
+      return targetIndex > startIndex ? 'completed' : 'active';
+    }
+
+    if (record.type !== 'loan') return record?.status || 'active';
+    if (targetIndex < startIndex) return 'active';
+
+    const totalAmount = Number(record.amount || 0);
+    const monthlyInstallment = Number(record.monthlyInstallment || 0);
+    const installmentMonths = record.tenureMonths
+      ? Number(record.tenureMonths)
+      : totalAmount && monthlyInstallment
+        ? Math.ceil(totalAmount / monthlyInstallment)
+        : 0;
+    if (!installmentMonths) return 'active';
+
+    const lastIndex = startIndex + installmentMonths - 1;
+    return targetIndex > lastIndex ? 'completed' : 'active';
+  };
+
   const getLoanDeductionForRecord = (record, monthValue, yearValue) => {
-    if (record?.status && record.status !== 'active') return 0;
     if (!record?.transactionDate) return 0;
+    if (getLoanScheduleStatus(record, monthValue, yearValue) !== 'active') return 0;
     const transactionDate = new Date(record.transactionDate);
     if (Number.isNaN(transactionDate.getTime())) return 0;
 
@@ -330,6 +441,56 @@ const AdminSalaryManagement = () => {
     return map;
   }, [previewPayrollMap, payrollMap]);
 
+  const autoPenaltyMap = useMemo(() => {
+    const map = {};
+    const allowedLateDays = Number(penaltySettings.allowedDays || 0);
+    const fixedPenalty = Number(penaltySettings.fixedPenaltyPerDay || 0);
+    const wageMultiplier = Number(penaltySettings.dailyWageMultiplier || 0);
+
+    employees.forEach((employee) => {
+      if (!penaltySettings.enabled) return;
+      const employeeId = employee._id;
+      const lateCount = Number(lateCheckInCounts[employeeId] || 0);
+      const excessLateCheckIns = Math.max(0, lateCount - allowedLateDays);
+      if (!excessLateCheckIns) return;
+
+      const payroll = mergedPayrollMap[employeeId] || {};
+      const dailyWage = Number(payroll.dailyWage || 0);
+      const penaltyAmount =
+        penaltySettings.method === 'fixed'
+          ? excessLateCheckIns * fixedPenalty
+          : excessLateCheckIns * dailyWage * wageMultiplier;
+
+      if (penaltyAmount) {
+        map[employeeId] = penaltyAmount;
+      }
+    });
+
+    return map;
+  }, [employees, lateCheckInCounts, mergedPayrollMap, penaltySettings]);
+
+  const getPreviewNetPay = (employeeId, payroll) => {
+    const dailyWage = Number(payroll?.dailyWage || 0);
+    const fullDays = Number(payroll?.fullDays || 0);
+    const halfDays = Number(payroll?.halfDays || 0);
+    const paidLeaves = Number(payroll?.paidLeaves || 0);
+    const overtimeAmount = Number(payroll?.overtimeAmount || 0);
+    const extraAmount = Number(payroll?.extraAmount || 0);
+    const penalties = Number(autoPenaltyMap[employeeId] ?? 0);
+    const loanAmount = Number(
+      loanAdvanceMap[employeeId] ?? payroll?.computedLoanAmount ?? 0
+    );
+    const grossPay =
+      fullDays * dailyWage +
+      halfDays * dailyWage * 0.5 +
+      paidLeaves * dailyWage +
+      overtimeAmount +
+      extraAmount;
+    const netPay = grossPay - penalties - loanAmount;
+
+    return Number.isFinite(netPay) ? netPay : 0;
+  };
+
   const openPanel = (employee, event) => {
     if (event) event.stopPropagation();
     const payroll = mergedPayrollMap[employee._id];
@@ -337,12 +498,27 @@ const AdminSalaryManagement = () => {
     setFormState({
       overtimeHours: payroll?.overtimeHours || 0,
       penalties: payroll?.penalties || 0,
-      loanAmount: payroll?.computedLoanAmount ?? (payroll?.loanAmount || 0),
+      loanAmount:
+        loanAdvanceMap[employee._id] ??
+        payroll?.computedLoanAmount ??
+        (payroll?.loanAmount || 0),
       extraAmount: payroll?.extraAmount || 0,
       status: payroll?.status || 'unpaid',
     });
     setIsPanelOpen(true);
     fetchPanelDeductions(employee._id);
+  };
+
+  const openExtrasPanel = (employee, event) => {
+    if (event) event.stopPropagation();
+    setExtraForm(prev => ({ ...prev, employeeId: employee._id }));
+    setSettingsPanel('extras');
+  };
+
+  const openLoansPanel = (employee, event) => {
+    if (event) event.stopPropagation();
+    setLoanForm(prev => ({ ...prev, employeeId: employee._id }));
+    setSettingsPanel('loans');
   };
 
   const closePanel = () => {
@@ -416,7 +592,7 @@ const AdminSalaryManagement = () => {
           installmentType: 'monthly',
           monthlyInstallment: '',
           tenureMonths: '',
-          transactionDate: new Date().toISOString().slice(0, 10),
+          transactionDate: toIstInputDate(),
           comment: '',
         }));
       } catch (error) {
@@ -462,7 +638,7 @@ const AdminSalaryManagement = () => {
           employeeId: prev.employeeId,
           reference: '',
           amount: '',
-          transactionDate: new Date().toISOString().slice(0, 10),
+          transactionDate: toIstInputDate(),
           comment: '',
         }));
       } catch (error) {
@@ -523,10 +699,14 @@ const AdminSalaryManagement = () => {
       const payroll = mergedPayrollMap[employee._id] || {};
       const baseSalary = Number(payroll.baseSalary || getEmployeeSalary(employee.email) || 0);
       const overtime = Number(payroll.overtimeAmount || 0);
-      const penalties = Number(payroll.penalties || 0);
+      const penalties = Number(
+        payroll.isPreview
+          ? autoPenaltyMap[employee._id] ?? 0
+          : payroll.penalties || 0
+      );
       const loanAmount = Number(
         payroll.isPreview
-          ? payroll.computedLoanAmount ?? (loanAdvanceMap[employee._id] || 0)
+          ? loanAdvanceMap[employee._id] ?? payroll.computedLoanAmount ?? 0
           : payroll.loanAmount || 0
       );
       const extras = Number(payroll.extraAmount || 0);
@@ -534,7 +714,9 @@ const AdminSalaryManagement = () => {
         Number(payroll.dailyWage || 0) *
         (Number(payroll.fullDays || 0) + Number(payroll.halfDays || 0) * 0.5);
       const netPay = Number(
-        payroll.isPreview ? payroll.computedNetPay ?? 0 : payroll.totalSalary || 0
+        payroll.isPreview
+          ? getPreviewNetPay(employee._id, payroll)
+          : payroll.totalSalary || 0
       );
 
       return [
@@ -573,10 +755,12 @@ const AdminSalaryManagement = () => {
         const payroll = mergedPayrollMap[employee._id] || {};
         const baseSalary = Number(payroll.baseSalary || getEmployeeSalary(employee.email) || 0);
         const overtime = Number(payroll.overtimeAmount || 0);
-        const penalties = Number(payroll.penalties || 0);
+        const penalties = Number(
+          payroll.isPreview ? autoPenaltyMap[employee._id] ?? 0 : payroll.penalties || 0
+        );
         const loanAmount = Number(
           payroll.isPreview
-            ? payroll.computedLoanAmount ?? (loanAdvanceMap[employee._id] || 0)
+            ? loanAdvanceMap[employee._id] ?? payroll.computedLoanAmount ?? 0
             : payroll.loanAmount || 0
         );
         const extras = Number(payroll.extraAmount || 0);
@@ -584,7 +768,9 @@ const AdminSalaryManagement = () => {
           Number(payroll.dailyWage || 0) *
           (Number(payroll.fullDays || 0) + Number(payroll.halfDays || 0) * 0.5);
         const netPay = Number(
-          payroll.isPreview ? payroll.computedNetPay ?? 0 : payroll.totalSalary || 0
+          payroll.isPreview
+            ? getPreviewNetPay(employee._id, payroll)
+            : payroll.totalSalary || 0
         );
 
         return `
@@ -696,12 +882,37 @@ const AdminSalaryManagement = () => {
       const lateData = lateRes.ok ? await lateRes.json() : null;
       const absentData = absentRes.ok ? await absentRes.json() : null;
       const halfData = halfRes.ok ? await halfRes.json() : null;
+      const totalLateCheckIns = Number(lateData?.totalLateCheckIns || 0);
+      const allowedLateDays = Number(penaltySettings.allowedDays || 0);
+      const excessLateCheckIns = Math.max(0, totalLateCheckIns - allowedLateDays);
+      const payroll = mergedPayrollMap[employeeId] || {};
+      const dailyWage = Number(payroll.dailyWage || 0);
+
+      let computedPenalty = 0;
+      if (penaltySettings.enabled && excessLateCheckIns > 0) {
+        if (penaltySettings.method === 'fixed') {
+          computedPenalty = excessLateCheckIns * Number(penaltySettings.fixedPenaltyPerDay || 0);
+        } else {
+          computedPenalty =
+            excessLateCheckIns * dailyWage * Number(penaltySettings.dailyWageMultiplier || 0);
+        }
+      }
 
       setPanelDeductions({
-        lateCheckin: Number(lateData?.totalDeduction || 0),
+        lateCheckin: computedPenalty,
         halfDay: Number(halfData?.totalDeduction || 0),
         absent: Number(absentData?.totalDeduction || 0),
       });
+
+      setAutoPenaltyValue(computedPenalty);
+      if (penaltySettings.enabled) {
+        const roundedPenalty = Number(
+          Number.isFinite(computedPenalty)
+            ? Math.round(computedPenalty * 100) / 100
+            : 0
+        );
+        setFormState(prev => ({ ...prev, penalties: roundedPenalty }));
+      }
     } catch (error) {
       console.error('Error fetching panel deductions:', error);
     }
@@ -713,6 +924,38 @@ const AdminSalaryManagement = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month, year, selectedEmployee?._id]);
+
+  useEffect(() => {
+    if (settingsPanel !== 'extras') {
+      setExtraDetails(null);
+      return;
+    }
+    if (!extraForm.employeeId) {
+      setExtraDetails(null);
+      return;
+    }
+    const records = getExtrasForEmployee(extraForm.employeeId);
+    const total = records.reduce((sum, record) => sum + Number(record.amount || 0), 0);
+    const employee = employees.find((item) => item._id === extraForm.employeeId) || null;
+    setExtraDetails({ employee, records, total, count: records.length });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsPanel, extraForm.employeeId, extraAllowances, month, year, employees]);
+
+  useEffect(() => {
+    if (settingsPanel !== 'loans') {
+      setLoanDetails(null);
+      return;
+    }
+    if (!loanForm.employeeId) {
+      setLoanDetails(null);
+      return;
+    }
+    const records = getLoansForEmployee(loanForm.employeeId);
+    const total = records.reduce((sum, record) => sum + Number(record.amount || 0), 0);
+    const employee = employees.find((item) => item._id === loanForm.employeeId) || null;
+    setLoanDetails({ employee, records, total, count: records.length });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsPanel, loanForm.employeeId, loanAdvances, month, year, employees]);
 
   const processPayroll = async () => {
     if (!selectedEmployee) return;
@@ -882,12 +1125,29 @@ const AdminSalaryManagement = () => {
     });
   };
 
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const roleOptions = useMemo(() => {
+    const uniqueRoles = new Set();
+    employees.forEach(employee => {
+      if (employee.jobRole) uniqueRoles.add(employee.jobRole);
+    });
+    return Array.from(uniqueRoles).sort((a, b) => a.localeCompare(b));
+  }, [employees]);
+
   const filteredEmployees = employees
-    .filter(
-      employee =>
-        employee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        employee.email.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    .filter(employee => {
+      if (!normalizedQuery) return true;
+      return (
+        employee.name.toLowerCase().includes(normalizedQuery) ||
+        employee.email.toLowerCase().includes(normalizedQuery) ||
+        (employee.employeeCode || '').toLowerCase().includes(normalizedQuery) ||
+        (employee.jobRole || '').toLowerCase().includes(normalizedQuery)
+      );
+    })
+    .filter(employee => {
+      if (roleFilter === 'all') return true;
+      return employee.jobRole === roleFilter;
+    })
     .filter(employee => {
       const payrollStatus = mergedPayrollMap[employee._id]?.status || 'unpaid';
       return statusFilter === 'all' || payrollStatus === statusFilter;
@@ -900,7 +1160,21 @@ const AdminSalaryManagement = () => {
 
   const headerFont = { fontFamily: '"Plus Jakarta Sans", "Segoe UI", sans-serif' };
 
-  const renderPanelContent = (showClose = false) => (
+  const renderPanelContent = (showClose = false) => {
+    const payroll = selectedEmployee?.payroll;
+    const employeeId = selectedEmployee?._id;
+    const lateCount = Number(lateCheckInCounts[employeeId] || 0);
+    const allowedLateDays = Number(penaltySettings.allowedDays || 0);
+    const excessLateDays = Math.max(0, lateCount - allowedLateDays);
+    const dailyWage = Number(payroll?.dailyWage || 0);
+    const perDayPenalty =
+      penaltySettings.method === 'fixed'
+        ? Number(penaltySettings.fixedPenaltyPerDay || 0)
+        : dailyWage * Number(penaltySettings.dailyWageMultiplier || 0);
+    const totalPenalty = excessLateDays * perDayPenalty;
+    const showPenaltySummary = Boolean(payroll?.isPreview && penaltySettings.enabled);
+
+    return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -931,10 +1205,13 @@ const AdminSalaryManagement = () => {
             </label>
             <input
               type="number"
+              step="1"
               value={formState.overtimeHours}
               onChange={e =>
                 setFormState(prev => ({ ...prev, overtimeHours: Number(e.target.value) }))
               }
+              onFocus={e => e.target.select()}
+              onWheel={e => e.currentTarget.blur()}
               className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
             />
           </div>
@@ -944,8 +1221,23 @@ const AdminSalaryManagement = () => {
             </label>
             <input
               type="number"
+              step="0.01"
               value={formState.penalties}
-              onChange={e => setFormState(prev => ({ ...prev, penalties: Number(e.target.value) }))}
+              onChange={e => {
+                const nextValue = Number(e.target.value);
+                const rounded = Number.isFinite(nextValue)
+                  ? Math.round(nextValue * 100) / 100
+                  : 0;
+                setFormState(prev => ({ ...prev, penalties: rounded }));
+              }}
+              onBlur={() =>
+                setFormState(prev => ({
+                  ...prev,
+                  penalties: Number(Number(prev.penalties || 0).toFixed(2)),
+                }))
+              }
+              onFocus={e => e.target.select()}
+              onWheel={e => e.currentTarget.blur()}
               className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
             />
           </div>
@@ -955,8 +1247,11 @@ const AdminSalaryManagement = () => {
             </label>
             <input
               type="number"
+              step="1"
               value={formState.loanAmount}
               onChange={e => setFormState(prev => ({ ...prev, loanAmount: Number(e.target.value) }))}
+              onFocus={e => e.target.select()}
+              onWheel={e => e.currentTarget.blur()}
               className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
             />
           </div>
@@ -966,12 +1261,43 @@ const AdminSalaryManagement = () => {
             </label>
             <input
               type="number"
+              step="1"
               value={formState.extraAmount}
               onChange={e => setFormState(prev => ({ ...prev, extraAmount: Number(e.target.value) }))}
+              onFocus={e => e.target.select()}
+              onWheel={e => e.currentTarget.blur()}
               className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
             />
           </div>
         </div>
+
+        {showPenaltySummary ? (
+          <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
+            <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+              Penalty Summary
+            </p>
+            <div className="flex items-center justify-between text-sm">
+              <span>Late Check-ins</span>
+              <span>{lateCount}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span>Allowed Days</span>
+              <span>{allowedLateDays}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span>Excess Days</span>
+              <span>{excessLateDays}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span>Per-day Penalty</span>
+              <span>₹{Number(perDayPenalty || 0).toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span>Total Penalty</span>
+              <span>₹{Number(totalPenalty || 0).toFixed(2)}</span>
+            </div>
+          </div>
+        ) : null}
 
         <div>
           <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
@@ -1021,9 +1347,17 @@ const AdminSalaryManagement = () => {
             const paidLeaves = Number(payroll?.paidLeaves || 0);
             const overtimeAmount = Number(payroll?.overtimeAmount || 0);
             const extraAmount = Number(payroll?.extraAmount || 0);
-            const penalties = Number(payroll?.penalties || 0);
+            const penalties = Number(
+              payroll?.isPreview
+                ? autoPenaltyMap[selectedEmployee?._id] ?? 0
+                : payroll?.penalties || 0
+            );
             const loanAmount = payroll?.isPreview
-              ? Number(payroll?.computedLoanAmount || 0)
+              ? Number(
+                  loanAdvanceMap[selectedEmployee?._id] ??
+                    payroll?.computedLoanAmount ??
+                    0
+                )
               : Number(payroll?.loanAmount || 0);
             const grossPay =
               fullDays * dailyWage +
@@ -1033,7 +1367,7 @@ const AdminSalaryManagement = () => {
               extraAmount;
             const deductions = penalties + loanAmount;
             const totalSalary = payroll?.isPreview
-              ? Number(payroll?.computedNetPay || 0)
+              ? getPreviewNetPay(selectedEmployee?._id, payroll)
               : Number(payroll?.totalSalary || 0);
 
             return (
@@ -1145,7 +1479,8 @@ const AdminSalaryManagement = () => {
         </button>
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <div
@@ -1231,7 +1566,7 @@ const AdminSalaryManagement = () => {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-light-text dark:text-dark-text" />
               <input
                 type="text"
-                placeholder="Search employees by name or email..."
+                placeholder="Search by name, email, ID, or role..."
                 className="w-full pl-12 pr-4 py-2.5 bg-light-bg dark:bg-dark-bg rounded-lg border border-light-border dark:border-dark-border focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-light-text/50 dark:placeholder:text-dark-text/50 text-light-text dark:text-dark-text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
@@ -1275,14 +1610,47 @@ const AdminSalaryManagement = () => {
                   )
                 )}
               </select>
-              <button
-                className="px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-white/90 dark:bg-dark-card flex items-center gap-2"
-                aria-label="Open filters"
-              >
-                <Filter className="w-4 h-4" />
-                Filters
-                <ChevronDown className="w-4 h-4" />
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsFilterOpen(prev => !prev)}
+                  className="px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-white/90 dark:bg-dark-card flex items-center gap-2"
+                  aria-label="Open filters"
+                >
+                  <Filter className="w-4 h-4" />
+                  {roleFilter === 'all' ? 'Filters' : `Role: ${roleFilter}`}
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform ${isFilterOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+                {isFilterOpen && (
+                  <div className="absolute right-0 mt-2 w-56 rounded-lg border border-light-border dark:border-dark-border bg-white dark:bg-dark-card shadow-lg z-10">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRoleFilter('all');
+                        setIsFilterOpen(false);
+                      }}
+                      className={`w-full px-4 py-2 text-left text-sm hover:bg-light-bg/70 dark:hover:bg-dark-bg/70 ${roleFilter === 'all' ? 'bg-light-bg/70 dark:bg-dark-bg/70' : ''}`}
+                    >
+                      All Roles
+                    </button>
+                    {roleOptions.map(role => (
+                      <button
+                        key={role}
+                        type="button"
+                        onClick={() => {
+                          setRoleFilter(role);
+                          setIsFilterOpen(false);
+                        }}
+                        className={`w-full px-4 py-2 text-left text-sm hover:bg-light-bg/70 dark:hover:bg-dark-bg/70 ${roleFilter === role ? 'bg-light-bg/70 dark:bg-dark-bg/70' : ''}`}
+                      >
+                        {role}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1301,38 +1669,38 @@ const AdminSalaryManagement = () => {
                 <th className="px-4 py-3 text-left font-semibold">Daily Wage</th>
                 <th className="px-4 py-3 text-left font-semibold">Gross Wage</th>
                 <th className="px-4 py-3 text-left font-semibold">Base Salary</th>
-                <th className="px-4 py-3 text-left font-semibold">
+                <th className="px-4 py-3 text-left font-semibold align-middle">
                   <button
                     type="button"
                     onClick={() => setSettingsPanel('overtime')}
-                    className="underline decoration-dotted"
+                    className="inline-flex items-center p-0 leading-tight underline decoration-dotted"
                   >
                     Overtime
                   </button>
                 </th>
-                <th className="px-4 py-3 text-left font-semibold">
+                <th className="px-4 py-3 text-left font-semibold align-middle">
                   <button
                     type="button"
                     onClick={() => setSettingsPanel('penalties')}
-                    className="underline decoration-dotted"
+                    className="inline-flex items-center p-0 leading-tight underline decoration-dotted"
                   >
                     Penalties
                   </button>
                 </th>
-                <th className="px-4 py-3 text-left font-semibold">
+                <th className="px-4 py-3 text-left font-semibold align-middle">
                   <button
                     type="button"
                     onClick={() => setSettingsPanel('loans')}
-                    className="underline decoration-dotted"
+                    className="inline-flex items-center p-0 leading-tight underline decoration-dotted"
                   >
                     Loan & Advance
                   </button>
                 </th>
-                <th className="px-4 py-3 text-left font-semibold">
+                <th className="px-4 py-3 text-left font-semibold align-middle">
                   <button
                     type="button"
                     onClick={() => setSettingsPanel('extras')}
-                    className="underline decoration-dotted"
+                    className="inline-flex items-center p-0 leading-tight underline decoration-dotted"
                   >
                     Extras
                   </button>
@@ -1347,10 +1715,12 @@ const AdminSalaryManagement = () => {
                 const payroll = mergedPayrollMap[employee._id] || {};
                 const baseSalary = Number(payroll.baseSalary || getEmployeeSalary(employee.email) || 0);
                 const overtime = Number(payroll.overtimeAmount || 0);
-                const penalties = Number(payroll.penalties || 0);
+                const penalties = Number(
+                  payroll.isPreview ? autoPenaltyMap[employee._id] ?? 0 : payroll.penalties || 0
+                );
                 const loanAmount = Number(
                   payroll.isPreview
-                    ? payroll.computedLoanAmount ?? (loanAdvanceMap[employee._id] || 0)
+                    ? loanAdvanceMap[employee._id] ?? payroll.computedLoanAmount ?? 0
                     : payroll.loanAmount || 0
                 );
                 const extras = Number(payroll.extraAmount || 0);
@@ -1358,7 +1728,9 @@ const AdminSalaryManagement = () => {
                   Number(payroll.dailyWage || 0) *
                   (Number(payroll.fullDays || 0) + Number(payroll.halfDays || 0) * 0.5);
                 const netPay = Number(
-                  payroll.isPreview ? payroll.computedNetPay ?? 0 : payroll.totalSalary || 0
+                  payroll.isPreview
+                    ? getPreviewNetPay(employee._id, payroll)
+                    : payroll.totalSalary || 0
                 );
 
                 return (
@@ -1388,9 +1760,36 @@ const AdminSalaryManagement = () => {
                     <td className="px-4 py-3">₹{grossWage.toFixed(2)}</td>
                     <td className="px-4 py-3">₹{baseSalary.toFixed(2)}</td>
                     <td className="px-4 py-3">₹{overtime.toFixed(2)}</td>
-                    <td className="px-4 py-3">₹{penalties.toFixed(2)}</td>
-                    <td className="px-4 py-3">₹{loanAmount.toFixed(2)}</td>
-                    <td className="px-4 py-3">₹{extras.toFixed(2)}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={(event) => openPanel(employee, event)}
+                        className="text-left underline decoration-dotted"
+                        aria-label={`Open payroll snapshot for ${employee.name}`}
+                      >
+                        ₹{penalties.toFixed(2)}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={(event) => openLoansPanel(employee, event)}
+                        className="text-left underline decoration-dotted"
+                        aria-label={`Open loan panel for ${employee.name}`}
+                      >
+                        ₹{loanAmount.toFixed(2)}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={(event) => openExtrasPanel(employee, event)}
+                        className="text-left underline decoration-dotted"
+                        aria-label={`Open extras panel for ${employee.name}`}
+                      >
+                        ₹{extras.toFixed(2)}
+                      </button>
+                    </td>
                     <td className="px-4 py-3 font-semibold">₹{netPay.toFixed(2)}</td>
                     <td className="px-4 py-3">
                       <span
@@ -1481,6 +1880,7 @@ const AdminSalaryManagement = () => {
                     </label>
                     <input
                       type="number"
+                      step="1"
                       value={overtimeSettings.hourlyRate}
                       onChange={e =>
                         setOvertimeSettings(prev => ({
@@ -1488,6 +1888,8 @@ const AdminSalaryManagement = () => {
                           hourlyRate: Number(e.target.value),
                         }))
                       }
+                      onFocus={e => e.target.select()}
+                      onWheel={e => e.currentTarget.blur()}
                       className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
                     />
                   </div>
@@ -1539,6 +1941,7 @@ const AdminSalaryManagement = () => {
                     </label>
                     <input
                       type="number"
+                      step="1"
                       value={penaltySettings.allowedDays}
                       onChange={e =>
                         setPenaltySettings(prev => ({
@@ -1547,6 +1950,8 @@ const AdminSalaryManagement = () => {
                         }))
                       }
                       disabled={!penaltySettings.enabled}
+                      onFocus={e => e.target.select()}
+                      onWheel={e => e.currentTarget.blur()}
                       className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                   </div>
@@ -1592,6 +1997,7 @@ const AdminSalaryManagement = () => {
                       </label>
                       <input
                         type="number"
+                        step="1"
                         value={penaltySettings.fixedPenaltyPerDay}
                         onChange={e =>
                           setPenaltySettings(prev => ({
@@ -1600,6 +2006,8 @@ const AdminSalaryManagement = () => {
                           }))
                         }
                         disabled={!penaltySettings.enabled}
+                        onFocus={e => e.target.select()}
+                        onWheel={e => e.currentTarget.blur()}
                         className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                     </div>
@@ -1610,6 +2018,7 @@ const AdminSalaryManagement = () => {
                       </label>
                       <input
                         type="number"
+                        step="0.1"
                         value={penaltySettings.dailyWageMultiplier}
                         onChange={e =>
                           setPenaltySettings(prev => ({
@@ -1618,6 +2027,8 @@ const AdminSalaryManagement = () => {
                           }))
                         }
                         disabled={!penaltySettings.enabled}
+                        onFocus={e => e.target.select()}
+                        onWheel={e => e.currentTarget.blur()}
                         className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                     </div>
@@ -1689,11 +2100,14 @@ const AdminSalaryManagement = () => {
                     </label>
                     <input
                       type="number"
+                      step="1"
                       value={loanForm.amount}
                       onChange={e =>
                         setLoanForm(prev => ({ ...prev, amount: e.target.value }))
                       }
                       placeholder="Enter Amount"
+                      onFocus={e => e.target.select()}
+                      onWheel={e => e.currentTarget.blur()}
                       className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
                     />
                   </div>
@@ -1775,6 +2189,7 @@ const AdminSalaryManagement = () => {
                           </label>
                           <input
                             type="number"
+                            step="1"
                             value={loanForm.monthlyInstallment}
                             onChange={e =>
                               setLoanForm(prev => ({
@@ -1783,6 +2198,8 @@ const AdminSalaryManagement = () => {
                               }))
                             }
                             placeholder="Enter Amount"
+                            onFocus={e => e.target.select()}
+                            onWheel={e => e.currentTarget.blur()}
                             className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
                           />
                         </div>
@@ -1793,11 +2210,14 @@ const AdminSalaryManagement = () => {
                           </label>
                           <input
                             type="number"
+                            step="1"
                             value={loanForm.tenureMonths}
                             onChange={e =>
                               setLoanForm(prev => ({ ...prev, tenureMonths: e.target.value }))
                             }
                             placeholder="Enter months"
+                            onFocus={e => e.target.select()}
+                            onWheel={e => e.currentTarget.blur()}
                             className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
                           />
                         </div>
@@ -1830,6 +2250,172 @@ const AdminSalaryManagement = () => {
                       rows={3}
                       className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
                     />
+                  </div>
+
+                  <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex flex-col">
+                        <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                          Filter
+                        </label>
+                        <select
+                          value={loanFilterMode}
+                          onChange={e => setLoanFilterMode(e.target.value)}
+                          className="mt-2 w-full px-3 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                        >
+                          <option value="all">All Months</option>
+                          <option value="month">Specific Month</option>
+                        </select>
+                      </div>
+                      {loanFilterMode === 'month' ? (
+                        <>
+                          <div className="flex flex-col">
+                            <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                              Month
+                            </label>
+                            <select
+                              value={loanFilterMonth}
+                              onChange={e => setLoanFilterMonth(Number(e.target.value))}
+                              className="mt-2 w-full px-3 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                            >
+                              {Array.from({ length: 12 }, (_, index) => (
+                                <option key={index + 1} value={index + 1}>
+                                  {new Date(0, index).toLocaleString('default', { month: 'long' })}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex flex-col">
+                            <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                              Year
+                            </label>
+                            <select
+                              value={loanFilterYear}
+                              onChange={e => setLoanFilterYear(Number(e.target.value))}
+                              className="mt-2 w-full px-3 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                            >
+                              {Array.from({ length: 6 }, (_, index) => new Date().getFullYear() - index).map(
+                                value => (
+                                  <option key={value} value={value}>
+                                    {value}
+                                  </option>
+                                )
+                              )}
+                            </select>
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-base font-semibold">
+                          {loanDetails?.employee?.name || 'Loans & Advances'}
+                        </h3>
+                        <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                          Loan & Advance
+                        </p>
+                        <p className="text-sm text-light-text/60 dark:text-dark-text/60">
+                          {loanDetails?.employee?.employeeCode || 'N/A'}
+                          {loanDetails?.employee?.email ? ` · ${loanDetails.employee.email}` : ''}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                          Total Amount
+                        </p>
+                        <p className="text-lg font-semibold">₹{(loanDetails?.total || 0).toFixed(2)}</p>
+                        <p className="text-xs text-light-text/60 dark:text-dark-text/60">
+                          {loanDetails?.count || 0} items
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
+                          <tr>
+                            <th className="px-4 py-3 text-left font-semibold">Date</th>
+                            <th className="px-4 py-3 text-left font-semibold">Type</th>
+                            <th className="px-4 py-3 text-left font-semibold">Amount</th>
+                            <th className="px-4 py-3 text-left font-semibold">Status</th>
+                            <th className="px-4 py-3 text-left font-semibold">Reference</th>
+                            <th className="px-4 py-3 text-left font-semibold">Installment</th>
+                            <th className="px-4 py-3 text-left font-semibold">Remarks</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {!loanDetails ? (
+                            <tr>
+                              <td
+                                colSpan={7}
+                                className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
+                              >
+                                Select an employee to view loan history.
+                              </td>
+                            </tr>
+                          ) : loanDetails.records.length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan={7}
+                                className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
+                              >
+                                No loan or advance records for this period.
+                              </td>
+                            </tr>
+                          ) : (
+                            loanDetails.records.map((record) => (
+                              <tr
+                                key={record._id}
+                                className="border-t border-light-border/70 dark:border-dark-border/70"
+                              >
+                                <td className="px-4 py-3">
+                                  {record.transactionDate
+                                    ? new Date(record.transactionDate).toLocaleDateString('en-IN', {
+                                        timeZone: 'Asia/Kolkata',
+                                      })
+                                    : 'N/A'}
+                                </td>
+                                <td className="px-4 py-3">{record.type || 'N/A'}</td>
+                                <td className="px-4 py-3">₹{Number(record.amount || 0).toFixed(2)}</td>
+                                <td className="px-4 py-3">
+                                  {(() => {
+                                    const status = getLoanScheduleStatus(record, month, year);
+                                    const statusClass =
+                                      status === 'completed'
+                                        ? 'bg-success/20 text-success'
+                                        : status === 'cancelled'
+                                          ? 'bg-danger/20 text-danger'
+                                          : 'bg-warning/20 text-warning';
+
+                                    return (
+                                      <span
+                                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${statusClass}`}
+                                      >
+                                        {status}
+                                      </span>
+                                    );
+                                  })()}
+                                </td>
+                                <td className="px-4 py-3">{record.reference || 'N/A'}</td>
+                                <td className="px-4 py-3">
+                                  {record.type === 'advance'
+                                    ? 'One-time'
+                                    : record.installmentType === 'monthly'
+                                      ? `₹${Number(record.monthlyInstallment || 0).toFixed(2)}`
+                                      : record.tenureMonths
+                                        ? `${record.tenureMonths} months`
+                                        : 'N/A'}
+                                </td>
+                                <td className="px-4 py-3">{record.comment || '—'}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1873,9 +2459,12 @@ const AdminSalaryManagement = () => {
                     </label>
                     <input
                       type="number"
+                      step="1"
                       value={extraForm.amount}
                       onChange={e => setExtraForm(prev => ({ ...prev, amount: e.target.value }))}
                       placeholder="Enter Amount"
+                      onFocus={e => e.target.select()}
+                      onWheel={e => e.currentTarget.blur()}
                       className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
                     />
                   </div>
@@ -1904,6 +2493,84 @@ const AdminSalaryManagement = () => {
                       rows={3}
                       className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
                     />
+                  </div>
+
+                  <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-base font-semibold">
+                          {extraDetails?.employee?.name || 'Extras'}
+                        </h3>
+                        <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                          Extras
+                        </p>
+                        <p className="text-sm text-light-text/60 dark:text-dark-text/60">
+                          {extraDetails?.employee?.employeeCode || 'N/A'}
+                          {extraDetails?.employee?.email ? ` · ${extraDetails.employee.email}` : ''}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                          Total Extras
+                        </p>
+                        <p className="text-lg font-semibold">₹{(extraDetails?.total || 0).toFixed(2)}</p>
+                        <p className="text-xs text-light-text/60 dark:text-dark-text/60">
+                          {extraDetails?.count || 0} items
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
+                          <tr>
+                            <th className="px-4 py-3 text-left font-semibold">Date</th>
+                            <th className="px-4 py-3 text-left font-semibold">Type</th>
+                            <th className="px-4 py-3 text-left font-semibold">Amount</th>
+                            <th className="px-4 py-3 text-left font-semibold">Remarks</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {!extraDetails ? (
+                            <tr>
+                              <td
+                                colSpan={4}
+                                className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
+                              >
+                                Select an employee to view extras.
+                              </td>
+                            </tr>
+                          ) : extraDetails.records.length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan={4}
+                                className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
+                              >
+                                No extras recorded for this period.
+                              </td>
+                            </tr>
+                          ) : (
+                            extraDetails.records.map((record) => (
+                              <tr
+                                key={record._id}
+                                className="border-t border-light-border/70 dark:border-dark-border/70"
+                              >
+                                <td className="px-4 py-3">
+                                  {record.transactionDate
+                                    ? new Date(record.transactionDate).toLocaleDateString('en-IN', {
+                                        timeZone: 'Asia/Kolkata',
+                                      })
+                                    : 'N/A'}
+                                </td>
+                                <td className="px-4 py-3">{record.reference || 'Manual Adjustment'}</td>
+                                <td className="px-4 py-3">₹{Number(record.amount || 0).toFixed(2)}</td>
+                                <td className="px-4 py-3">{record.comment || '—'}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               )}

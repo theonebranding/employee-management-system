@@ -10,7 +10,6 @@ import {
   Phone,
   PlusCircle,
   Search,
-  Trash2,
   User,
   Users,
   X,
@@ -210,31 +209,6 @@ const AdminManageEmployees = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleDeleteByCode = async employeeCode => {
-    if (!employeeCode) {
-      toast.error('Employee ID is missing');
-      return;
-    }
-    const confirmed = window.confirm(`Delete employee ${employeeCode}? This cannot be undone.`);
-    if (!confirmed) return;
-
-    try {
-      const response = await fetch(`${BASE_URL}/employee/delete-by-code/${employeeCode}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to delete employee');
-      }
-
-      toast.success('Employee deleted successfully');
-      fetchEmployees();
-    } catch (error) {
-      toast.error(error.message || 'Failed to delete employee');
-    }
-  };
 
   return (
     <div className="p-6 ml-8 min-h-screen pl-20 bg-light-bg dark:bg-dark-bg">
@@ -327,11 +301,7 @@ const AdminManageEmployees = () => {
             </button>
 
             {searchResults.map(employee => (
-              <EmployeeCard
-                key={employee._id}
-                employee={employee}
-                onDeleteByCode={handleDeleteByCode}
-              />
+              <EmployeeCard key={employee._id} employee={employee} />
             ))}
           </div>
         ) : loading ? (
@@ -342,11 +312,7 @@ const AdminManageEmployees = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredEmployees.map(employee => (
-              <EmployeeCard
-                key={employee._id}
-                employee={employee}
-                onDeleteByCode={handleDeleteByCode}
-              />
+              <EmployeeCard key={employee._id} employee={employee} />
             ))}
           </div>
         )}
@@ -534,7 +500,7 @@ const AdminManageEmployees = () => {
   );
 };
 
-const EmployeeCard = ({ employee, onDeleteByCode }) => (
+const EmployeeCard = ({ employee }) => (
   <div className="group bg-light-card dark:bg-dark-card rounded-xl border border-light-border dark:border-dark-border hover:border-primary transition-all duration-300 overflow-hidden">
     <div className="p-6">
       <div className="flex items-center gap-4 mb-4">
@@ -579,23 +545,13 @@ const EmployeeCard = ({ employee, onDeleteByCode }) => (
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-3">
-        <Link
-          to={`/admin/dashboard/employees/${employee._id}`}
-          className="w-full px-4 py-2 bg-light-bg dark:bg-dark-bg hover:bg-light-bg/80 dark:hover:bg-dark-bg/80 rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 group-hover:bg-primary group-hover:text-white text-light-text dark:text-dark-text"
-        >
-          <ExternalLink className="w-4 h-4 group-hover:text-white" />
-          <span>View Profile</span>
-        </Link>
-        <button
-          type="button"
-          onClick={() => onDeleteByCode(employee.employeeCode)}
-          className="w-full px-4 py-2 bg-danger/10 text-danger hover:bg-danger hover:text-white rounded-lg flex items-center justify-center gap-2 transition-colors duration-200"
-        >
-          <Trash2 className="w-4 h-4" />
-          <span>Delete</span>
-        </button>
-      </div>
+      <Link
+        to={`/admin/dashboard/employees/${employee._id}`}
+        className="mt-6 w-full px-4 py-2 bg-light-bg dark:bg-dark-bg hover:bg-light-bg/80 dark:hover:bg-dark-bg/80 rounded-lg flex items-center justify-center gap-2 transition-colors duration-200 group-hover:bg-primary group-hover:text-white text-light-text dark:text-dark-text"
+      >
+        <ExternalLink className="w-4 h-4 group-hover:text-white" />
+        <span>View Profile</span>
+      </Link>
     </div>
   </div>
 );

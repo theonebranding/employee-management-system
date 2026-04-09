@@ -9,11 +9,15 @@ export const getLoanAdvances = async (req, res) => {
     if (status) query.status = status;
 
     const loans = await LoanAdvance.find(query)
-      .populate('employee', 'name email')
+      .populate('employee', 'name email employeeCode')
       .populate('approvedBy', 'name')
       .sort({ createdAt: -1 });
 
-    res.status(200).json({ message: 'Loan advances fetched successfully', loans });
+    res.status(200).json({
+      message: 'Loan advances fetched successfully',
+      loans,
+      loanAdvances: loans,
+    });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching loan advances', error: error.message });
   }

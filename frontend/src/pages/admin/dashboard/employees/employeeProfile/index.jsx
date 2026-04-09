@@ -39,22 +39,26 @@ const AdminEmployeeProfile = () => {
   };
 
   useEffect(() => {
-    if (activeTab === 'attendance') fetchEmployeeData();
+    fetchEmployeeData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, []);
 
   const handleDeleteEmployee = async () => {
-    if (confirmEmployeeId !== id) {
+    const employeeCode = employeeDetails?.employeeCode || '';
+    if (confirmEmployeeId !== employeeCode) {
       toast.error("Employee ID doesn't match");
       return;
     }
 
     setDeleteLoading(true);
     try {
-      const response = await fetch(`${BASE_URL}/employee/delete/${id}`, {
+      const response = await fetch(
+        `${BASE_URL}/employee/delete-by-code/${employeeCode}`,
+        {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
+        }
+      );
 
       if (!response.ok) throw new Error('Failed to delete employee');
 
@@ -147,7 +151,9 @@ const AdminEmployeeProfile = () => {
                 <div className="bg-danger/30 border border-danger/50 rounded-lg p-3 mb-4">
                   <p className="dark:text-red-500 text-black text-sm">
                     To confirm deletion, please enter the Employee ID:{' '}
-                    <span className="font-mono font-medium dark:text-red-500 text-black">{id}</span>
+                    <span className="font-mono font-medium dark:text-red-500 text-black">
+                      {employeeDetails?.employeeCode || 'N/A'}
+                    </span>
                   </p>
                 </div>
                 <input
@@ -173,9 +179,11 @@ const AdminEmployeeProfile = () => {
                 </button>
                 <button
                   onClick={handleDeleteEmployee}
-                  disabled={confirmEmployeeId !== id || deleteLoading}
+                  disabled={
+                    confirmEmployeeId !== (employeeDetails?.employeeCode || '') || deleteLoading
+                  }
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                    confirmEmployeeId === id && !deleteLoading
+                    confirmEmployeeId === (employeeDetails?.employeeCode || '') && !deleteLoading
                       ? 'bg-danger hover:bg-danger/80'
                       : 'bg-danger/50 cursor-not-allowed'
                   } transition-all duration-200 text-white font-medium`}
