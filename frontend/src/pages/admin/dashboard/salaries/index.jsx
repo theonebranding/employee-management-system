@@ -35,9 +35,12 @@ const AdminSalaryManagement = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
+  const [currentPage, setCurrentPage] = useState(1);
   const [settingsPanel, setSettingsPanel] = useState(null);
   const [overtimeSettings, setOvertimeSettings] = useState({
+    rateBasis: 'fixed',
     hourlyRate: 100,
+    dailyWageMultiplier: 1,
     bufferMinutes: '00:15',
   });
   const [penaltySettings, setPenaltySettings] = useState({
@@ -88,6 +91,7 @@ const AdminSalaryManagement = () => {
     absent: 0,
   });
   const [lateCheckInCounts, setLateCheckInCounts] = useState({});
+  const HOURS_PER_DAY = 8;
   const IST_OFFSET_MINUTES = 330;
   const toIstInputDate = (date = new Date()) => {
     const shifted = new Date(date.getTime() + IST_OFFSET_MINUTES * 60 * 1000);
@@ -244,7 +248,11 @@ const AdminSalaryManagement = () => {
       const settings = data.settings || {};
 
       setOvertimeSettings(prev => ({
+        rateBasis: settings.overtime?.rateBasis ?? prev.rateBasis,
         hourlyRate: Number(settings.overtime?.hourlyRate ?? prev.hourlyRate),
+        dailyWageMultiplier: Number(
+          settings.overtime?.dailyWageMultiplier ?? prev.dailyWageMultiplier
+        ),
         bufferMinutes: settings.overtime?.bufferMinutes ?? prev.bufferMinutes,
       }));
       setPenaltySettings(prev => ({
@@ -1158,7 +1166,34 @@ const AdminSalaryManagement = () => {
       return 0;
     });
 
+  const EMPLOYEES_PER_PAGE = 15;
+  const totalPages = Math.max(1, Math.ceil(filteredEmployees.length / EMPLOYEES_PER_PAGE));
+  const startIndex = (currentPage - 1) * EMPLOYEES_PER_PAGE;
+  const pagedEmployees = filteredEmployees.slice(
+    startIndex,
+    startIndex + EMPLOYEES_PER_PAGE
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, roleFilter, sortOrder, month, year]);
+
+  useEffect(() => {
+    setCurrentPage(prev => Math.min(prev, totalPages));
+  }, [totalPages]);
+
   const headerFont = { fontFamily: '"Plus Jakarta Sans", "Segoe UI", sans-serif' };
+  const parseBufferMinutes = (value) => {
+    if (typeof value !== 'string') return 0;
+    const [hours, minutes] = value.split(':').map((part) => Number(part || 0));
+    return Math.max(0, hours * 60 + minutes);
+  };
+  const formatBufferMinutes = (value) => {
+    const totalMinutes = Math.max(0, Number(value || 0));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  };
 
   const renderPanelContent = (showClose = false) => {
     const payroll = selectedEmployee?.payroll;
@@ -1172,6 +1207,17 @@ const AdminSalaryManagement = () => {
         ? Number(penaltySettings.fixedPenaltyPerDay || 0)
         : dailyWage * Number(penaltySettings.dailyWageMultiplier || 0);
     const totalPenalty = excessLateDays * perDayPenalty;
+    const configuredOvertimeRate = Number(overtimeSettings.hourlyRate || 0);
+    const overtimeFromDailyWage =
+      (dailyWage / HOURS_PER_DAY) * Number(overtimeSettings.dailyWageMultiplier || 1);
+    const overtimeRate =
+      overtimeSettings.rateBasis === 'daily_wage'
+        ? overtimeFromDailyWage
+        : configuredOvertimeRate > 0
+          ? configuredOvertimeRate
+          : overtimeFromDailyWage;
+    const overtimeHours = Number(payroll?.overtimeHours || 0);
+    const overtimeAmount = Number(payroll?.overtimeAmount || 0);
     const showPenaltySummary = Boolean(payroll?.isPreview && penaltySettings.enabled);
 
     return (
@@ -1298,6 +1344,24 @@ const AdminSalaryManagement = () => {
             </div>
           </div>
         ) : null}
+
+        <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
+          <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+            Overtime Summary
+          </p>
+          <div className="flex items-center justify-between text-sm">
+            <span>Overtime Hours</span>
+            <span>{overtimeHours.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span>Overtime Rate</span>
+            <span>₹{Number(overtimeRate || 0).toFixed(2)} / hr</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span>Overtime Amount</span>
+            <span>₹{overtimeAmount.toFixed(2)}</span>
+          </div>
+        </div>
 
         <div>
           <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
@@ -1711,7 +1775,7 @@ const AdminSalaryManagement = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredEmployees.map(employee => {
+              {pagedEmployees.map(employee => {
                 const payroll = mergedPayrollMap[employee._id] || {};
                 const baseSalary = Number(payroll.baseSalary || getEmployeeSalary(employee.email) || 0);
                 const overtime = Number(payroll.overtimeAmount || 0);
@@ -1759,7 +1823,16 @@ const AdminSalaryManagement = () => {
                     <td className="px-4 py-3">₹{Number(payroll.dailyWage || 0).toFixed(2)}</td>
                     <td className="px-4 py-3">₹{grossWage.toFixed(2)}</td>
                     <td className="px-4 py-3">₹{baseSalary.toFixed(2)}</td>
-                    <td className="px-4 py-3">₹{overtime.toFixed(2)}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={(event) => openPanel(employee, event)}
+                        className="text-left underline decoration-dotted"
+                        aria-label={`Open payroll snapshot for ${employee.name}`}
+                      >
+                        ₹{overtime.toFixed(2)}
+                      </button>
+                    </td>
                     <td className="px-4 py-3">
                       <button
                         type="button"
@@ -1819,6 +1892,38 @@ const AdminSalaryManagement = () => {
             </tbody>
           </table>
         </div>
+
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-light-text/70 dark:text-dark-text/70">
+          <div>
+            {filteredEmployees.length > 0
+              ? `Showing ${startIndex + 1}-${Math.min(
+                  startIndex + EMPLOYEES_PER_PAGE,
+                  filteredEmployees.length
+                )} of ${filteredEmployees.length}`
+              : 'Showing 0 results'}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-2 rounded-lg border border-light-border dark:border-dark-border bg-white/90 dark:bg-dark-card disabled:opacity-50"
+            >
+              Previous
+            </button>
+            <span className="px-2">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-2 rounded-lg border border-light-border dark:border-dark-border bg-white/90 dark:bg-dark-card disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </div>
 
       {isPanelOpen && selectedEmployee && (
@@ -1876,40 +1981,104 @@ const AdminSalaryManagement = () => {
                 <>
                   <div>
                     <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                      Fixed Per Hour Pay
+                      Overtime Rate Basis
                     </label>
-                    <input
-                      type="number"
-                      step="1"
-                      value={overtimeSettings.hourlyRate}
-                      onChange={e =>
-                        setOvertimeSettings(prev => ({
-                          ...prev,
-                          hourlyRate: Number(e.target.value),
-                        }))
-                      }
-                      onFocus={e => e.target.select()}
-                      onWheel={e => e.currentTarget.blur()}
-                      className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
-                    />
+                    <div className="mt-2 space-y-2">
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="radio"
+                          name="overtimeRateBasis"
+                          value="fixed"
+                          checked={overtimeSettings.rateBasis === 'fixed'}
+                          onChange={() =>
+                            setOvertimeSettings(prev => ({ ...prev, rateBasis: 'fixed' }))
+                          }
+                        />
+                        Fixed Per Hour
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="radio"
+                          name="overtimeRateBasis"
+                          value="daily_wage"
+                          checked={overtimeSettings.rateBasis === 'daily_wage'}
+                          onChange={() =>
+                            setOvertimeSettings(prev => ({ ...prev, rateBasis: 'daily_wage' }))
+                          }
+                        />
+                        Based on Daily Wage
+                      </label>
+                    </div>
                   </div>
+
+                  {overtimeSettings.rateBasis === 'fixed' && (
+                    <div>
+                      <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                        Fixed Per Hour Pay
+                      </label>
+                      <input
+                        type="number"
+                        step="1"
+                        value={overtimeSettings.hourlyRate}
+                        onChange={e =>
+                          setOvertimeSettings(prev => ({
+                            ...prev,
+                            hourlyRate: Number(e.target.value),
+                          }))
+                        }
+                        onFocus={e => e.target.select()}
+                        onWheel={e => e.currentTarget.blur()}
+                        className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                      />
+                      <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-2">
+                        Used when overtime basis is set to Fixed Per Hour.
+                      </p>
+                    </div>
+                  )}
+                  {overtimeSettings.rateBasis === 'daily_wage' && (
+                    <div>
+                      <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                        Daily Wage Multiplier
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={overtimeSettings.dailyWageMultiplier}
+                        onChange={e =>
+                          setOvertimeSettings(prev => ({
+                            ...prev,
+                            dailyWageMultiplier: Number(e.target.value),
+                          }))
+                        }
+                        onFocus={e => e.target.select()}
+                        onWheel={e => e.currentTarget.blur()}
+                        className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                      />
+                      <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-2">
+                        Overtime rate per hour = (Daily wage / {HOURS_PER_DAY}) x multiplier.
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <label className="text-sm font-medium text-light-text dark:text-dark-text">
                       Buffer Period
                     </label>
                     <input
-                      type="time"
-                      value={overtimeSettings.bufferMinutes}
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={parseBufferMinutes(overtimeSettings.bufferMinutes)}
                       onChange={e =>
                         setOvertimeSettings(prev => ({
                           ...prev,
-                          bufferMinutes: e.target.value,
+                          bufferMinutes: formatBufferMinutes(e.target.value),
                         }))
                       }
                       className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
                     />
                     <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-2">
-                      Define when overtime begins post-shift
+                      Grace minutes before overtime starts
                     </p>
                   </div>
                 </>

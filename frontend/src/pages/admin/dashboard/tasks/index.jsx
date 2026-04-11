@@ -203,12 +203,12 @@ const AdminTasks = () => {
   };
 
   return (
-    <div className="flex-1 bg-light-bg dark:bg-dark-bg min-h-full">
+    <div className="min-h-screen px-6 py-6 lg:ml-16 bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text">
       <Header
         title="Tasks"
         description="Manage and track team tasks and assignments."
       />
-      <div className="p-6">
+      <div>
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Header with Add Button */}
           <div className="flex items-center justify-between gap-4 flex-wrap">

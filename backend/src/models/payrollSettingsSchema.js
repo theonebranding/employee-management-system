@@ -7,9 +7,18 @@ const payrollSettingsSchema = new mongoose.Schema(
         type: Boolean,
         default: true,
       },
+      rateBasis: {
+        type: String,
+        enum: ['fixed', 'daily_wage'],
+        default: 'fixed',
+      },
       hourlyRate: {
         type: Number,
         default: 0,
+      },
+      dailyWageMultiplier: {
+        type: Number,
+        default: 1,
       },
       bufferMinutes: {
         type: String,

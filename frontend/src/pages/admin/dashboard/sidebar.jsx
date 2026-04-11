@@ -106,16 +106,16 @@ const AdminSidebar = () => {
       )}
       {/* Sidebar */}
       <div
-        className={`group fixed top-4 left-4 z-50 h-[calc(100vh-2rem)] bg-transparent text-light-text dark:text-dark-text shadow-2xl border border-light-border/70 dark:border-dark-border rounded-3xl backdrop-blur transition-all duration-300 ease-in-out flex flex-col overflow-hidden
-          ${isSidebarOpen ? 'translate-x-0 w-72' : '-translate-x-[120%] w-72'} lg:translate-x-0 lg:w-20 lg:hover:w-72`}
+        className={`group fixed top-0 left-0 z-50 h-screen bg-transparent text-light-text dark:text-dark-text shadow-2xl border border-light-border/70 dark:border-dark-border rounded-r-3xl rounded-l-none backdrop-blur transition-all duration-300 ease-in-out flex flex-col overflow-hidden
+          ${isSidebarOpen ? 'translate-x-0 w-72' : '-translate-x-[120%] w-72'} lg:translate-x-0 lg:w-16 lg:hover:w-72`}
       >
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-light-border/70 dark:border-dark-border">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-primary-dark text-white flex items-center justify-center font-bold">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-light-border/70 dark:border-dark-border lg:px-2">
+          <div className="flex items-center gap-3 lg:w-full lg:justify">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-primary-dark text-white flex items-center justify-center font-bold lg:mx-auto lg:group-hover:mx-0">
               EMS
             </div>
-            <div className="lg:opacity-0 lg:group-hover:opacity-100 lg:transition-all lg:duration-200">
+            <div className="lg:opacity-0 lg:w-0 lg:overflow-hidden lg:group-hover:w-auto lg:group-hover:overflow-visible lg:group-hover:opacity-100 lg:transition-all lg:duration-200">
               <p className="text-xs uppercase tracking-[0.24em] text-light-text/60 dark:text-dark-text/60">
                 Console
               </p>
@@ -135,7 +135,7 @@ const AdminSidebar = () => {
         </div>
 
         {/* Sidebar Navigation */}
-        <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto overflow-x-hidden no-scrollbar">
+        <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto overflow-x-hidden no-scrollbar lg:px-2">
           {menuItems.map((item, index) => {
             const hasChildren = Boolean(item.children?.length);
             const isSectionOpen = item.key ? openSections[item.key] : false;
@@ -230,7 +230,7 @@ const AdminSidebar = () => {
         </nav>
 
         {/* Logout Button */}
-        <div className="p-5 border-t border-light-border/70 dark:border-dark-border">
+        <div className="p-5 border-t border-light-border/70 dark:border-dark-border lg:px-2">
           <button
             onClick={handleLogout}
             className="flex items-center w-full px-4 py-3 text-sm font-medium text-light-text dark:text-dark-text rounded-2xl transition-all hover:bg-danger hover:text-white lg:w-12 lg:h-12 lg:justify-center lg:px-0 lg:mx-auto lg:self-center lg:group-hover:w-full lg:group-hover:justify-start lg:group-hover:px-4 lg:group-hover:mx-0"

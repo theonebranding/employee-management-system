@@ -119,7 +119,7 @@ const DashboardHome = () => {
   }); // ✅ Re-render charts when theme changes
 
   return (
-    <div className="p-6 ml-8 min-h-screen pl-20 bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text transition-colors duration-300">
+    <div className="min-h-screen px-6 py-6 lg:ml-16 bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
         {/* Header with Theme Toggle */}
         <Header

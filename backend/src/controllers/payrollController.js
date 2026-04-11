@@ -8,6 +8,7 @@ import Leave from '../models/leaveSchema.js';
 import SelectedHoliday from '../models/selectedHolidaySchema.js';
 import PayslipSettings from '../models/payslipSettingsSchema.js';
 import PayrollSettings from '../models/payrollSettingsSchema.js';
+import AdminAttendanceSettings from '../models/adminAttendanceSettingsSchema.js';
 import LoanAdvance from '../models/loanAdvanceSchema.js';
 import ExtraAllowance from '../models/extraAllowanceSchema.js';
 import { generatePayslipHtml, getDefaultPayslipSettings } from '../utils/payslipUtils.js';
@@ -237,6 +238,17 @@ const computePayroll = async ({
     date: { $gte: start, $lte: end },
   });
 
+  const adminAttendanceSettings = await AdminAttendanceSettings.findOne();
+  const requiredWorkingMinutes = Number(
+    adminAttendanceSettings?.totalWorkingHours || HOURS_PER_DAY * 60
+  );
+  const bufferMinutesValue = String(payrollSettings?.overtime?.bufferMinutes || '00:00');
+  const [bufferHours, bufferMinutes] = bufferMinutesValue
+    .split(':')
+    .map((value) => Number(value || 0));
+  const totalBufferMinutes = Math.max(0, bufferHours * 60 + bufferMinutes);
+  const isOvertimeEnabled = payrollSettings?.overtime?.enabled !== false;
+
   let fullDays = 0;
   let halfDays = 0;
 
@@ -275,10 +287,41 @@ const computePayroll = async ({
   const baseSalary = Number(salaryRecord?.baseSalary || 0);
   const dailyWage = workingDays ? baseSalary / workingDays : 0;
   const unpaidDays = Math.max(0, workingDays - fullDays - halfDays - paidLeaves);
-  const fallbackOvertimeRate = dailyWage / HOURS_PER_DAY;
+  const dailyWageOvertimeMultiplier = Number(payrollSettings?.overtime?.dailyWageMultiplier || 1);
+  const fallbackOvertimeRate = (dailyWage / HOURS_PER_DAY) * dailyWageOvertimeMultiplier;
   const configuredOvertimeRate = Number(payrollSettings?.overtime?.hourlyRate || 0);
-  const overtimeRate = configuredOvertimeRate > 0 ? configuredOvertimeRate : fallbackOvertimeRate;
-  const overtimeAmount = Number(overtimeHours || 0) * overtimeRate;
+  const overtimeRateBasis = String(payrollSettings?.overtime?.rateBasis || 'fixed');
+  const overtimeRate =
+    overtimeRateBasis === 'daily_wage'
+      ? fallbackOvertimeRate
+      : configuredOvertimeRate > 0
+        ? configuredOvertimeRate
+        : fallbackOvertimeRate;
+  const autoOvertimeMinutes = isOvertimeEnabled
+    ? attendanceRecords.reduce((total, record) => {
+        let workingMinutes = Number(record.totalWorkingTime || 0);
+        if (workingMinutes > 24 * 60) {
+          workingMinutes = Math.floor(workingMinutes / 60000);
+        }
+        if (!workingMinutes && record.checkInTime && record.checkOutTime) {
+          const durationMs =
+            new Date(record.checkOutTime) -
+            new Date(record.checkInTime) -
+            Number(record.totalRecessDuration || 0);
+          workingMinutes = Math.max(0, Math.floor(durationMs / 60000));
+        }
+        const overtimeMinutes = Math.max(
+          0,
+          workingMinutes - requiredWorkingMinutes - totalBufferMinutes
+        );
+        return total + overtimeMinutes;
+      }, 0)
+    : 0;
+  const resolvedOvertimeHours =
+    overtimeHours !== undefined && overtimeHours !== null
+      ? Number(overtimeHours || 0)
+      : Math.round((autoOvertimeMinutes / 60) * 100) / 100;
+  const overtimeAmount = resolvedOvertimeHours * overtimeRate;
   const halfDayDeduction = halfDays * dailyWage * 0.5;
   const defaultExtra = Number(payrollSettings?.extras?.defaultExtra || 0);
   const normalizedExtraAmount =
@@ -304,6 +347,7 @@ const computePayroll = async ({
     unpaidDays,
     baseSalary,
     dailyWage,
+    overtimeHours: resolvedOvertimeHours,
     overtimeAmount,
     extraAmount: totalExtraAmount,
     halfDayDeduction,
@@ -316,7 +360,7 @@ const upsertPayroll = async ({
   employee,
   month,
   year,
-  overtimeHours = 0,
+  overtimeHours,
   penalties = 0,
   loanAmount,
   extraAmount = 0,
@@ -411,7 +455,7 @@ const upsertPayroll = async ({
       halfDays: payrollValues.halfDays,
       paidLeaves: payrollValues.paidLeaves,
       unpaidDays: payrollValues.unpaidDays,
-      overtimeHours: Number(overtimeHours || 0),
+      overtimeHours: Number(payrollValues.overtimeHours || 0),
       overtimeAmount: payrollValues.overtimeAmount,
       penalties: Number(penalties || 0),
       loanAmount: Number(payrollValues.loanAmount || 0),
@@ -455,7 +499,7 @@ export const processPayrollForEmployee = async (req, res) => {
       employee,
       month: req.body.month,
       year: req.body.year,
-      overtimeHours: req.body.overtimeHours ?? 0,
+      overtimeHours: req.body.overtimeHours,
       penalties: req.body.penalties ?? 0,
       loanAmount: req.body.loanAmount,
       extraAmount: req.body.extraAmount,
@@ -554,7 +598,7 @@ export const getPayrollPreview = async (req, res) => {
           employee,
           month: Number(month),
           year: Number(year),
-          overtimeHours: 0,
+          overtimeHours: undefined,
           penalties: 0,
           loanAmount: undefined,
           extraAmount: undefined,
@@ -571,7 +615,7 @@ export const getPayrollPreview = async (req, res) => {
           halfDays: payrollValues.halfDays,
           paidLeaves: payrollValues.paidLeaves,
           unpaidDays: payrollValues.unpaidDays,
-          overtimeHours: 0,
+          overtimeHours: payrollValues.overtimeHours,
           overtimeAmount: payrollValues.overtimeAmount,
           penalties: 0,
           loanAmount: payrollValues.loanAmount,
