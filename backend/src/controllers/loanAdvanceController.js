@@ -1,4 +1,15 @@
 import LoanAdvance from '../models/loanAdvanceSchema.js';
+import Payroll from '../models/payrollSchema.js';
+import { toIstDate } from '../utils/timezoneUtils.js';
+
+const isPayrollPaidForTransactionMonth = async (employeeId, transactionDate) => {
+  const istDate = toIstDate(transactionDate);
+  const month = istDate.getUTCMonth() + 1;
+  const year = istDate.getUTCFullYear();
+
+  const payroll = await Payroll.findOne({ employee: employeeId, month, year }).lean();
+  return payroll?.status === 'paid';
+};
   
 // Get loan advances
 export const getLoanAdvances = async (req, res) => {
@@ -32,6 +43,12 @@ export const createLoanAdvance = async (req, res) => {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
+    if (await isPayrollPaidForTransactionMonth(employeeId, transactionDate)) {
+      return res.status(409).json({
+        message: 'Cannot add loan/advance: payroll is already paid for this month',
+      });
+    }
+
     const loanAdvance = new LoanAdvance({
       employee: employeeId,
       type,
@@ -59,10 +76,21 @@ export const updateLoanAdvance = async (req, res) => {
     const { loanId } = req.params;
     const updates = req.body;
 
-    const loanAdvance = await LoanAdvance.findByIdAndUpdate(loanId, updates, { new: true });
-    if (!loanAdvance) {
+    const existingLoanAdvance = await LoanAdvance.findById(loanId);
+    if (!existingLoanAdvance) {
       return res.status(404).json({ message: 'Loan advance not found' });
     }
+
+    const targetEmployeeId = updates.employee || existingLoanAdvance.employee;
+    const targetTransactionDate = updates.transactionDate || existingLoanAdvance.transactionDate;
+
+    if (await isPayrollPaidForTransactionMonth(targetEmployeeId, targetTransactionDate)) {
+      return res.status(409).json({
+        message: 'Cannot update loan/advance: payroll is already paid for this month',
+      });
+    }
+
+    const loanAdvance = await LoanAdvance.findByIdAndUpdate(loanId, updates, { new: true });
 
     res.status(200).json({ message: 'Loan advance updated successfully', loanAdvance });
   } catch (error) {
@@ -74,6 +102,22 @@ export const updateLoanAdvance = async (req, res) => {
 export const deleteLoanAdvance = async (req, res) => {
   try {
     const { loanId } = req.params;
+
+    const existingLoanAdvance = await LoanAdvance.findById(loanId);
+    if (!existingLoanAdvance) {
+      return res.status(404).json({ message: 'Loan advance not found' });
+    }
+
+    if (
+      await isPayrollPaidForTransactionMonth(
+        existingLoanAdvance.employee,
+        existingLoanAdvance.transactionDate
+      )
+    ) {
+      return res.status(409).json({
+        message: 'Cannot delete loan/advance: payroll is already paid for this month',
+      });
+    }
 
     const loanAdvance = await LoanAdvance.findByIdAndDelete(loanId);
     if (!loanAdvance) {

@@ -95,6 +95,7 @@ export const generatePayslipHtml = ({ salary, employee, settings, template }) =>
       <div class="grid">
         <div><div class="label">Employee Name</div><div class="value">${employee.name}</div></div>
         <div><div class="label">Employee Email</div><div class="value">${employee.email}</div></div>
+        <div><div class="label">Employee ID</div><div class="value">${employee.employeeCode || employee._id || '-'}</div></div>
         <div><div class="label">Month</div><div class="value">${monthName}</div></div>
         <div><div class="label">Year</div><div class="value">${salary.salaryYear}</div></div>
       </div>

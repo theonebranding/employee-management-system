@@ -11,6 +11,7 @@ import PayrollSettings from '../models/payrollSettingsSchema.js';
 import AdminAttendanceSettings from '../models/adminAttendanceSettingsSchema.js';
 import LoanAdvance from '../models/loanAdvanceSchema.js';
 import ExtraAllowance from '../models/extraAllowanceSchema.js';
+import sendEmail from '../services/sendEmail.js';
 import { generatePayslipHtml, getDefaultPayslipSettings } from '../utils/payslipUtils.js';
 import {
   getIstDayKey,
@@ -59,6 +60,11 @@ const pickTemplate = (settings) => {
 };
 
 const getMonthRange = (month, year) => getIstMonthRange(month, year);
+const isPayrollMonthClosed = (month, year) => {
+  const { end } = getIstMonthRange(month, year);
+  const now = new Date();
+  return now > end;
+};
 
 const countWorkingDays = (month, year) => {
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -482,12 +488,54 @@ const upsertPayroll = async ({
   return payroll;
 };
 
+const emailPaidPayrollPayslip = async ({ payroll, employee, processedBy }) => {
+  if (payroll?.status !== 'paid' || !payroll?.salaryRecord) return;
+
+  const salary = await Salary.findById(payroll.salaryRecord);
+  if (!salary) return;
+
+  const settings = await resolvePayslipSettings();
+  const template = {
+    id: salary.templateId,
+    name: salary.templateName,
+    accentStyle: 'classic',
+  };
+
+  const mergedSettings = mergePayslipSettings(salary.payslipSnapshot, settings);
+  const payslipHtml = generatePayslipHtml({
+    salary,
+    employee,
+    settings: mergedSettings,
+    template,
+  });
+
+  await sendEmail(employee.email, `Payslip - ${salary.salaryMonth}/${salary.salaryYear}`, payslipHtml);
+
+  salary.payslipStatus = 'generated';
+  salary.generatedAt = new Date();
+  salary.generatedBy = processedBy;
+  salary.emailedAt = new Date();
+  await salary.save();
+};
+
 export const processPayrollForEmployee = async (req, res) => {
   try {
     const { employeeId } = req.params;
+    const month = Number(req.body.month);
+    const year = Number(req.body.year);
 
     if (!mongoose.Types.ObjectId.isValid(employeeId)) {
       return res.status(400).json({ message: 'Invalid employee ID' });
+    }
+
+    if (!month || !year) {
+      return res.status(400).json({ message: 'Month and year are required' });
+    }
+
+    if (!isPayrollMonthClosed(month, year)) {
+      return res.status(400).json({
+        message: 'Payroll can only be processed after the selected month has ended',
+      });
     }
 
     const employee = await Employee.findById(employeeId);
@@ -495,10 +543,22 @@ export const processPayrollForEmployee = async (req, res) => {
       return res.status(404).json({ message: 'Employee not found' });
     }
 
+    const existingPayroll = await Payroll.findOne({
+      employee: employee._id,
+      month,
+      year,
+    });
+
+    if (existingPayroll?.status === 'paid') {
+      return res.status(409).json({
+        message: 'Payroll is locked because status is paid for the selected month',
+      });
+    }
+
     const payroll = await upsertPayroll({
       employee,
-      month: req.body.month,
-      year: req.body.year,
+      month,
+      year,
       overtimeHours: req.body.overtimeHours,
       penalties: req.body.penalties ?? 0,
       loanAmount: req.body.loanAmount,
@@ -506,6 +566,14 @@ export const processPayrollForEmployee = async (req, res) => {
       status: req.body.status || 'unpaid',
       processedBy: req.user?._id,
     });
+
+    if (payroll?.status === 'paid') {
+      await emailPaidPayrollPayslip({
+        payroll,
+        employee,
+        processedBy: req.user?._id,
+      });
+    }
 
     return res.status(200).json({ message: 'Payroll processed successfully', payroll });
   } catch (error) {
@@ -515,7 +583,20 @@ export const processPayrollForEmployee = async (req, res) => {
 
 export const processPayrollForAll = async (req, res) => {
   try {
-    const { month, year } = req.body;
+    const month = Number(req.body.month);
+    const year = Number(req.body.year);
+    const status = req.body.status || 'unpaid';
+
+    if (!month || !year) {
+      return res.status(400).json({ message: 'Month and year are required' });
+    }
+
+    if (!isPayrollMonthClosed(month, year)) {
+      return res.status(400).json({
+        message: 'Payroll can only be processed after the selected month has ended',
+      });
+    }
+
     const employees = await Employee.find();
 
     const payrolls = [];
@@ -536,8 +617,17 @@ export const processPayrollForAll = async (req, res) => {
         employee,
         month,
         year,
+        status,
         processedBy: req.user?._id,
       });
+
+      if (payroll?.status === 'paid') {
+        await emailPaidPayrollPayslip({
+          payroll,
+          employee,
+          processedBy: req.user?._id,
+        });
+      }
       payrolls.push(payroll);
     }
 

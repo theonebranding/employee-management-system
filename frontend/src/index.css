@@ -53,3 +53,30 @@ button.secondary {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Sidebar glass effect */
+.glass-sidebar {
+  background: linear-gradient(
+    135deg,
+    rgba(229, 229, 231, 0.45) 0%,
+    rgba(203, 213, 225, 0.329) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow:
+    0 14px 34px rgba(15, 23, 42, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+.dark .glass-sidebar {
+  background: linear-gradient(
+    135deg,
+    rgba(30, 41, 59, 0.28) 0%,
+    rgba(15, 23, 42, 0.16) 100%
+  );
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}

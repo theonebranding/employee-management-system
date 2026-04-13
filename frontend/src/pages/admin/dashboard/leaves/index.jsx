@@ -198,7 +198,7 @@ const AdminLeaveManagement = () => {
           description="Manage employee leave requests and update their statuses."
         />
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-light-card dark:bg-dark-card px-6 -mx-6 py-4 border-b border-light-border dark:border-dark-border">
+        <div className="max-w-7xl mx-auto sticky top-0 z-10 bg-light-card dark:bg-dark-card px-6 -mx-6 py-4 border-b border-light-border dark:border-dark-border rounded-lg p-4 border ">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <form onSubmit={handleSearch} className="relative group">

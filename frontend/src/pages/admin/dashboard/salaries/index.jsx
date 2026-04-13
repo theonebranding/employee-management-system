@@ -9,7 +9,7 @@ import {
   Search,
   X,
 } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 
 import Header from '../../../../components/pageHeader';
@@ -90,6 +90,8 @@ const AdminSalaryManagement = () => {
     halfDay: 0,
     absent: 0,
   });
+  const salaryTableScrollRef = useRef(null);
+  const salaryScrollIntervalRef = useRef(null);
   const [lateCheckInCounts, setLateCheckInCounts] = useState({});
   const HOURS_PER_DAY = 8;
   const IST_OFFSET_MINUTES = 330;
@@ -104,6 +106,60 @@ const AdminSalaryManagement = () => {
     () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` }),
     []
   );
+  const isSelectedMonthClosed = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+
+    if (year < currentYear) return true;
+    if (year > currentYear) return false;
+    return month < currentMonth;
+  }, [month, year]);
+  const selectedMonthLabel = useMemo(
+    () => new Date(year, month - 1, 1).toLocaleString('default', { month: 'long' }),
+    [month, year]
+  );
+  const isPayrollPaidLocked = selectedEmployee?.payroll?.status === 'paid';
+  const toIstMonthYear = date => {
+    const shifted = new Date(date.getTime() + 330 * 60 * 1000);
+    return {
+      month: shifted.getUTCMonth() + 1,
+      year: shifted.getUTCFullYear(),
+    };
+  };
+  const getJoinedYearMonth = employee => {
+    const joinedValue = employee?.joinedDate || employee?.dateOfJoining || employee?.createdAt;
+
+    if (joinedValue instanceof Date) {
+      if (Number.isNaN(joinedValue.getTime())) return null;
+      return toIstMonthYear(joinedValue);
+    }
+
+    const raw = String(joinedValue).trim();
+    if (!raw) return null;
+
+    const ddMmYyyy = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if (ddMmYyyy) {
+      return {
+        month: Number(ddMmYyyy[2]),
+        year: Number(ddMmYyyy[3]),
+      };
+    }
+
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return toIstMonthYear(parsed);
+  };
+  const isEmployeeEligibleForSelectedMonth = employee => {
+    const joined = getJoinedYearMonth(employee);
+    if (!joined) return true;
+
+    const joinedMonth = joined.month;
+    const joinedYear = joined.year;
+    if (year > joinedYear) return true;
+    if (year < joinedYear) return false;
+    return month >= joinedMonth;
+  };
 
   const fetchEmployees = async () => {
     try {
@@ -116,6 +172,24 @@ const AdminSalaryManagement = () => {
       toast.error(error.message || 'Failed to fetch employees.');
     }
   };
+
+  const stopSalaryTableAutoScroll = () => {
+    if (salaryScrollIntervalRef.current) {
+      clearInterval(salaryScrollIntervalRef.current);
+      salaryScrollIntervalRef.current = null;
+    }
+  };
+
+  const startSalaryTableAutoScroll = (direction) => {
+    if (!salaryTableScrollRef.current) return;
+    stopSalaryTableAutoScroll();
+    const step = direction === 'left' ? -18 : 18;
+    salaryScrollIntervalRef.current = setInterval(() => {
+      salaryTableScrollRef.current?.scrollBy({ left: step, behavior: 'auto' });
+    }, 16);
+  };
+
+  useEffect(() => () => stopSalaryTableAutoScroll(), []);
 
   const fetchSalaries = async () => {
     try {
@@ -499,7 +573,17 @@ const AdminSalaryManagement = () => {
     return Number.isFinite(netPay) ? netPay : 0;
   };
 
-  const openPanel = (employee, event) => {
+  const fetchLatestPayrollForEmployee = async (employeeId) => {
+    const response = await fetch(
+      `${BASE_URL}/payroll/employee/${employeeId}?month=${month}&year=${year}`,
+      { headers: authHeaders }
+    );
+    if (!response.ok) throw new Error('Failed to fetch latest employee payroll.');
+    const data = await response.json();
+    return (data.payrolls || [])[0] || null;
+  };
+
+  const openPanel = async (employee, event) => {
     if (event) event.stopPropagation();
     const payroll = mergedPayrollMap[employee._id];
     setSelectedEmployee({ ...employee, payroll });
@@ -515,6 +599,29 @@ const AdminSalaryManagement = () => {
     });
     setIsPanelOpen(true);
     fetchPanelDeductions(employee._id);
+    try {
+      const latestPayroll = await fetchLatestPayrollForEmployee(employee._id);
+      const preferredPayroll =
+        latestPayroll?.status === 'paid'
+          ? latestPayroll
+          : mergedPayrollMap[employee._id] || latestPayroll;
+      if (preferredPayroll) {
+        setSelectedEmployee(prev => (prev ? { ...prev, payroll: preferredPayroll } : prev));
+        setFormState(prev => ({
+          ...prev,
+          overtimeHours: preferredPayroll?.overtimeHours || 0,
+          penalties: preferredPayroll?.penalties || 0,
+          loanAmount:
+            loanAdvanceMap[employee._id] ??
+            preferredPayroll?.computedLoanAmount ??
+            (preferredPayroll?.loanAmount || 0),
+          extraAmount: preferredPayroll?.extraAmount || 0,
+          status: preferredPayroll?.status || 'unpaid',
+        }));
+      }
+    } catch (error) {
+      toast.error(error.message || 'Failed to refresh employee payroll status.');
+    }
   };
 
   const openExtrasPanel = (employee, event) => {
@@ -934,6 +1041,30 @@ const AdminSalaryManagement = () => {
   }, [month, year, selectedEmployee?._id]);
 
   useEffect(() => {
+    if (!selectedEmployee?._id) return;
+    const syncLatest = async () => {
+      try {
+        const latestPayroll = await fetchLatestPayrollForEmployee(selectedEmployee._id);
+        const fallbackPayroll = mergedPayrollMap[selectedEmployee._id];
+        const preferredPayroll =
+          latestPayroll?.status === 'paid'
+            ? latestPayroll
+            : fallbackPayroll || latestPayroll;
+        setSelectedEmployee(prev =>
+          prev ? { ...prev, payroll: preferredPayroll || prev.payroll } : prev
+        );
+      } catch (error) {
+        const fallbackPayroll = mergedPayrollMap[selectedEmployee._id];
+        setSelectedEmployee(prev =>
+          prev ? { ...prev, payroll: fallbackPayroll || prev.payroll } : prev
+        );
+      }
+    };
+    syncLatest();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEmployee?._id, month, year, payrolls.length]);
+
+  useEffect(() => {
     if (settingsPanel !== 'extras') {
       setExtraDetails(null);
       return;
@@ -967,6 +1098,23 @@ const AdminSalaryManagement = () => {
 
   const processPayroll = async () => {
     if (!selectedEmployee) return;
+    if (!isSelectedMonthClosed) {
+      toast.error(`Payroll can be processed only after ${selectedMonthLabel} ${year} ends.`);
+      return;
+    }
+    const selectedPayroll = selectedEmployee?.payroll || {};
+    const derivedPenalties = Number(
+      selectedPayroll?.isPreview
+        ? autoPenaltyMap[selectedEmployee._id] ?? 0
+        : selectedPayroll?.penalties || 0
+    );
+    const derivedLoanAmount = Number(
+      selectedPayroll?.isPreview
+        ? loanAdvanceMap[selectedEmployee._id] ?? selectedPayroll?.computedLoanAmount ?? 0
+        : selectedPayroll?.loanAmount || 0
+    );
+    const derivedOvertimeHours = Number(selectedPayroll?.overtimeHours || 0);
+    const derivedExtraAmount = Number(selectedPayroll?.extraAmount || 0);
     try {
       const response = await fetch(`${BASE_URL}/payroll/process/${selectedEmployee._id}`, {
         method: 'POST',
@@ -977,7 +1125,11 @@ const AdminSalaryManagement = () => {
         body: JSON.stringify({
           month,
           year,
-          ...formState,
+          overtimeHours: derivedOvertimeHours,
+          penalties: derivedPenalties,
+          loanAmount: derivedLoanAmount,
+          extraAmount: derivedExtraAmount,
+          status: formState.status,
         }),
       });
       if (!response.ok) {
@@ -1142,7 +1294,10 @@ const AdminSalaryManagement = () => {
     return Array.from(uniqueRoles).sort((a, b) => a.localeCompare(b));
   }, [employees]);
 
-  const filteredEmployees = employees
+  const eligibleEmployees = employees
+    .filter(isEmployeeEligibleForSelectedMonth);
+
+  const filteredEmployees = eligibleEmployees
     .filter(employee => {
       if (!normalizedQuery) return true;
       return (
@@ -1218,7 +1373,16 @@ const AdminSalaryManagement = () => {
           : overtimeFromDailyWage;
     const overtimeHours = Number(payroll?.overtimeHours || 0);
     const overtimeAmount = Number(payroll?.overtimeAmount || 0);
-    const showPenaltySummary = Boolean(payroll?.isPreview && penaltySettings.enabled);
+    const extraAmount = Number(payroll?.extraAmount || 0);
+    const snapshotPenaltyAmount = Number(
+      payroll?.isPreview ? autoPenaltyMap[selectedEmployee?._id] ?? 0 : payroll?.penalties || 0
+    );
+    const snapshotLoanAmount = Number(
+      payroll?.isPreview
+        ? loanAdvanceMap[selectedEmployee?._id] ?? payroll?.computedLoanAmount ?? 0
+        : payroll?.loanAmount || 0
+    );
+    const showPenaltySummary = Boolean(penaltySettings.enabled);
 
     return (
     <div>
@@ -1252,13 +1416,10 @@ const AdminSalaryManagement = () => {
             <input
               type="number"
               step="1"
-              value={formState.overtimeHours}
-              onChange={e =>
-                setFormState(prev => ({ ...prev, overtimeHours: Number(e.target.value) }))
-              }
-              onFocus={e => e.target.select()}
-              onWheel={e => e.currentTarget.blur()}
-              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+              value={Number.isFinite(overtimeHours) ? overtimeHours : 0}
+              disabled
+              readOnly
+              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
             />
           </div>
           <div>
@@ -1268,23 +1429,10 @@ const AdminSalaryManagement = () => {
             <input
               type="number"
               step="0.01"
-              value={formState.penalties}
-              onChange={e => {
-                const nextValue = Number(e.target.value);
-                const rounded = Number.isFinite(nextValue)
-                  ? Math.round(nextValue * 100) / 100
-                  : 0;
-                setFormState(prev => ({ ...prev, penalties: rounded }));
-              }}
-              onBlur={() =>
-                setFormState(prev => ({
-                  ...prev,
-                  penalties: Number(Number(prev.penalties || 0).toFixed(2)),
-                }))
-              }
-              onFocus={e => e.target.select()}
-              onWheel={e => e.currentTarget.blur()}
-              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+              value={Number.isFinite(snapshotPenaltyAmount) ? snapshotPenaltyAmount : 0}
+              disabled
+              readOnly
+              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
             />
           </div>
           <div>
@@ -1294,11 +1442,10 @@ const AdminSalaryManagement = () => {
             <input
               type="number"
               step="1"
-              value={formState.loanAmount}
-              onChange={e => setFormState(prev => ({ ...prev, loanAmount: Number(e.target.value) }))}
-              onFocus={e => e.target.select()}
-              onWheel={e => e.currentTarget.blur()}
-              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+              value={Number.isFinite(snapshotLoanAmount) ? snapshotLoanAmount : 0}
+              disabled
+              readOnly
+              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
             />
           </div>
           <div>
@@ -1308,11 +1455,10 @@ const AdminSalaryManagement = () => {
             <input
               type="number"
               step="1"
-              value={formState.extraAmount}
-              onChange={e => setFormState(prev => ({ ...prev, extraAmount: Number(e.target.value) }))}
-              onFocus={e => e.target.select()}
-              onWheel={e => e.currentTarget.blur()}
-              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+              value={Number.isFinite(extraAmount) ? extraAmount : 0}
+              disabled
+              readOnly
+              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
             />
           </div>
         </div>
@@ -1361,6 +1507,10 @@ const AdminSalaryManagement = () => {
             <span>Overtime Amount</span>
             <span>₹{overtimeAmount.toFixed(2)}</span>
           </div>
+          <div className="flex items-center justify-between text-sm">
+            <span>Extras Amount</span>
+            <span>₹{extraAmount.toFixed(2)}</span>
+          </div>
         </div>
 
         <div>
@@ -1369,8 +1519,9 @@ const AdminSalaryManagement = () => {
           </label>
           <select
             value={formState.status}
+            disabled={isPayrollPaidLocked}
             onChange={e => setFormState(prev => ({ ...prev, status: e.target.value }))}
-            className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+            className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
           >
             <option value="unpaid">Unpaid</option>
             <option value="paid">Paid</option>
@@ -1409,6 +1560,7 @@ const AdminSalaryManagement = () => {
             const fullDays = Number(payroll?.fullDays || 0);
             const halfDays = Number(payroll?.halfDays || 0);
             const paidLeaves = Number(payroll?.paidLeaves || 0);
+            const paidLeavesGross = paidLeaves * dailyWage;
             const overtimeAmount = Number(payroll?.overtimeAmount || 0);
             const extraAmount = Number(payroll?.extraAmount || 0);
             const penalties = Number(
@@ -1436,6 +1588,12 @@ const AdminSalaryManagement = () => {
 
             return (
               <>
+                {paidLeavesGross > 0 ? (
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Paid Leaves Gross</span>
+                    <span>₹{paidLeavesGross.toFixed(2)}</span>
+                  </div>
+                ) : null}
                 <div className="flex items-center justify-between text-sm">
                   <span>Gross Pay</span>
                   <span>₹{grossPay.toFixed(2)}</span>
@@ -1522,11 +1680,22 @@ const AdminSalaryManagement = () => {
       <div className="mt-6 flex flex-col gap-3">
         <button
           onClick={processPayroll}
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-white"
+          disabled={!isSelectedMonthClosed || isPayrollPaidLocked}
+          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-white disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Calculator className="w-4 h-4" />
           Process Payroll
         </button>
+        {isPayrollPaidLocked ? (
+          <p className="text-xs text-light-text/60 dark:text-dark-text/60">
+            Payroll is locked for this month because status is paid.
+          </p>
+        ) : null}
+        {!isSelectedMonthClosed ? (
+          <p className="text-xs text-light-text/60 dark:text-dark-text/60">
+            Payroll unlocks after {selectedMonthLabel} {year} ends.
+          </p>
+        ) : null}
         <button
           onClick={generatePayslip}
           className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border"
@@ -1719,8 +1888,12 @@ const AdminSalaryManagement = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card">
-          <table className="min-w-full text-sm">
+        <div className="relative group/table">
+          <div
+            ref={salaryTableScrollRef}
+            className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+          >
+            <table className="min-w-full text-sm">
             <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Emp ID</th>
@@ -1890,7 +2063,20 @@ const AdminSalaryManagement = () => {
                 );
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
+          <div
+            className="absolute left-0 top-0 bottom-0 z-10 w-12 cursor-w-resize"
+            onMouseEnter={() => startSalaryTableAutoScroll('left')}
+            onMouseLeave={stopSalaryTableAutoScroll}
+            aria-hidden="true"
+          />
+          <div
+            className="absolute right-0 top-0 bottom-0 z-10 w-12 cursor-e-resize"
+            onMouseEnter={() => startSalaryTableAutoScroll('right')}
+            onMouseLeave={stopSalaryTableAutoScroll}
+            aria-hidden="true"
+          />
         </div>
 
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-light-text/70 dark:text-dark-text/70">
@@ -2791,3 +2977,4 @@ const AdminSalaryManagement = () => {
 };
 
 export default AdminSalaryManagement;
+

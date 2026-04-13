@@ -43,6 +43,60 @@ const AdminPayroll = () => {
     () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` }),
     []
   );
+  const isSelectedMonthClosed = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+
+    if (year < currentYear) return true;
+    if (year > currentYear) return false;
+    return month < currentMonth;
+  }, [month, year]);
+  const selectedMonthLabel = useMemo(
+    () => new Date(year, month - 1, 1).toLocaleString('default', { month: 'long' }),
+    [month, year]
+  );
+  const isPayrollPaidLocked = selectedEmployee?.payroll?.status === 'paid';
+  const toIstMonthYear = (date) => {
+    const shifted = new Date(date.getTime() + 330 * 60 * 1000);
+    return {
+      month: shifted.getUTCMonth() + 1,
+      year: shifted.getUTCFullYear(),
+    };
+  };
+  const getJoinedYearMonth = (employee) => {
+    const joinedValue = employee?.joinedDate || employee?.dateOfJoining || employee?.createdAt;
+
+    if (joinedValue instanceof Date) {
+      if (Number.isNaN(joinedValue.getTime())) return null;
+      return toIstMonthYear(joinedValue);
+    }
+
+    const raw = String(joinedValue).trim();
+    if (!raw) return null;
+
+    const ddMmYyyy = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if (ddMmYyyy) {
+      return {
+        month: Number(ddMmYyyy[2]),
+        year: Number(ddMmYyyy[3]),
+      };
+    }
+
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return toIstMonthYear(parsed);
+  };
+  const isEmployeeEligibleForSelectedMonth = (employee) => {
+    const joined = getJoinedYearMonth(employee);
+    if (!joined) return true;
+
+    const joinedMonth = joined.month;
+    const joinedYear = joined.year;
+    if (year > joinedYear) return true;
+    if (year < joinedYear) return false;
+    return month >= joinedMonth;
+  };
 
   const fetchEmployees = async () => {
     try {
@@ -81,7 +135,9 @@ const AdminPayroll = () => {
     }, {});
   }, [payrolls]);
 
-  const filteredEmployees = employees.filter((employee) => {
+  const eligibleEmployees = employees.filter(isEmployeeEligibleForSelectedMonth);
+
+  const filteredEmployees = eligibleEmployees.filter((employee) => {
     const query = searchQuery.toLowerCase();
     const payrollStatus = payrollMap[employee._id]?.status || 'unpaid';
     const matchesStatus = statusFilter === 'all' || payrollStatus === statusFilter;
@@ -94,18 +150,28 @@ const AdminPayroll = () => {
   const payrollStats = useMemo(() => {
     const paidCount = payrolls.filter(payroll => payroll.status === 'paid').length;
     const processedCount = payrolls.length;
-    const pendingCount = Math.max(0, employees.length - processedCount);
+    const pendingCount = Math.max(0, eligibleEmployees.length - processedCount);
     const totalNet = payrolls.reduce(
       (sum, payroll) => sum + Number(payroll.totalSalary || 0),
       0
     );
     return { paidCount, processedCount, pendingCount, totalNet };
-  }, [employees.length, payrolls]);
+  }, [eligibleEmployees.length, payrolls]);
 
   const headerFont = { fontFamily: '"Plus Jakarta Sans", "Segoe UI", sans-serif' };
   const displayFont = { fontFamily: '"DM Serif Display", Georgia, serif' };
 
-  const openPanel = (employee) => {
+  const fetchLatestPayrollForEmployee = async (employeeId) => {
+    const response = await fetch(
+      `${BASE_URL}/payroll/employee/${employeeId}?month=${month}&year=${year}`,
+      { headers: authHeaders }
+    );
+    if (!response.ok) throw new Error('Failed to fetch latest employee payroll.');
+    const data = await response.json();
+    return (data.payrolls || [])[0] || null;
+  };
+
+  const openPanel = async (employee) => {
     const payroll = payrollMap[employee._id];
     setSelectedEmployee({ ...employee, payroll });
     setFormState({
@@ -116,6 +182,22 @@ const AdminPayroll = () => {
       status: payroll?.status || 'unpaid',
     });
     setIsPanelOpen(true);
+    try {
+      const latestPayroll = await fetchLatestPayrollForEmployee(employee._id);
+      setSelectedEmployee((prev) => (prev ? { ...prev, payroll: latestPayroll } : prev));
+      if (latestPayroll) {
+        setFormState((prev) => ({
+          ...prev,
+          overtimeHours: latestPayroll?.overtimeHours || 0,
+          penalties: latestPayroll?.penalties || 0,
+          loanAmount: latestPayroll?.loanAmount || 0,
+          extraAmount: latestPayroll?.extraAmount || 0,
+          status: latestPayroll?.status || 'unpaid',
+        }));
+      }
+    } catch (error) {
+      toast.error(error.message || 'Failed to refresh employee payroll status.');
+    }
   };
 
   const closePanel = () => {
@@ -171,8 +253,26 @@ const AdminPayroll = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month, year, selectedEmployee?._id]);
 
+  useEffect(() => {
+    if (!selectedEmployee?._id) return;
+    const syncLatest = async () => {
+      try {
+        const latestPayroll = await fetchLatestPayrollForEmployee(selectedEmployee._id);
+        setSelectedEmployee((prev) => (prev ? { ...prev, payroll: latestPayroll } : prev));
+      } catch (error) {
+        // Ignore passive sync failures
+      }
+    };
+    syncLatest();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEmployee?._id, month, year, payrolls.length]);
+
   const processPayroll = async () => {
     if (!selectedEmployee) return;
+    if (!isSelectedMonthClosed) {
+      toast.error(`Payroll can be processed only after ${selectedMonthLabel} ${year} ends.`);
+      return;
+    }
     try {
       const response = await fetch(`${BASE_URL}/payroll/process/${selectedEmployee._id}`, {
         method: 'POST',
@@ -261,6 +361,20 @@ const AdminPayroll = () => {
       </div>
 
       <div className="space-y-5">
+        {(() => {
+          const payroll = selectedEmployee?.payroll || {};
+          const overtimeHours = Number(payroll?.overtimeHours || 0);
+          const overtimeAmount = Number(payroll?.overtimeAmount || 0);
+          const extraAmount = Number(payroll?.extraAmount || 0);
+          const lateCheckinDeduction = Number(panelDeductions.lateCheckin || 0);
+          const halfDayDeduction = Number(panelDeductions.halfDay || 0);
+          const absentDeduction = Number(panelDeductions.absent || 0);
+          const manualPenalty = Number(payroll?.penalties || 0);
+          const totalPenalty =
+            lateCheckinDeduction + halfDayDeduction + absentDeduction + manualPenalty;
+
+          return (
+            <>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
@@ -269,10 +383,11 @@ const AdminPayroll = () => {
             <input
               type="number"
               value={formState.overtimeHours}
+              disabled={isPayrollPaidLocked}
               onChange={(e) =>
                 setFormState((prev) => ({ ...prev, overtimeHours: Number(e.target.value) }))
               }
-              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
             />
           </div>
           <div>
@@ -282,10 +397,11 @@ const AdminPayroll = () => {
             <input
               type="number"
               value={formState.penalties}
+              disabled={isPayrollPaidLocked}
               onChange={(e) =>
                 setFormState((prev) => ({ ...prev, penalties: Number(e.target.value) }))
               }
-              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
             />
           </div>
           <div>
@@ -295,10 +411,11 @@ const AdminPayroll = () => {
             <input
               type="number"
               value={formState.loanAmount}
+              disabled={isPayrollPaidLocked}
               onChange={(e) =>
                 setFormState((prev) => ({ ...prev, loanAmount: Number(e.target.value) }))
               }
-              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
             />
           </div>
           <div>
@@ -308,11 +425,56 @@ const AdminPayroll = () => {
             <input
               type="number"
               value={formState.extraAmount}
+              disabled={isPayrollPaidLocked}
               onChange={(e) =>
                 setFormState((prev) => ({ ...prev, extraAmount: Number(e.target.value) }))
               }
-              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
             />
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
+          <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+            Penalty Summary
+          </p>
+          <div className="flex items-center justify-between text-sm">
+            <span>Late Check-in Deduction</span>
+            <span>₹{lateCheckinDeduction.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span>Half Day Deduction</span>
+            <span>₹{halfDayDeduction.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span>Absent Day Deduction</span>
+            <span>₹{absentDeduction.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span>Manual Penalties</span>
+            <span>₹{manualPenalty.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span>Total Penalty</span>
+            <span>₹{totalPenalty.toFixed(2)}</span>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
+          <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+            Overtime Summary
+          </p>
+          <div className="flex items-center justify-between text-sm">
+            <span>Overtime Hours</span>
+            <span>{overtimeHours.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span>Overtime Amount</span>
+            <span>₹{overtimeAmount.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span>Extras Amount</span>
+            <span>₹{extraAmount.toFixed(2)}</span>
           </div>
         </div>
 
@@ -322,8 +484,9 @@ const AdminPayroll = () => {
           </label>
           <select
             value={formState.status}
+            disabled={isPayrollPaidLocked}
             onChange={(e) => setFormState((prev) => ({ ...prev, status: e.target.value }))}
-            className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+            className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
           >
             <option value="unpaid">Unpaid</option>
             <option value="paid">Paid</option>
@@ -356,6 +519,18 @@ const AdminPayroll = () => {
           <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
             Salary Breakdown
           </p>
+          {Number(selectedEmployee?.payroll?.paidLeaves || 0) > 0 ? (
+            <div className="flex items-center justify-between text-sm">
+              <span>Paid Leaves Gross</span>
+              <span>
+                ₹
+                {(
+                  Number(selectedEmployee?.payroll?.paidLeaves || 0) *
+                  Number(selectedEmployee?.payroll?.dailyWage || 0)
+                ).toFixed(2)}
+              </span>
+            </div>
+          ) : null}
           <div className="flex items-center justify-between text-sm">
             <span>Base Salary</span>
             <span>₹{selectedEmployee?.payroll?.baseSalary?.toFixed(2) || '0.00'}</span>
@@ -369,6 +544,14 @@ const AdminPayroll = () => {
                 Number(selectedEmployee?.payroll?.extraAmount || 0)
               ).toFixed(2)}
             </span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span>Overtime Gross</span>
+            <span>₹{Number(selectedEmployee?.payroll?.overtimeAmount || 0).toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span>Extras Gross</span>
+            <span>₹{Number(selectedEmployee?.payroll?.extraAmount || 0).toFixed(2)}</span>
           </div>
           <div className="flex items-center justify-between text-sm">
             <span>Deductions</span>
@@ -400,16 +583,30 @@ const AdminPayroll = () => {
             </span>
           </div>
         </div>
+            </>
+          );
+        })()}
       </div>
 
       <div className="mt-6 flex flex-col gap-3">
         <button
           onClick={processPayroll}
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-white"
+          disabled={!isSelectedMonthClosed || isPayrollPaidLocked}
+          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-white disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <CheckCircle2 className="w-4 h-4" />
           Process Payroll
         </button>
+        {isPayrollPaidLocked ? (
+          <p className="text-xs text-light-text/60 dark:text-dark-text/60">
+            Payroll is locked for this month because status is paid.
+          </p>
+        ) : null}
+        {!isSelectedMonthClosed ? (
+          <p className="text-xs text-light-text/60 dark:text-dark-text/60">
+            Payroll unlocks after {selectedMonthLabel} {year} ends.
+          </p>
+        ) : null}
         <button
           onClick={generatePayslip}
           className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border"
@@ -615,3 +812,4 @@ const AdminPayroll = () => {
 };
 
 export default AdminPayroll;
+

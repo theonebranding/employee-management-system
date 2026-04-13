@@ -106,7 +106,7 @@ const AdminSidebar = () => {
       )}
       {/* Sidebar */}
       <div
-        className={`group fixed top-0 left-0 z-50 h-screen bg-transparent text-light-text dark:text-dark-text shadow-2xl border border-light-border/70 dark:border-dark-border rounded-r-3xl rounded-l-none backdrop-blur transition-all duration-300 ease-in-out flex flex-col overflow-hidden
+        className={`group fixed top-0 left-0 z-50 h-screen glass-sidebar text-light-text dark:text-dark-text rounded-r-3xl rounded-l-none transition-all duration-300 ease-in-out flex flex-col overflow-hidden
           ${isSidebarOpen ? 'translate-x-0 w-72' : '-translate-x-[120%] w-72'} lg:translate-x-0 lg:w-16 lg:hover:w-72`}
       >
         {/* Sidebar Header */}

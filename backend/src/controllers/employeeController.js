@@ -175,7 +175,7 @@ export const getAllEmployees = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .sort({ createdAt: -1 })
-      .select('-password -role -otp -otpExpires -isVerified -createdAt -updatedAt -__v -salary')
+      .select('-password -role -otp -otpExpires -isVerified -updatedAt -__v -salary')
       .lean();
 
     // Get total count of employees for pagination meta
