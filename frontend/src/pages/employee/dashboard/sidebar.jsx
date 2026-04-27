@@ -1,7 +1,9 @@
 import {
+  ClipboardList,
   CalendarOff,
   CalendarPlus,
   FileText,
+  ListChecks,
   HistoryIcon,
   Home as HomeIcon,
   LogOut,
@@ -36,6 +38,11 @@ const EmployeeSidebar = () => {
       path: '/employee/dashboard/history',
     },
     {
+      name: 'Daily Work',
+      icon: <ClipboardList className="w-5 h-5" />,
+      path: '/employee/dashboard/daily-work',
+    },
+    {
       name: 'Leaves',
       icon: <FileText className="w-5 h-5" />,
       path: '/employee/dashboard/leaves',
@@ -49,6 +56,11 @@ const EmployeeSidebar = () => {
       name: 'Settings',
       icon: <Settings className="w-5 h-5" />,
       path: '/employee/dashboard/settings',
+    },
+    {
+      name: 'Tasks',
+      icon: <ListChecks className="w-5 h-5" />,
+      path: '/employee/dashboard/tasks',
     },
   ];
 

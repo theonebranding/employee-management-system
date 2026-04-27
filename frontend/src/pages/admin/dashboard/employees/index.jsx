@@ -12,7 +12,6 @@ import {
   Search,
   User,
   Users,
-  X,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -24,29 +23,18 @@ const AdminManageEmployees = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedRole, setSelectedRole] = useState('All');
+  const [selectedDepartment, setSelectedDepartment] = useState('All');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearchActive, setIsSearchActive] = useState(false);
-  const [uniqueRoles, setUniqueRoles] = useState([]);
+  const [uniqueDepartments, setUniqueDepartments] = useState([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [addEmployeeForm, setAddEmployeeForm] = useState({
-    name: '',
-    email: '',
-    phoneNumber: '',
-    jobRole: '',
-    password: '1234',
-  });
-  const [addLoading, setAddLoading] = useState(false);
-
-  const jobRoleOptions = uniqueRoles.filter(role => role !== 'All');
 
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
   const fetchEmployees = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${BASE_URL}/employee/all`, {
+      const response = await fetch(`${BASE_URL}/employee/all?page=1&limit=1000`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
 
@@ -54,7 +42,10 @@ const AdminManageEmployees = () => {
 
       const data = await response.json();
       setEmployees(data.employees || []);
-      setUniqueRoles(['All', ...new Set(data.employees.map(emp => emp.jobRole))]);
+      setUniqueDepartments([
+        'All',
+        ...new Set((data.employees || []).map(emp => emp.department).filter(Boolean)),
+      ]);
       toast.success('Employees fetched successfully');
     } catch (error) {
       console.error('Error fetching employees:', error);
@@ -105,98 +96,8 @@ const AdminManageEmployees = () => {
   };
 
   const filteredEmployees = employees.filter(employee => {
-    return selectedRole === 'All' || employee.jobRole === selectedRole;
+    return selectedDepartment === 'All' || employee.department === selectedDepartment;
   });
-
-  const handleAddEmployeeChange = e => {
-    const { name, value } = e.target;
-    setAddEmployeeForm(prev => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleRemoveRole = roleToRemove => {
-    if (roleToRemove === 'All') return;
-    setUniqueRoles(prev => prev.filter(role => role !== roleToRemove));
-    if (selectedRole === roleToRemove) {
-      setSelectedRole('All');
-    }
-    if (addEmployeeForm.jobRole === roleToRemove) {
-      setAddEmployeeForm(prev => ({ ...prev, jobRole: '' }));
-    }
-  };
-
-  const handleJobRoleChange = e => {
-    const { value } = e.target;
-    if (value === '__add_role__') {
-      const nextRole = window.prompt('Enter new role name');
-      const trimmed = (nextRole || '').trim();
-      if (!trimmed) return;
-      if (uniqueRoles.includes(trimmed)) {
-        toast.error('Role already exists');
-        return;
-      }
-      setUniqueRoles(prev => [...prev, trimmed]);
-      setAddEmployeeForm(prev => ({ ...prev, jobRole: trimmed }));
-      return;
-    }
-    if (value === '__remove_role__') {
-      if (!addEmployeeForm.jobRole) {
-        toast.error('Select a role to remove');
-        return;
-      }
-      handleRemoveRole(addEmployeeForm.jobRole);
-      return;
-    }
-    setAddEmployeeForm(prev => ({ ...prev, jobRole: value }));
-  };
-
-  const handleAddEmployee = async e => {
-    e.preventDefault();
-
-    if (
-      !addEmployeeForm.name ||
-      !addEmployeeForm.email ||
-      !addEmployeeForm.phoneNumber ||
-      !addEmployeeForm.jobRole
-    ) {
-      toast.error('Please fill all required fields');
-      return;
-    }
-
-    setAddLoading(true);
-    try {
-      const response = await fetch(`${BASE_URL}/employee/add`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify(addEmployeeForm),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to add new employee');
-      }
-
-      toast.success('Employee added successfully');
-      setShowAddModal(false);
-      setAddEmployeeForm({
-        name: '',
-        email: '',
-        phoneNumber: '',
-        jobRole: '',
-        password: '1234',
-      });
-      fetchEmployees();
-    } catch (error) {
-      toast.error(error.message || 'Failed to add employee');
-    } finally {
-      setAddLoading(false);
-    }
-  };
 
   useEffect(() => {
     const handleClickOutside = event => {
@@ -209,7 +110,6 @@ const AdminManageEmployees = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-
   return (
     <div className="min-h-screen px-6 py-6 lg:ml-16 bg-light-bg dark:bg-dark-bg">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -219,7 +119,6 @@ const AdminManageEmployees = () => {
           icon={<Users className="w-8 h-8 text-primary" />}
         />
 
-        {/* Search and Filter Section */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-light-card dark:bg-dark-card p-4 rounded-xl border border-light-border dark:border-dark-border">
           <div className="md:col-span-6 relative">
             <input
@@ -244,11 +143,11 @@ const AdminManageEmployees = () => {
             <button
               onClick={() => setIsFilterOpen(!isFilterOpen)}
               className="w-full px-4 py-3 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg flex items-center justify-between gap-2 hover:bg-light-bg/80 dark:hover:bg-dark-bg/80 transition-all duration-200 text-light-text dark:text-dark-text"
-              aria-label="Filter by role"
+              aria-label="Filter by department"
             >
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-primary" />
-                <span>{selectedRole === 'All' ? 'All Roles' : selectedRole}</span>
+                <span>{selectedDepartment === 'All' ? 'All Departments' : selectedDepartment}</span>
               </div>
               <ChevronDown
                 className={`w-4 h-4 transition-transform duration-200 text-light-text dark:text-dark-text ${isFilterOpen ? 'transform rotate-180' : ''}`}
@@ -257,39 +156,37 @@ const AdminManageEmployees = () => {
 
             {isFilterOpen && (
               <div className="absolute right-0 mt-2 w-full bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg shadow-lg z-10 py-2 max-h-60 overflow-y-auto text-light-text dark:text-dark-text">
-                {uniqueRoles.map(role => (
+                {uniqueDepartments.map(department => (
                   <button
-                    key={role}
+                    key={department}
                     onClick={() => {
-                      setSelectedRole(role);
+                      setSelectedDepartment(department);
                       setIsFilterOpen(false);
                     }}
-                    className={`w-full px-4 py-2 text-left hover:bg-light-bg/80 dark:hover:bg-dark-bg/80 transition-colors duration-200 flex items-center gap-2 ${selectedRole === role ? 'bg-primary bg-opacity-20' : ''}`}
+                    className={`w-full px-4 py-2 text-left hover:bg-light-bg/80 dark:hover:bg-dark-bg/80 transition-colors duration-200 flex items-center gap-2 ${selectedDepartment === department ? 'bg-primary bg-opacity-20' : ''}`}
                   >
-                    {role === 'All' ? (
+                    {department === 'All' ? (
                       <Users className="w-4 h-4 text-primary" />
                     ) : (
                       <Building2 className="w-4 h-4 text-primary" />
                     )}
-                    {role}
+                    {department}
                   </button>
                 ))}
               </div>
             )}
           </div>
           <div className="md:col-span-2 relative">
-            <button
-              onClick={() => setShowAddModal(true)}
+            <Link
+              to="/admin/dashboard/employees/add"
               className="px-4 py-2.5 bg-primary hover:bg-primary-dark rounded-lg flex items-center gap-2 transition-colors duration-200 text-white"
-              aria-label="Add new employee"
             >
               <PlusCircle className="w-5 h-5" />
               Add Employee
-            </button>
+            </Link>
           </div>
         </div>
 
-        {/* Search Results or Employee List */}
         {isSearchActive ? (
           <div className="space-y-4">
             <button
@@ -318,176 +215,6 @@ const AdminManageEmployees = () => {
         )}
       </div>
 
-      {/* Add Employee Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-light-bg dark:bg-dark-bg rounded-lg p-6 max-w-lg w-full border border-light-border dark:border-dark-border shadow-xl">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-light-text dark:text-dark-text">
-                Add New Employee
-              </h3>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="p-1 rounded-full hover:bg-light-bg/80 dark:hover:bg-dark-bg/80 transition-colors duration-200"
-                aria-label="Close modal"
-              >
-                <X className="w-5 h-5 text-light-text dark:text-dark-text " />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddEmployee}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-light-text dark:text-dark-text  mb-1">
-                    Full Name *
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-light-text dark:text-dark-text  w-5 h-5" />
-                    <input
-                      type="text"
-                      name="name"
-                      value={addEmployeeForm.name}
-                      onChange={handleAddEmployeeChange}
-                      placeholder="John Doe"
-                      className="w-full pl-10 pr-4 py-2.5 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-light-text dark:text-dark-text placeholder-light-text dark:placeholder-dark-text "
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-light-text dark:text-dark-text  mb-1">
-                    Email Address *
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-light-text dark:text-dark-text  w-5 h-5" />
-                    <input
-                      type="email"
-                      name="email"
-                      value={addEmployeeForm.email}
-                      onChange={handleAddEmployeeChange}
-                      placeholder="john.doe@company.com"
-                      className="w-full pl-10 pr-4 py-2.5 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-light-text dark:text-dark-text placeholder-light-text dark:placeholder-dark-text "
-                      required
-                    />
-                  </div>
-                  <p className="mt-1 text-xs text-light-text/60 dark:text-dark-text/60">
-                    Employees can sign in using either their email or employee code.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-light-text dark:text-dark-text  mb-1">
-                    Phone Number *
-                  </label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-light-text dark:text-dark-text  w-5 h-5" />
-                    <input
-                      type="tel"
-                      name="phoneNumber"
-                      value={addEmployeeForm.phoneNumber}
-                      onChange={handleAddEmployeeChange}
-                      placeholder="+1 (555) 123-4567"
-                      className="w-full pl-10 pr-4 py-2.5 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-light-text dark:text-dark-text placeholder-light-text dark:placeholder-dark-text "
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-light-text dark:text-dark-text  mb-1">
-                    Job Role *
-                  </label>
-                  <div className="relative">
-                    <Briefcase className="absolute left-3 top-1/2 transform -translate-y-1/2 text-light-text dark:text-dark-text  w-5 h-5" />
-                    <select
-                      name="jobRole"
-                      value={addEmployeeForm.jobRole}
-                      onChange={handleJobRoleChange}
-                      className="w-full pl-10 pr-4 py-2.5 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-light-text dark:text-dark-text"
-                      required
-                    >
-                      <option value="">Select a role</option>
-                      {jobRoleOptions.map(role => (
-                        <option key={role} value={role}>
-                          {role}
-                        </option>
-                      ))}
-                      <option value="__add_role__">Add new role...</option>
-                      <option value="__remove_role__">Remove selected role...</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-light-text dark:text-dark-text  mb-1">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value="1234"
-                      className="w-full pl-4 pr-4 py-2.5 bg-light-bg/50 dark:bg-dark-bg/50 border border-light-border dark:border-dark-border rounded-lg text-light-text dark:text-dark-text  cursor-not-allowed"
-                      disabled
-                    />
-                  </div>
-                  <p className="mt-1 text-sm text-warning">
-                    <span className="flex items-center gap-1">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      Default password is "1234". Employee can change it using the forgot password
-                      feature.
-                    </span>
-                  </p>
-                  <p className="mt-2 text-xs text-light-text/60 dark:text-dark-text/60">
-                    Employee ID is auto-generated (e.g., JD26001) using initials + year + sequence.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2.5 bg-light-card dark:bg-dark-card hover:bg-light-card/80 dark:hover:bg-dark-card/80 rounded-lg transition-colors duration-200 text-light-text dark:text-dark-text"
-                  aria-label="Cancel add employee"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={addLoading}
-                  className="px-4 py-2.5 bg-primary hover:bg-primary-dark rounded-lg flex items-center gap-2 transition-colors duration-200 text-white"
-                  aria-label="Add employee"
-                >
-                  {addLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin text-white" />
-                      Adding...
-                    </>
-                  ) : (
-                    <>
-                      <PlusCircle className="w-4 h-4" />
-                      Add Employee
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       <ToastContainer
         toastClassName="bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text ring-1 ring-light-border dark:ring-dark-border"
         position="top-right"
@@ -508,10 +235,8 @@ const EmployeeCard = ({ employee }) => (
           <User className="w-6 h-6 text-primary" />
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-light-text dark:text-dark-text">
-            {employee.name}
-          </h3>
-          <span className="text-sm text-primary-light">{employee.jobRole}</span>
+          <h3 className="text-lg font-semibold text-light-text dark:text-dark-text">{employee.name}</h3>
+          <span className="text-sm text-primary-light">{employee.designation || 'N/A'}</span>
         </div>
       </div>
 
@@ -541,7 +266,7 @@ const EmployeeCard = ({ employee }) => (
           <div className="w-8 h-8 bg-info bg-opacity-10 rounded-lg flex items-center justify-center">
             <Briefcase className="w-4 h-4 text-info" />
           </div>
-          {employee.jobRole}
+          {employee.department || 'N/A'}
         </div>
       </div>
 

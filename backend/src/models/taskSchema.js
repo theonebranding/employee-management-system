@@ -10,8 +10,21 @@ const taskSchema = new mongoose.Schema(
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Employee',
-      required: true,
     },
+    targetDepartment: {
+      type: String,
+      default: '',
+    },
+    targetDesignation: {
+      type: String,
+      default: '',
+    },
+    assignedEmployeeIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Employee',
+      },
+    ],
     assignedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Admin',

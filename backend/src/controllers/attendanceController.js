@@ -7,7 +7,6 @@ import {
   getStartOfIstDay,
   getEndOfIstDay,
   getIstDayKey,
-  normalizeReportText,
 } from '../utils/dailyReportUtils.js';
 
 // Fetch Current Attendance Status
@@ -270,7 +269,7 @@ export const checkOut = async (req, res) => {
     }
 
     // Validate and extract latitude and longitude from request body
-    const { latitude, longitude, dailyReport } = req.body;
+    const { latitude, longitude } = req.body;
     if (!latitude || !longitude) {
       return res.status(400).json({ message: 'Latitude and longitude are required' });
     }
@@ -308,29 +307,21 @@ export const checkOut = async (req, res) => {
       attendance.halfDay = true;
     }
 
-    const normalizedReport = normalizeReportText(dailyReport);
-    const hasDailyReportPayload = Object.prototype.hasOwnProperty.call(req.body, 'dailyReport');
     const existingDailyReport = await DailyReport.findOne({
       employee: employeeId,
       dayKey: getIstDayKey(),
     });
 
-    if (!existingDailyReport) {
-      await DailyReport.create({
-        employee: employeeId,
-        dayKey: getIstDayKey(),
-        reportDate: getStartOfIstDay(),
-        reportText: hasDailyReportPayload ? normalizedReport : 'N/A',
-        createdBy: employeeId,
-        createdByRole: req.user.role,
-        updatedBy: employeeId,
-        updatedByRole: req.user.role,
+    const hasSubmittedDailyReport =
+      existingDailyReport &&
+      typeof existingDailyReport.reportText === 'string' &&
+      existingDailyReport.reportText.trim() !== '' &&
+      existingDailyReport.reportText !== 'N/A';
+
+    if (!hasSubmittedDailyReport) {
+      return res.status(400).json({
+        message: 'Please submit your daily work report before check-out',
       });
-    } else if (hasDailyReportPayload) {
-      existingDailyReport.reportText = normalizedReport;
-      existingDailyReport.updatedBy = employeeId;
-      existingDailyReport.updatedByRole = req.user.role;
-      await existingDailyReport.save();
     }
 
     await attendance.save();

@@ -1,113 +1,87 @@
-import {
-  AlertCircle,
-  BadgeCheck,
-  Building,
-  CalendarDays,
-  ChevronLeft,
-  ClipboardList,
-  DollarSign,
-  Info,
-  Mail,
-  UserCheck,
-} from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { Building, ChevronLeft, Mail, Pencil, PlusCircle, Save } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 
-// eslint-disable-next-line import/order
 import { useTheme } from '../../../../../context/themeContext';
-import AbsentDayDeduction from './components/absentDayDeduction';
-import HalfDayDeduction from './components/halfDayDeduction';
-import LateCheckinDeduction from './components/lateCheckinDeduction';
-import OverallCalculation from './components/overallCalculation';
+
+const EMPTY_SALARY_FORM = {
+  baseSalary: '',
+  bonuses: 0,
+  deductions: 0,
+  effectiveFrom: '',
+  revisionReason: '',
+};
 
 const AdminEmployeeSalaryProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [showSalaryModal, setShowSalaryModal] = useState(false);
-  const [employeeData, setEmployeeData] = useState(null);
-  const [salaryData, setSalaryData] = useState([]);
-  const [activeTab, setActiveTab] = useState('salary');
-  const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState({
-    baseSalary: '',
-    bonuses: '',
-    deductions: '',
-  });
-  const [deductions, setDeductions] = useState({
-    lateCheckinsTotalDeduction: 0,
-    totalHalfDayDeduction: 0,
-    totalAbsentDayDeduction: 0,
-  });
-  const [newSalary, setNewSalary] = useState({
-    baseSalary: '',
-    bonuses: 0,
-    deductions: 0,
-  });
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const { theme } = useTheme();
-
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
-  const handleLateCheckinDeduction = lateDeduction => {
-    setDeductions(prev => ({
-      ...prev,
-      totalLateCheckinDeduction: lateDeduction,
-    }));
-  };
+  const [employeeData, setEmployeeData] = useState(null);
+  const [salaryData, setSalaryData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [showAddSalaryModal, setShowAddSalaryModal] = useState(false);
+  const [editData, setEditData] = useState(EMPTY_SALARY_FORM);
+  const [newSalary, setNewSalary] = useState({
+    ...EMPTY_SALARY_FORM,
+    revisionReason: 'Initial onboarding salary',
+  });
 
-  const handleHalfDayDeduction = halfDayDeduction => {
-    setDeductions(prev => ({
-      ...prev,
-      totalHalfDayDeduction: halfDayDeduction,
-    }));
-  };
-
-  const handleAbsentDayDeduction = absentDeduction => {
-    setDeductions(prev => ({
-      ...prev,
-      totalAbsentDayDeduction: absentDeduction,
-    }));
-  };
+  const authHeaders = useMemo(
+    () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` }),
+    []
+  );
 
   const fetchEmployeeDetails = async () => {
-    try {
-      const response = await fetch(`${BASE_URL}/employee/find?id=${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
-      if (!response.ok) throw new Error('Failed to fetch employee details.');
-      const data = await response.json();
-      setEmployeeData(data.employee);
-    } catch (error) {
-      console.error('Error fetching employee details:', error);
-      toast.error('Failed to fetch employee details.');
-    }
+    const response = await fetch(`${BASE_URL}/employee/find?id=${id}`, { headers: authHeaders });
+    if (!response.ok) throw new Error('Failed to fetch employee details.');
+    const data = await response.json();
+    setEmployeeData(data.employee);
   };
 
   const fetchSalaryDetails = async () => {
-    try {
-      const response = await fetch(`${BASE_URL}/salary/find/${id}`, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
-      if (!response.ok) throw new Error('Failed to fetch salary details.');
-      const data = await response.json();
-      setSalaryData(data.salaries);
-    } catch (error) {
-      console.error('Error fetching salary details:', error);
-      toast.error('Failed to fetch salary details.');
-    } finally {
-      setIsLoading(false);
+    const response = await fetch(`${BASE_URL}/salary/find/${id}`, {
+      method: 'GET',
+      headers: authHeaders,
+    });
+    if (!response.ok) {
+      if (response.status === 404) {
+        setSalaryData([]);
+        return;
+      }
+      throw new Error('Failed to fetch salary details.');
     }
+    const data = await response.json();
+    setSalaryData(data.salaries || []);
   };
 
-  const handleEdit = salary => {
+  useEffect(() => {
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        await Promise.all([fetchEmployeeDetails(), fetchSalaryDetails()]);
+      } catch (error) {
+        toast.error(error.message || 'Failed to load salary profile.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  const latestSalary = salaryData[0] || null;
+
+  const openEdit = salary => {
     setEditData({
-      baseSalary: salary.baseSalary,
-      bonuses: salary.bonuses,
-      deductions: salary.deductions,
+      baseSalary: salary.baseSalary ?? '',
+      bonuses: salary.bonuses ?? 0,
+      deductions: salary.deductions ?? 0,
+      effectiveFrom: salary.effectiveFrom ? new Date(salary.effectiveFrom).toISOString().slice(0, 10) : '',
+      revisionReason: salary.revisionReason || '',
     });
     setIsEditing(true);
   };
@@ -117,76 +91,55 @@ const AdminEmployeeSalaryProfile = () => {
       const response = await fetch(`${BASE_URL}/salary/${salaryId}`, {
         method: 'PATCH',
         headers: {
+          ...authHeaders,
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify(editData),
+        body: JSON.stringify({
+          ...editData,
+          effectiveFrom: editData.effectiveFrom || undefined,
+        }),
       });
       if (!response.ok) throw new Error('Failed to update salary details.');
-      toast.success('Salary updated successfully!');
+      toast.success('Salary updated successfully');
       setIsEditing(false);
-      fetchSalaryDetails();
+      await fetchSalaryDetails();
     } catch (error) {
-      console.error('Error updating salary details:', error);
-      toast.error('Failed to update salary details.');
+      toast.error(error.message || 'Failed to update salary details.');
     }
-  };
-
-  const addEmployeeSalary = async () => {
-    setShowSalaryModal(true);
   };
 
   const handleSubmitNewSalary = async () => {
-    if (!newSalary.baseSalary || newSalary.baseSalary <= 0) {
+    if (!newSalary.baseSalary || Number(newSalary.baseSalary) <= 0) {
       toast.error('Please enter a valid base salary');
       return;
     }
-    const employeeId = id;
+
     try {
-      const response = await fetch(`${BASE_URL}/salary/add/${employeeId}`, {
+      const response = await fetch(`${BASE_URL}/salary/add/${id}`, {
         method: 'POST',
         headers: {
+          ...authHeaders,
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify({
           baseSalary: Number(newSalary.baseSalary),
-          bonuses: Number(newSalary.bonuses),
-          deductions: Number(newSalary.deductions),
+          bonuses: Number(newSalary.bonuses || 0),
+          deductions: Number(newSalary.deductions || 0),
+          effectiveFrom: newSalary.effectiveFrom || undefined,
+          revisionReason: newSalary.revisionReason || 'Initial onboarding salary',
         }),
       });
 
       if (!response.ok) throw new Error('Failed to add salary details.');
 
-      toast.success('Salary added successfully!');
-      setShowSalaryModal(false);
-      setNewSalary({ baseSalary: '', bonuses: 0, deductions: 0 });
-      fetchSalaryDetails();
+      toast.success('Salary added successfully');
+      setShowAddSalaryModal(false);
+      setNewSalary({ ...EMPTY_SALARY_FORM, revisionReason: 'Initial onboarding salary' });
+      await fetchSalaryDetails();
     } catch (error) {
-      console.error('Error adding salary details:', error);
-      toast.error('Failed to add salary details.');
+      toast.error(error.message || 'Failed to add salary details.');
     }
   };
-
-  const calculateTotalSalary = () => {
-    const base = Number(newSalary.baseSalary) || 0;
-    const bonus = Number(newSalary.bonuses) || 0;
-    const deduct = Number(newSalary.deductions) || 0;
-    return base + bonus - deduct;
-  };
-
-  useEffect(() => {
-    fetchEmployeeDetails();
-    fetchSalaryDetails();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  const yearOptions = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i);
-
-  const monthOptions = Array.from({ length: 12 }, (_, i) => ({
-    value: i + 1,
-    label: new Date(0, i).toLocaleString('default', { month: 'long' }),
-  }));
 
   if (isLoading) {
     return (
@@ -196,368 +149,196 @@ const AdminEmployeeSalaryProfile = () => {
     );
   }
 
-  if (!employeeData || salaryData.length === 0) {
+  if (!employeeData) {
     return (
       <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex items-center justify-center text-light-text dark:text-dark-text">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">No Data Available</h2>
-          <p className="text-light-text dark:text-dark-text  mb-6">
-            We couldn't find any salary details for this employee.
-          </p>
-          <button
-            onClick={() => navigate(-1)}
-            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark"
-            aria-label="Go back"
-          >
-            Go Back
-          </button>
-          <button
-            onClick={addEmployeeSalary}
-            className="ml-6 px-4 py-2 bg-success text-white rounded-lg hover:bg-success/80"
-            aria-label="Add salary"
-          >
-            Add Salary
-          </button>
-        </div>
-
-        {showSalaryModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-light-bg dark:bg-dark-bg rounded-lg p-6 w-full max-w-lg">
-              <h2 className="text-xl font-bold mb-4 text-light-text dark:text-dark-text">
-                Add New Salary
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-light-text dark:text-dark-text  block mb-1">
-                    Base Salary *
-                  </label>
-                  <input
-                    type="number"
-                    value={newSalary.baseSalary}
-                    onChange={e => setNewSalary({ ...newSalary, baseSalary: e.target.value })}
-                    className="w-full px-4 py-2 bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text rounded-lg border border-light-border dark:border-dark-border"
-                    required
-                    aria-label="Base salary"
-                  />
-                </div>
-                <div>
-                  <label className="text-light-text dark:text-dark-text  block mb-1">Bonuses</label>
-                  <input
-                    type="number"
-                    value={newSalary.bonuses}
-                    onChange={e => setNewSalary({ ...newSalary, bonuses: e.target.value })}
-                    className="w-full px-4 py-2 bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text rounded-lg border border-light-border dark:border-dark-border"
-                    placeholder="0"
-                    aria-label="Bonuses"
-                  />
-                </div>
-                <div>
-                  <label className="text-light-text dark:text-dark-text  block mb-1">
-                    Deductions
-                  </label>
-                  <input
-                    type="number"
-                    value={newSalary.deductions}
-                    onChange={e => setNewSalary({ ...newSalary, deductions: e.target.value })}
-                    className="w-full px-4 py-2 bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text rounded-lg border border-light-border dark:border-dark-border"
-                    placeholder="0"
-                    aria-label="Deductions"
-                  />
-                </div>
-                <div className="bg-light-card/50 dark:bg-dark-card/50 p-4 rounded-lg mt-4">
-                  <p className="text-light-text dark:text-dark-text  mb-2">Total Salary</p>
-                  <p className="text-2xl font-bold text-light-text dark:text-dark-text">
-                    ₹{calculateTotalSalary()}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-6 flex justify-end gap-4">
-                <button
-                  onClick={() => setShowSalaryModal(false)}
-                  className="px-4 py-2 bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text rounded-lg hover:bg-light-card/80 dark:hover:bg-dark-card/80"
-                  aria-label="Cancel"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSubmitNewSalary}
-                  className="px-4 py-2 bg-success text-white rounded-lg hover:bg-success/80"
-                  aria-label="Add salary"
-                >
-                  Add Salary
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        Failed to load employee details.
       </div>
     );
   }
 
-  const tabs = [
-    { id: 'salary', label: 'Salary Details', icon: DollarSign },
-    { id: 'late-checkins', label: 'Late Check-ins', icon: ClipboardList },
-    { id: 'absent-days', label: 'Absent Days', icon: UserCheck },
-    { id: 'half-day', label: 'Half Days', icon: CalendarDays },
-    { id: 'overview', label: 'Overview', icon: BadgeCheck },
-  ];
-
-  const renderSalaryDetails = () => {
-    return salaryData.map(salary => (
-      <div key={salary._id} className="space-y-6">
-        <h2 className="text-2xl font-bold mb-6 text-light-text dark:text-dark-text">
-          Salary Information
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-light-card/50 dark:bg-dark-card/50 p-6 rounded-lg">
-            <DollarSign className="w-8 h-8 text-success mb-4" />
-            <p className="text-light-text dark:text-dark-text  mb-2">Base Salary</p>
-            <p className="text-2xl font-bold text-light-text dark:text-dark-text">
-              ₹{salary?.baseSalary}
-            </p>
-          </div>
-          <div className="bg-light-card/50 dark:bg-dark-card/50 p-6 rounded-lg">
-            <Info className="w-8 h-8 text-warning mb-4" />
-            <p className="text-light-text dark:text-dark-text  mb-2">Bonuses</p>
-            <p className="text-2xl font-bold text-light-text dark:text-dark-text">
-              ₹{salary?.bonuses}
-            </p>
-          </div>
-          <div className="bg-light-card/50 dark:bg-dark-card/50 p-6 rounded-lg">
-            <AlertCircle className="w-8 h-8 text-danger mb-4" />
-            <p className="text-light-text dark:text-dark-text  mb-2">Deductions</p>
-            <p className="text-2xl font-bold text-light-text dark:text-dark-text">
-              ₹{salary?.deductions}
-            </p>
-          </div>
-        </div>
-        <div className="bg-light-card/50 dark:bg-dark-card/50 p-6 rounded-lg">
-          <p className="text-light-text dark:text-dark-text  mb-2">Total Salary</p>
-          <p className="text-2xl font-bold text-light-text dark:text-dark-text">
-            ₹{salary?.totalSalary}
-          </p>
-        </div>
-        <button
-          onClick={() => handleEdit(salary)}
-          className="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark"
-          aria-label="Edit salary"
-        >
-          Edit Salary
-        </button>
-      </div>
-    ));
-  };
-
-  const renderActiveTab = () => {
-    switch (activeTab) {
-      case 'salary':
-        return renderSalaryDetails();
-      case 'late-checkins':
-        return (
-          <LateCheckinDeduction
-            employeeId={id}
-            onDataFetched={handleLateCheckinDeduction}
-            month={selectedMonth}
-            year={selectedYear}
-          />
-        );
-      case 'half-day':
-        return (
-          <HalfDayDeduction
-            employeeId={id}
-            onDataFetched={handleHalfDayDeduction}
-            month={selectedMonth}
-            year={selectedYear}
-          />
-        );
-      case 'absent-days':
-        return (
-          <AbsentDayDeduction
-            employeeId={id}
-            onDataFetched={handleAbsentDayDeduction}
-            month={selectedMonth}
-            year={selectedYear}
-          />
-        );
-      case 'overview':
-        return (
-          <OverallCalculation
-            baseSalary={salaryData[0].baseSalary}
-            bonuses={salaryData[0].bonuses}
-            deductions={deductions}
-            month={selectedMonth}
-            year={selectedYear}
-          />
-        );
-      default:
-        return null;
-    }
-  };
-
   return (
     <div className="ml-10 p-6 min-h-screen bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text">
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="mb-8">
-          <button
-            onClick={() => navigate(-1)}
-            className="mb-6 px-4 py-2 bg-light-card dark:bg-dark-card rounded-lg hover:bg-light-card/80 dark:hover:bg-dark-card/80 transition-all flex items-center gap-2 text-light-text dark:text-dark-text  hover:text-light-text dark:hover:text-dark-text hover:opacity-100"
-            aria-label="Back to salary management"
-          >
-            <ChevronLeft className="w-5 h-5" />
-            <span className="font-medium">Back to Salary Management</span>
-          </button>
-
-          <div className="bg-light-card dark:bg-dark-card rounded-xl p-6 shadow-lg">
-            <div className="flex items-start justify-between">
-              <div className="space-y-1">
-                <h1 className="text-3xl font-bold text-light-text dark:text-dark-text">
-                  {employeeData.name}
-                </h1>
-                <div className="flex items-center gap-4 text-light-text dark:text-dark-text ">
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-4 h-4" />
-                    <span>{employeeData.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Building className="w-4 h-4" />
-                    <span>Employee ID: {id}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-primary/10 px-4 py-2 rounded-lg">
-                <p className="text-primary font-semibold">Active Employee</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-6 flex gap-4">
-          <div className="flex-1">
-            <label className="text-light-text dark:text-dark-text  block mb-1">Month</label>
-            <select
-              value={selectedMonth}
-              onChange={e => setSelectedMonth(Number(e.target.value))}
-              className="w-full px-4 py-2 bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text rounded-lg border border-light-border dark:border-dark-border focus:outline-none focus:ring-2 focus:ring-primary"
-              aria-label="Select month"
-            >
-              {monthOptions.map(month => (
-                <option key={month.value} value={month.value}>
-                  {month.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex-1">
-            <label className="text-light-text dark:text-dark-text  block mb-1">Year</label>
-            <select
-              value={selectedYear}
-              onChange={e => setSelectedYear(Number(e.target.value))}
-              className="w-full px-4 py-2 bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text rounded-lg border border-light-border dark:border-dark-border focus:outline-none focus:ring-2 focus:ring-primary"
-              aria-label="Select year"
-            >
-              {yearOptions.map(year => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="flex space-x-2 mb-6">
-          {tabs.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={`flex items-center gap-2 px-4 py-3 rounded-lg transition-all ${
-                activeTab === id
-                  ? 'bg-primary text-white'
-                  : 'bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text  hover:bg-light-card/80 dark:hover:bg-dark-card/80 hover:text-light-text dark:hover:text-dark-text hover:opacity-100'
-              }`}
-              aria-label={`Switch to ${label} tab`}
-            >
-              <Icon className="w-4 h-4" />
-              <span className="font-medium">{label}</span>
-            </button>
-          ))}
-        </div>
+      <div className="max-w-5xl mx-auto p-6 space-y-6">
+        <button
+          onClick={() => navigate(-1)}
+          className="px-4 py-2 bg-light-card dark:bg-dark-card rounded-lg hover:bg-light-card/80 dark:hover:bg-dark-card/80 transition-all flex items-center gap-2"
+          aria-label="Back to salary management"
+        >
+          <ChevronLeft className="w-5 h-5" />
+          <span className="font-medium">Back to Salary Management</span>
+        </button>
 
         <div className="bg-light-card dark:bg-dark-card rounded-xl p-6 shadow-lg">
-          {renderActiveTab()}
-        </div>
-      </div>
-
-      {isEditing && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-light-bg dark:bg-dark-bg rounded-lg p-6 w-full max-w-lg">
-            <h2 className="text-xl font-bold mb-4 text-light-text dark:text-dark-text">
-              Edit Salary
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <label className="text-light-text dark:text-dark-text  block mb-1">
-                  Base Salary
-                </label>
-                <input
-                  type="number"
-                  value={editData.baseSalary}
-                  onChange={e => setEditData({ ...editData, baseSalary: e.target.value })}
-                  className="w-full px-4 py-2 bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text rounded-lg border border-light-border dark:border-dark-border"
-                  aria-label="Base salary"
-                />
-              </div>
-              <div>
-                <label className="text-light-text dark:text-dark-text  block mb-1">Bonuses</label>
-                <input
-                  type="number"
-                  value={editData.bonuses}
-                  onChange={e => setEditData({ ...editData, bonuses: e.target.value })}
-                  className="w-full px-4 py-2 bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text rounded-lg border border-light-border dark:border-dark-border"
-                  aria-label="Bonuses"
-                />
-              </div>
-              <div>
-                <label className="text-light-text dark:text-dark-text  block mb-1">
-                  Deductions
-                </label>
-                <input
-                  type="number"
-                  value={editData.deductions}
-                  onChange={e => setEditData({ ...editData, deductions: e.target.value })}
-                  className="w-full px-4 py-2 bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text rounded-lg border border-light-border dark:border-dark-border"
-                  aria-label="Deductions"
-                />
+          <div className="flex items-start justify-between">
+            <div className="space-y-1">
+              <h1 className="text-3xl font-bold text-light-text dark:text-dark-text">
+                {employeeData.name}
+              </h1>
+              <div className="flex items-center gap-4 text-light-text dark:text-dark-text">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4" />
+                  <span>{employeeData.email}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Building className="w-4 h-4" />
+                  <span>Employee ID: {employeeData.employeeCode || id}</span>
+                </div>
               </div>
             </div>
-            <div className="mt-6 flex justify-end gap-4">
+            {!latestSalary && (
               <button
-                onClick={() => setIsEditing(false)}
-                className="px-4 py-2 bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text rounded-lg hover:bg-light-card/80 dark:hover:bg-dark-card/80"
-                aria-label="Cancel"
+                onClick={() => setShowAddSalaryModal(true)}
+                className="px-4 py-2 bg-success text-white rounded-lg hover:bg-success/80 inline-flex items-center gap-2"
+                aria-label="Add salary"
               >
-                Cancel
+                <PlusCircle className="w-4 h-4" /> Add Salary
               </button>
-              <button
-                onClick={() => handleUpdate(salaryData[0]._id)}
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark"
-                aria-label="Update salary"
-              >
-                Update
-              </button>
-            </div>
+            )}
           </div>
         </div>
+
+        {latestSalary ? (
+          <div className="bg-light-card dark:bg-dark-card rounded-xl p-6 shadow-lg space-y-6">
+            <h2 className="text-2xl font-bold">Salary Details</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Stat label="Base Salary" value={`₹${Number(latestSalary.baseSalary || 0).toFixed(2)}`} />
+              <Stat label="Bonuses" value={`₹${Number(latestSalary.bonuses || 0).toFixed(2)}`} />
+              <Stat label="Deductions" value={`₹${Number(latestSalary.deductions || 0).toFixed(2)}`} />
+              <Stat label="Total Salary" value={`₹${Number(latestSalary.totalSalary || 0).toFixed(2)}`} />
+              <Stat
+                label="Effective From"
+                value={
+                  latestSalary.effectiveFrom
+                    ? new Date(latestSalary.effectiveFrom).toLocaleDateString()
+                    : 'Not Set'
+                }
+              />
+              <Stat label="Revision Reason" value={latestSalary.revisionReason || 'Not Provided'} />
+            </div>
+
+            <button
+              onClick={() => openEdit(latestSalary)}
+              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark inline-flex items-center gap-2"
+              aria-label="Edit salary"
+            >
+              <Pencil className="w-4 h-4" /> Edit Salary
+            </button>
+          </div>
+        ) : (
+          <div className="bg-light-card dark:bg-dark-card rounded-xl p-6 shadow-lg text-center">
+            <p className="mb-4">No salary record found for this employee.</p>
+            <button
+              onClick={() => setShowAddSalaryModal(true)}
+              className="px-4 py-2 bg-success text-white rounded-lg hover:bg-success/80 inline-flex items-center gap-2"
+              aria-label="Add salary"
+            >
+              <PlusCircle className="w-4 h-4" /> Add Salary
+            </button>
+          </div>
+        )}
+      </div>
+
+      {showAddSalaryModal && (
+        <SalaryFormModal
+          title="Add Salary"
+          form={newSalary}
+          setForm={setNewSalary}
+          onClose={() => setShowAddSalaryModal(false)}
+          onSubmit={handleSubmitNewSalary}
+          submitLabel="Add Salary"
+        />
       )}
 
-      <ToastContainer
-        theme={theme}
-        position="top-right"
-        pauseOnHover={false}
-        limit={1}
-        autoClose={2000}
-      />
+      {isEditing && latestSalary && (
+        <SalaryFormModal
+          title="Edit Salary"
+          form={editData}
+          setForm={setEditData}
+          onClose={() => setIsEditing(false)}
+          onSubmit={() => handleUpdate(latestSalary._id)}
+          submitLabel="Update Salary"
+          submitIcon={<Save className="w-4 h-4" />}
+        />
+      )}
+
+      <ToastContainer theme={theme} position="top-right" pauseOnHover={false} limit={1} autoClose={2000} />
     </div>
   );
 };
+
+const Stat = ({ label, value }) => (
+  <div className="bg-light-bg/70 dark:bg-dark-bg/70 border border-light-border dark:border-dark-border rounded-lg p-4">
+    <p className="text-xs text-light-text/70 dark:text-dark-text/70 mb-1">{label}</p>
+    <p className="font-semibold text-light-text dark:text-dark-text">{value}</p>
+  </div>
+);
+
+const SalaryFormModal = ({ title, form, setForm, onClose, onSubmit, submitLabel, submitIcon }) => (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="bg-light-bg dark:bg-dark-bg rounded-lg p-6 w-full max-w-lg">
+      <h2 className="text-xl font-bold mb-4 text-light-text dark:text-dark-text">{title}</h2>
+      <div className="space-y-4">
+        <FormInput
+          label="Base Salary"
+          type="number"
+          value={form.baseSalary}
+          onChange={value => setForm({ ...form, baseSalary: value })}
+        />
+        <FormInput
+          label="Bonuses"
+          type="number"
+          value={form.bonuses}
+          onChange={value => setForm({ ...form, bonuses: value })}
+        />
+        <FormInput
+          label="Deductions"
+          type="number"
+          value={form.deductions}
+          onChange={value => setForm({ ...form, deductions: value })}
+        />
+        <FormInput
+          label="Effective From"
+          type="date"
+          value={form.effectiveFrom}
+          onChange={value => setForm({ ...form, effectiveFrom: value })}
+        />
+        <FormInput
+          label="Revision Reason"
+          value={form.revisionReason}
+          onChange={value => setForm({ ...form, revisionReason: value })}
+        />
+      </div>
+      <div className="mt-6 flex justify-end gap-4">
+        <button
+          onClick={onClose}
+          className="px-4 py-2 bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text rounded-lg hover:bg-light-card/80 dark:hover:bg-dark-card/80"
+          aria-label="Cancel"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={onSubmit}
+          className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark inline-flex items-center gap-2"
+          aria-label={submitLabel}
+        >
+          {submitIcon || <Save className="w-4 h-4" />} {submitLabel}
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+const FormInput = ({ label, value, onChange, type = 'text' }) => (
+  <div>
+    <label className="text-light-text dark:text-dark-text block mb-1">{label}</label>
+    <input
+      type={type}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      className="w-full px-4 py-2 bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text rounded-lg border border-light-border dark:border-dark-border"
+    />
+  </div>
+);
 
 export default AdminEmployeeSalaryProfile;

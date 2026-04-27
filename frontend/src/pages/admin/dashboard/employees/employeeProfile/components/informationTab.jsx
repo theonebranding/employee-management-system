@@ -34,14 +34,27 @@ const fieldStyle = {
   workInfoStyle: 'bg-secondary/10 text-secondary',
 };
 
-const InfoCard = ({ icon: Icon, label, value, color, editable, onChange }) => (
+const InfoCard = ({ icon: Icon, label, value, color, editable, onChange, inputType = 'text', options = [] }) => (
   <div className="flex items-center gap-3 p-4 rounded-lg bg-light-card/50 dark:bg-dark-card/50 border border-light-border/50 dark:border-dark-border/50 hover:border-light-border/80 dark:hover:border-dark-border/80 transition-all">
     <div className={`p-2 rounded-lg ${color}`}>
       <Icon className="w-5 h-5" />
     </div>
     <div className="flex-1">
       <p className="text-xs font-medium text-light-text dark:text-dark-text">{label}</p>
-      {editable ? (
+      {editable && inputType === 'select' ? (
+        <select
+          className="w-full text-sm font-medium text-light-text dark:text-dark-text bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded px-2 py-1 focus:outline-none focus:border-info/50 transition-colors"
+          value={value || ''}
+          onChange={e => onChange(e.target.value)}
+        >
+          <option value="">Select</option>
+          {options.map(option => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      ) : editable ? (
         <input
           type="text"
           className="w-full text-sm font-medium text-light-text dark:text-dark-text bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded px-2 py-1 focus:outline-none focus:border-info/50 transition-colors"
@@ -62,6 +75,10 @@ const InformationTab = () => {
   const [employeeDetails, setEmployeeDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
+  const [masterOptions, setMasterOptions] = useState({
+    departments: [],
+    designations: [],
+  });
 
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -93,7 +110,12 @@ const InformationTab = () => {
       title: 'Professional Information',
       icon: Briefcase,
       fields: {
-        jobRole: { icon: Briefcase, color: fieldStyle.workInfoStyle },
+        onboardingStatus: { icon: FileText, color: fieldStyle.workInfoStyle },
+        department: { icon: Building, color: fieldStyle.workInfoStyle },
+        designation: { icon: Briefcase, color: fieldStyle.workInfoStyle },
+        employmentType: { icon: Briefcase, color: fieldStyle.workInfoStyle },
+        workLocation: { icon: MapPin, color: fieldStyle.workInfoStyle },
+        joinedDate: { icon: Calendar, color: fieldStyle.workInfoStyle },
         predefinedCheckInTime: {
           icon: Clock,
           color: fieldStyle.workInfoStyle,
@@ -108,6 +130,8 @@ const InformationTab = () => {
           color: fieldStyle.workInfoStyle,
         },
         ifscCode: { icon: FileText, color: fieldStyle.workInfoStyle },
+        emergencyContactName: { icon: User, color: fieldStyle.workInfoStyle },
+        emergencyContactPhone: { icon: Phone, color: fieldStyle.workInfoStyle },
       },
     },
   };
@@ -125,6 +149,23 @@ const InformationTab = () => {
       toast.error(error.message || 'Failed to fetch employee details.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMasterOptions = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/employee-master-options`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || 'Failed to fetch master options');
+      const settings = data.settings || {};
+      setMasterOptions({
+        departments: Array.isArray(settings.departments) ? settings.departments : [],
+        designations: Array.isArray(settings.designations) ? settings.designations : [],
+      });
+    } catch (error) {
+      toast.error(error.message || 'Failed to fetch department/designation options.');
     }
   };
 
@@ -149,6 +190,7 @@ const InformationTab = () => {
 
   useEffect(() => {
     fetchEmployeeData();
+    fetchMasterOptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -210,7 +252,7 @@ const InformationTab = () => {
           <CategorySection key={category} title={title} icon={icon}>
             {Object.entries(fields).map(([field, { icon, color }]) => {
               let value = employeeDetails[field];
-              if (field === 'dateofBirth') {
+              if (field === 'dateofBirth' || field === 'joinedDate') {
                 value = formatDate(value);
               }
               return (
@@ -221,6 +263,14 @@ const InformationTab = () => {
                   value={value}
                   color={color}
                   editable={editing}
+                  inputType={field === 'department' || field === 'designation' ? 'select' : 'text'}
+                  options={
+                    field === 'department'
+                      ? masterOptions.departments
+                      : field === 'designation'
+                        ? masterOptions.designations
+                        : []
+                  }
                   onChange={val => setEmployeeDetails({ ...employeeDetails, [field]: val })}
                 />
               );

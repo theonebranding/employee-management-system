@@ -2,6 +2,7 @@ import Admin from '../models/adminSchema.js';
 import AdminAttendanceSettings from '../models/adminAttendanceSettingsSchema.js';
 import PayslipSettings from '../models/payslipSettingsSchema.js';
 import PayrollSettings from '../models/payrollSettingsSchema.js';
+import EmployeeMasterOptions from '../models/employeeMasterOptionsSchema.js';
 import bcrypt from 'bcrypt';
 import { getDefaultPayslipSettings } from '../utils/payslipUtils.js';
 
@@ -227,5 +228,48 @@ export const updatePayrollSettings = async (req, res) => {
     res.status(200).json({ message: 'Payroll settings updated successfully', settings });
   } catch (error) {
     res.status(500).json({ message: 'Error updating payroll settings', error: error.message });
+  }
+};
+
+export const getEmployeeMasterOptions = async (req, res) => {
+  try {
+    let settings = await EmployeeMasterOptions.findOne();
+    if (!settings) {
+      settings = new EmployeeMasterOptions();
+      await settings.save();
+    }
+
+    res.status(200).json({ message: 'Employee master options fetched successfully', settings });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching employee master options', error: error.message });
+  }
+};
+
+export const updateEmployeeMasterOptions = async (req, res) => {
+  try {
+    let settings = await EmployeeMasterOptions.findOne();
+    if (!settings) {
+      settings = new EmployeeMasterOptions();
+    }
+
+    const sanitizeList = (value, fallback) => {
+      if (!Array.isArray(value)) return fallback;
+      const cleaned = value
+        .map(item => String(item || '').trim())
+        .filter(Boolean);
+      return cleaned.length ? Array.from(new Set(cleaned)) : fallback;
+    };
+
+    if (req.body.departments !== undefined) {
+      settings.departments = sanitizeList(req.body.departments, settings.departments);
+    }
+    if (req.body.designations !== undefined) {
+      settings.designations = sanitizeList(req.body.designations, settings.designations);
+    }
+
+    await settings.save();
+    res.status(200).json({ message: 'Employee master options updated successfully', settings });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating employee master options', error: error.message });
   }
 };

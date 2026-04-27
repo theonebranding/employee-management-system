@@ -76,15 +76,46 @@ export const getMonthlyAttendance = async (req, res) => {
   try {
     const { employeeId, month, year } = req.query;
 
-    if (!employeeId || !month || !year) {
-      return res.status(400).json({ message: 'Employee ID, month, and year are required' });
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(employeeId)) {
-      return res.status(400).json({ message: 'Invalid Employee ID' });
+    if (!month || !year) {
+      return res.status(400).json({ message: 'Month and year are required' });
     }
 
     const { start: startDate, end: endDate } = getIstMonthRange(Number(month), Number(year));
+
+    // Admin monthly report mode: return all attendance entries for selected month.
+    if (req.user.role === 'admin' && !employeeId) {
+      const records = await Attendance.find({
+        date: { $gte: startDate, $lte: endDate },
+      })
+        .populate('employee', 'name email employeeCode')
+        .sort({ date: 1 });
+
+      const attendanceData = records.map((record) => ({
+        _id: record._id,
+        employeeId: record.employee?._id?.toString() || '',
+        employeeName: record.employee?.name || 'Unknown',
+        employeeCode: record.employee?.employeeCode || '',
+        date: record.date,
+        checkInTime: record.checkInTime,
+        checkOutTime: record.checkOutTime || null,
+        status: record.halfDay ? 'half-day' : 'present',
+        actualHours: Number(((record.totalWorkingTime || 0) / 60).toFixed(2)),
+        totalWorkingTime: record.totalWorkingTime || 0,
+        totalRecessDuration: record.totalRecessDuration || 0,
+      }));
+
+      return res.status(200).json({
+        message: 'Monthly attendance fetched successfully',
+        attendanceData,
+      });
+    }
+
+    if (!employeeId) {
+      return res.status(400).json({ message: 'Employee ID is required' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(employeeId)) {
+      return res.status(400).json({ message: 'Invalid Employee ID' });
+    }
 
     // Fetch attendance records
     const records = await Attendance.find({

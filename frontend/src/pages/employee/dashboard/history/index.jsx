@@ -192,6 +192,7 @@ const MonthlyAttendance = () => {
     const sortedLateCheckIns = sortData(lateCheckIns, sortConfig);
     const filteredSortedLateCheckIns = filterByDate(sortedLateCheckIns, searchDate);
     setFilteredLateCheckIns(filteredSortedLateCheckIns);
+
   }, [records, lateCheckIns, sortConfig, searchDate]);
 
   const handleSort = key => {
@@ -261,15 +262,17 @@ const MonthlyAttendance = () => {
               ) : (
                 <EmptyState isLateTab={false} searchDate={searchDate} />
               )
-            ) : filteredLateCheckIns.length > 0 ? (
+            ) : (
+              filteredLateCheckIns.length > 0 ? (
               <LateCheckInsTable
                 filteredLateCheckIns={filteredLateCheckIns}
                 sortConfig={sortConfig}
                 handleSort={handleSort}
                 formatLateBy={formatLateBy}
               />
-            ) : (
-              <EmptyState isLateTab={true} searchDate={searchDate} />
+              ) : (
+                <EmptyState isLateTab={true} searchDate={searchDate} />
+              )
             )}
           </div>
         </div>

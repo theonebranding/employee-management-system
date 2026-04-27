@@ -9,7 +9,12 @@ const taskCommentSchema = new mongoose.Schema(
     },
     author: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Employee',
+      refPath: 'authorModel',
+      required: true,
+    },
+    authorModel: {
+      type: String,
+      enum: ['Employee', 'Admin'],
       required: true,
     },
     comment: {

@@ -10,11 +10,13 @@ import {
   X,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 
 import Header from '../../../../components/pageHeader';
 
 const AdminSalaryManagement = () => {
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState([]);
   const [salaries, setSalaries] = useState([]);
   const [payrolls, setPayrolls] = useState([]);
@@ -31,7 +33,7 @@ const AdminSalaryManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState('name');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [roleFilter, setRoleFilter] = useState('all');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
@@ -163,7 +165,9 @@ const AdminSalaryManagement = () => {
 
   const fetchEmployees = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/employee/all`, { headers: authHeaders });
+      const response = await fetch(`${BASE_URL}/employee/all?page=1&limit=1000`, {
+        headers: authHeaders,
+      });
       if (!response.ok) throw new Error('Failed to fetch employees.');
       const data = await response.json();
       setEmployees(data.employees || []);
@@ -794,7 +798,8 @@ const AdminSalaryManagement = () => {
     const headers = [
       'Employee ID',
       'Name',
-      'Role',
+      'Department',
+      'Designation',
       'Full Days',
       'Half Days',
       'Paid Leaves',
@@ -837,7 +842,8 @@ const AdminSalaryManagement = () => {
       return [
         employee.employeeCode || 'N/A',
         employee.name,
-        employee.jobRole || 'N/A',
+        employee.department || 'N/A',
+        employee.designation || 'N/A',
         payroll.fullDays || 0,
         payroll.halfDays || 0,
         payroll.paidLeaves || 0,
@@ -892,7 +898,8 @@ const AdminSalaryManagement = () => {
           <tr>
             <td>${employee.employeeCode || 'N/A'}</td>
             <td>${employee.name}</td>
-            <td>${employee.jobRole || 'N/A'}</td>
+            <td>${employee.department || 'N/A'}</td>
+            <td>${employee.designation || 'N/A'}</td>
             <td>${payroll.fullDays || 0}</td>
             <td>${payroll.halfDays || 0}</td>
             <td>${payroll.paidLeaves || 0}</td>
@@ -929,7 +936,8 @@ const AdminSalaryManagement = () => {
               <tr>
                 <th>Emp ID</th>
                 <th>Name</th>
-                <th>Role</th>
+                <th>Department</th>
+                <th>Designation</th>
                 <th>Full Days</th>
                 <th>Half Days</th>
                 <th>Paid Leaves</th>
@@ -1286,12 +1294,12 @@ const AdminSalaryManagement = () => {
   };
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
-  const roleOptions = useMemo(() => {
-    const uniqueRoles = new Set();
+  const departmentOptions = useMemo(() => {
+    const uniqueDepartments = new Set();
     employees.forEach(employee => {
-      if (employee.jobRole) uniqueRoles.add(employee.jobRole);
+      if (employee.department) uniqueDepartments.add(employee.department);
     });
-    return Array.from(uniqueRoles).sort((a, b) => a.localeCompare(b));
+    return Array.from(uniqueDepartments).sort((a, b) => a.localeCompare(b));
   }, [employees]);
 
   const eligibleEmployees = employees
@@ -1304,12 +1312,13 @@ const AdminSalaryManagement = () => {
         employee.name.toLowerCase().includes(normalizedQuery) ||
         employee.email.toLowerCase().includes(normalizedQuery) ||
         (employee.employeeCode || '').toLowerCase().includes(normalizedQuery) ||
-        (employee.jobRole || '').toLowerCase().includes(normalizedQuery)
+        (employee.department || '').toLowerCase().includes(normalizedQuery) ||
+        (employee.designation || '').toLowerCase().includes(normalizedQuery)
       );
     })
     .filter(employee => {
-      if (roleFilter === 'all') return true;
-      return employee.jobRole === roleFilter;
+      if (departmentFilter === 'all') return true;
+      return employee.department === departmentFilter;
     })
     .filter(employee => {
       const payrollStatus = mergedPayrollMap[employee._id]?.status || 'unpaid';
@@ -1331,7 +1340,7 @@ const AdminSalaryManagement = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, roleFilter, sortOrder, month, year]);
+  }, [searchQuery, statusFilter, departmentFilter, sortOrder, month, year]);
 
   useEffect(() => {
     setCurrentPage(prev => Math.min(prev, totalPages));
@@ -1851,7 +1860,7 @@ const AdminSalaryManagement = () => {
                   aria-label="Open filters"
                 >
                   <Filter className="w-4 h-4" />
-                  {roleFilter === 'all' ? 'Filters' : `Role: ${roleFilter}`}
+                  {departmentFilter === 'all' ? 'Filters' : `Department: ${departmentFilter}`}
                   <ChevronDown
                     className={`w-4 h-4 transition-transform ${isFilterOpen ? 'rotate-180' : ''}`}
                   />
@@ -1861,24 +1870,24 @@ const AdminSalaryManagement = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        setRoleFilter('all');
+                        setDepartmentFilter('all');
                         setIsFilterOpen(false);
                       }}
-                      className={`w-full px-4 py-2 text-left text-sm hover:bg-light-bg/70 dark:hover:bg-dark-bg/70 ${roleFilter === 'all' ? 'bg-light-bg/70 dark:bg-dark-bg/70' : ''}`}
+                      className={`w-full px-4 py-2 text-left text-sm hover:bg-light-bg/70 dark:hover:bg-dark-bg/70 ${departmentFilter === 'all' ? 'bg-light-bg/70 dark:bg-dark-bg/70' : ''}`}
                     >
-                      All Roles
+                      All Departments
                     </button>
-                    {roleOptions.map(role => (
+                    {departmentOptions.map(department => (
                       <button
-                        key={role}
+                        key={department}
                         type="button"
                         onClick={() => {
-                          setRoleFilter(role);
+                          setDepartmentFilter(department);
                           setIsFilterOpen(false);
                         }}
-                        className={`w-full px-4 py-2 text-left text-sm hover:bg-light-bg/70 dark:hover:bg-dark-bg/70 ${roleFilter === role ? 'bg-light-bg/70 dark:bg-dark-bg/70' : ''}`}
+                        className={`w-full px-4 py-2 text-left text-sm hover:bg-light-bg/70 dark:hover:bg-dark-bg/70 ${departmentFilter === department ? 'bg-light-bg/70 dark:bg-dark-bg/70' : ''}`}
                       >
-                        {role}
+                        {department}
                       </button>
                     ))}
                   </div>
@@ -1898,14 +1907,15 @@ const AdminSalaryManagement = () => {
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Emp ID</th>
                 <th className="px-4 py-3 text-left font-semibold">Name</th>
-                <th className="px-4 py-3 text-left font-semibold">Role</th>
+                <th className="px-4 py-3 text-left font-semibold">Department</th>
+                <th className="px-4 py-3 text-left font-semibold">Designation</th>
                 <th className="px-4 py-3 text-left font-semibold">Full Day</th>
                 <th className="px-4 py-3 text-left font-semibold">Half Day</th>
                 <th className="px-4 py-3 text-left font-semibold">Paid Leaves</th>
                 <th className="px-4 py-3 text-left font-semibold">Unpaid Days</th>
                 <th className="px-4 py-3 text-left font-semibold">Daily Wage</th>
                 <th className="px-4 py-3 text-left font-semibold">Gross Wage</th>
-                <th className="px-4 py-3 text-left font-semibold">Base Salary</th>
+                <th className="px-4 py-3 text-left font-semibold">Base Salary (Master)</th>
                 <th className="px-4 py-3 text-left font-semibold align-middle">
                   <button
                     type="button"
@@ -1987,7 +1997,10 @@ const AdminSalaryManagement = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-light-text/70 dark:text-dark-text/70">
-                      {employee.jobRole || 'N/A'}
+                      {employee.department || 'N/A'}
+                    </td>
+                    <td className="px-4 py-3 text-light-text/70 dark:text-dark-text/70">
+                      {employee.designation || 'N/A'}
                     </td>
                     <td className="px-4 py-3">{payroll.fullDays || 0}</td>
                     <td className="px-4 py-3">{payroll.halfDays || 0}</td>
@@ -1995,7 +2008,16 @@ const AdminSalaryManagement = () => {
                     <td className="px-4 py-3">{payroll.unpaidDays || 0}</td>
                     <td className="px-4 py-3">₹{Number(payroll.dailyWage || 0).toFixed(2)}</td>
                     <td className="px-4 py-3">₹{grossWage.toFixed(2)}</td>
-                    <td className="px-4 py-3">₹{baseSalary.toFixed(2)}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/admin/dashboard/salaries/${employee._id}`)}
+                        className="text-left underline decoration-dotted"
+                        aria-label={`Open salary profile for ${employee.name}`}
+                      >
+                        ₹{baseSalary.toFixed(2)}
+                      </button>
+                    </td>
                     <td className="px-4 py-3">
                       <button
                         type="button"
