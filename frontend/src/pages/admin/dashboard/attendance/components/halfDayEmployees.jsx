@@ -9,10 +9,10 @@ const HalfDayEmployees = ({ startDate, endDate }) => {
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
   // Helper function to format hours worked
-  const formatHoursWorked = workHours => {
-    // Convert microseconds to hours
-    const hours = Math.floor(workHours / (1000 * 60 * 60));
-    const minutes = Math.floor((workHours % (1000 * 60 * 60)) / (1000 * 60));
+  const formatHoursWorked = totalMinutes => {
+    const normalizedMinutes = Number(totalMinutes || 0);
+    const hours = Math.floor(normalizedMinutes / 60);
+    const minutes = normalizedMinutes % 60;
     return `${hours}h ${minutes}m`;
   };
 
@@ -41,12 +41,16 @@ const HalfDayEmployees = ({ startDate, endDate }) => {
           return entry.halfDay === true;
         })
         .map(entry => ({
-          date: new Date(entry.checkInTime).toLocaleDateString(),
+          date: entry.checkInTime !== 'N/A' ? new Date(entry.checkInTime).toLocaleDateString() : 'N/A',
           employeeName: entry.employeeName,
           employeeCode: entry.employeeCode,
-          hoursWorked: formatHoursWorked(entry.workHours),
-          checkInTime: new Date(entry.checkInTime).toLocaleTimeString(),
-          checkOutTime: new Date(entry.checkOutTime).toLocaleTimeString(),
+          hoursWorked: formatHoursWorked(entry.totalWorkTime),
+          checkInTime:
+            entry.checkInTime !== 'N/A' ? new Date(entry.checkInTime).toLocaleTimeString() : 'N/A',
+          checkOutTime:
+            entry.checkOutTime !== 'N/A'
+              ? new Date(entry.checkOutTime).toLocaleTimeString()
+              : 'N/A',
         }));
 
       setHalfDayList(filteredHalfDays);

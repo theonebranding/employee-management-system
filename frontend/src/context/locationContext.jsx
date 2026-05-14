@@ -169,22 +169,15 @@ export const LocationProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    const initiateLocationRequest = () => {
-      requestLocation();
-    };
-
     if ('permissions' in navigator) {
       navigator.permissions.query({ name: 'geolocation' }).then(permissionStatus => {
         const initialState = permissionStatus.state;
         setIsLocationPermissionGranted(initialState === 'granted');
+        setLoading(false);
+        setLocationResolved(true);
 
-        if (initialState === 'granted' || initialState === 'prompt') {
-          initiateLocationRequest();
-        } else if (initialState === 'denied') {
+        if (initialState === 'denied') {
           setIsLocationPermissionGranted(false);
-          setLoading(false);
-          setLocationResolved(true);
-          toast.error('Location permission denied. Please enable it to proceed.');
         }
 
         permissionStatus.onchange = () => {
@@ -197,16 +190,15 @@ export const LocationProvider = ({ children }) => {
               navigator.geolocation.clearWatch(watchIdRef.current);
               watchIdRef.current = null;
             }
-            toast.error('Location access revoked. Please enable location services.');
           } else if (permissionStatus.state === 'granted') {
             setIsLocationPermissionGranted(true);
-            requestLocation();
           }
         };
         return null;
       });
     } else {
-      initiateLocationRequest();
+      setLoading(false);
+      setLocationResolved(true);
     }
 
     return () => {

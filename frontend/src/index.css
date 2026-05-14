@@ -11,7 +11,7 @@ body {
 
 /* Link Styling */
 a {
-  @apply text-blue-600 hover:underline font-medium;
+ @apply text-blue-600 hover:underline font-medium;
 }
 
 /* Form Input Styling */

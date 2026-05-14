@@ -66,6 +66,24 @@ const isPayrollMonthClosed = (month, year) => {
   return now > end;
 };
 
+const resolveAttendanceStatus = (record, settings) => {
+  if (!record) return 'absent';
+
+  if (record.manualPayrollStatus === 'leave') return 'leave';
+  if (record.manualPayrollStatus === 'absent') return 'absent';
+  if (record.manualPayrollStatus === 'half-day') return 'half-day';
+  if (record.manualPayrollStatus === 'full-day') return 'full-day';
+
+  const workingMinutes = Number(record.totalWorkingTime || 0);
+  const minAbsentHours = Number(settings?.minAbsentHours || 180);
+  const halfDayHours = Number(settings?.halfDayHours || 240);
+  const fullDayHours = Number(settings?.fullDayHours || 470);
+
+  if (workingMinutes < minAbsentHours) return 'absent';
+  if (workingMinutes < fullDayHours) return 'half-day';
+  return 'full-day';
+};
+
 const countWorkingDays = (month, year) => {
   const daysInMonth = new Date(year, month, 0).getDate();
   let workingDays = 0;
@@ -172,6 +190,92 @@ const getExtraAllowanceTotal = async (employeeId, month, year) => {
   }, 0);
 };
 
+const getSundayCompensationFromRecord = (record) => {
+  if (!record?.checkInTime) return null;
+  if (record.manualPayrollStatus === 'absent' || record.manualPayrollStatus === 'leave') return null;
+
+  const isHalfDay = record.manualPayrollStatus === 'half-day' || record.halfDay;
+  const fraction = isHalfDay ? 0.5 : 1;
+  const label = isHalfDay ? 'half-day' : 'full-day';
+  return { fraction, label };
+};
+
+const buildSundayCompensationEntries = ({ attendanceRecords, dailyWage }) => {
+  return attendanceRecords
+    .filter((record) => getIstDayOfWeek(new Date(record.date)) === 0)
+    .map((record) => {
+      const rule = getSundayCompensationFromRecord(record);
+      if (!rule) return null;
+
+      const dateKey = toDateKey(new Date(record.date));
+      const amount = Number((Number(dailyWage || 0) * rule.fraction).toFixed(2));
+      return {
+        dateKey,
+        amount,
+        statusLabel: rule.label,
+        remark: `Sunday compensation (${rule.label}) for ${dateKey}`,
+      };
+    })
+    .filter(Boolean);
+};
+
+const syncSundayCompensationExtras = async ({ employeeId, month, year, entries, processedBy }) => {
+  const { start, end } = getIstMonthRange(month, year);
+  const existing = await ExtraAllowance.find({
+    employee: employeeId,
+    status: 'active',
+    reference: 'Compensation',
+    transactionDate: { $gte: start, $lte: end },
+  });
+
+  const existingByDate = new Map();
+  existing.forEach((item) => {
+    existingByDate.set(toDateKey(new Date(item.transactionDate)), item);
+  });
+
+  const desiredDates = new Set(entries.map((entry) => entry.dateKey));
+
+  for (const entry of entries) {
+    const [yearPart, monthPart, dayPart] = entry.dateKey.split('-').map(Number);
+    const transactionDate = getIstDayStartFromParts(yearPart, monthPart, dayPart);
+    const current = existingByDate.get(entry.dateKey);
+
+    if (!current) {
+      await ExtraAllowance.create({
+        employee: employeeId,
+        amount: entry.amount,
+        transactionDate,
+        reference: 'Compensation',
+        comment: entry.remark,
+        approvedBy: processedBy || undefined,
+        approvedAt: new Date(),
+      });
+      continue;
+    }
+
+    const needsUpdate =
+      Number(current.amount || 0) !== Number(entry.amount || 0) ||
+      (current.comment || '') !== entry.remark;
+
+    if (needsUpdate) {
+      current.amount = entry.amount;
+      current.comment = entry.remark;
+      current.reference = 'Compensation';
+      current.approvedBy = processedBy || current.approvedBy;
+      current.approvedAt = new Date();
+      await current.save();
+    }
+  }
+
+  for (const current of existing) {
+    const dateKey = toDateKey(new Date(current.transactionDate));
+    if (!desiredDates.has(dateKey)) {
+      current.status = 'cancelled';
+      await current.save();
+    }
+  }
+};
+
 const getComputedNetPay = (payroll, loanAmountOverride) => {
   const dailyWage = Number(payroll.dailyWage || 0);
   const fullDays = Number(payroll.fullDays || 0);
@@ -229,13 +333,14 @@ const computePayroll = async ({
   loanAmount,
   extraAmount,
   payrollSettings,
+  processedBy,
+  persistSundayCompensation = false,
 }) => {
   const autoLoanAmount = await getLoanAdvanceDeduction(employee._id, month, year);
   const hasManualLoanAmount = loanAmount !== undefined && loanAmount !== null;
   const totalLoanAmount = hasManualLoanAmount
     ? Number(loanAmount || 0)
     : Number(autoLoanAmount || 0);
-  const autoExtraAmount = await getExtraAllowanceTotal(employee._id, month, year);
   const { start, end } = getMonthRange(month, year);
   const workingDays = countWorkingDays(month, year);
 
@@ -244,7 +349,7 @@ const computePayroll = async ({
     date: { $gte: start, $lte: end },
   });
 
-  const adminAttendanceSettings = await AdminAttendanceSettings.findOne();
+  const adminAttendanceSettings = await AdminAttendanceSettings.findOne().lean();
   const requiredWorkingMinutes = Number(
     adminAttendanceSettings?.totalWorkingHours || HOURS_PER_DAY * 60
   );
@@ -255,15 +360,61 @@ const computePayroll = async ({
   const totalBufferMinutes = Math.max(0, bufferHours * 60 + bufferMinutes);
   const isOvertimeEnabled = payrollSettings?.overtime?.enabled !== false;
 
+  const salaryRecord = await Salary.findOne({ employee: employee._id })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const baseSalary = Number(salaryRecord?.baseSalary || 0);
+  const dailyWage = workingDays ? baseSalary / workingDays : 0;
+
+  const sundayCompensationEntries = buildSundayCompensationEntries({
+    attendanceRecords,
+    dailyWage,
+  });
+  const sundayCompensationTotal = sundayCompensationEntries.reduce(
+    (sum, entry) => sum + Number(entry.amount || 0),
+    0
+  );
+
+  if (persistSundayCompensation) {
+    await syncSundayCompensationExtras({
+      employeeId: employee._id,
+      month,
+      year,
+      entries: sundayCompensationEntries,
+      processedBy,
+    });
+  }
+
+  const storedExtraAmount = await getExtraAllowanceTotal(employee._id, month, year);
+  const autoExtraAmount = persistSundayCompensation
+    ? storedExtraAmount
+    : storedExtraAmount + sundayCompensationTotal;
+
   let fullDays = 0;
   let halfDays = 0;
+  let manualLeaveDays = 0;
 
   attendanceRecords.forEach((record) => {
-    if (record.halfDay) {
-      halfDays += 1;
-    } else {
-      fullDays += 1;
+    const isSunday = getIstDayOfWeek(new Date(record.date)) === 0;
+    if (isSunday) {
+      return;
     }
+
+    const resolvedStatus = resolveAttendanceStatus(record, adminAttendanceSettings);
+
+    if (resolvedStatus === 'leave') {
+      manualLeaveDays += 1;
+      return;
+    }
+    if (resolvedStatus === 'absent') {
+      return;
+    }
+    if (resolvedStatus === 'half-day') {
+      halfDays += 1;
+      return;
+    }
+    fullDays += 1;
   });
 
   const approvedLeaves = await Leave.find({
@@ -284,14 +435,8 @@ const computePayroll = async ({
     selectedHoliday?.selectedHolidays?.map((holiday) => toDateKey(new Date(holiday.date))) || []
   );
 
-  const paidLeaves = countApprovedLeaves(approvedLeaves, month, year, attendanceDays, holidayDays);
-
-  const salaryRecord = await Salary.findOne({ employee: employee._id })
-    .sort({ createdAt: -1 })
-    .lean();
-
-  const baseSalary = Number(salaryRecord?.baseSalary || 0);
-  const dailyWage = workingDays ? baseSalary / workingDays : 0;
+  const approvedPaidLeaves = countApprovedLeaves(approvedLeaves, month, year, attendanceDays, holidayDays);
+  const paidLeaves = approvedPaidLeaves + manualLeaveDays;
   const unpaidDays = Math.max(0, workingDays - fullDays - halfDays - paidLeaves);
   const dailyWageOvertimeMultiplier = Number(payrollSettings?.overtime?.dailyWageMultiplier || 1);
   const fallbackOvertimeRate = (dailyWage / HOURS_PER_DAY) * dailyWageOvertimeMultiplier;
@@ -305,6 +450,10 @@ const computePayroll = async ({
         : fallbackOvertimeRate;
   const autoOvertimeMinutes = isOvertimeEnabled
     ? attendanceRecords.reduce((total, record) => {
+        if (getIstDayOfWeek(new Date(record.date)) === 0) {
+          return total;
+        }
+
         let workingMinutes = Number(record.totalWorkingTime || 0);
         if (workingMinutes > 24 * 60) {
           workingMinutes = Math.floor(workingMinutes / 60000);
@@ -359,6 +508,15 @@ const computePayroll = async ({
     halfDayDeduction,
     totalSalary,
     loanAmount: totalLoanAmount,
+    sundayCompensation: {
+      count: sundayCompensationEntries.length,
+      total: Number(sundayCompensationTotal.toFixed(2)),
+      dates: sundayCompensationEntries.map((entry) => ({
+        date: entry.dateKey,
+        amount: entry.amount,
+        status: entry.statusLabel,
+      })),
+    },
   };
 };
 
@@ -383,6 +541,8 @@ const upsertPayroll = async ({
     loanAmount,
     extraAmount,
     payrollSettings,
+    processedBy,
+    persistSundayCompensation: true,
   });
 
   const salaryDeductions =
@@ -477,15 +637,63 @@ const upsertPayroll = async ({
     { new: true, upsert: true }
   );
 
+  const sundayCompensationCount = Number(payrollValues?.sundayCompensation?.count || 0);
+  const sundayCompensationTotal = Number(payrollValues?.sundayCompensation?.total || 0);
+  const historyNote =
+    sundayCompensationCount > 0
+      ? `Payroll processed. Sunday compensation added: ${sundayCompensationCount} entries (₹${sundayCompensationTotal.toFixed(2)}).`
+      : 'Payroll processed';
+
   await PayrollHistory.create({
     payroll: payroll._id,
     processedDate: new Date(),
     paymentStatus: status,
     processedBy,
-    notes: 'Payroll processed',
+    notes: historyNote,
+    changes: {
+      sundayCompensation: payrollValues?.sundayCompensation || {
+        count: 0,
+        total: 0,
+        dates: [],
+      },
+    },
   });
 
   return payroll;
+};
+
+export const recomputePayrollForAttendanceChange = async ({
+  employeeId,
+  month,
+  year,
+  processedBy,
+}) => {
+  const existingPayroll = await Payroll.findOne({
+    employee: employeeId,
+    month: Number(month),
+    year: Number(year),
+  });
+
+  if (!existingPayroll || existingPayroll.status === 'paid') {
+    return null;
+  }
+
+  const employee = await Employee.findById(employeeId);
+  if (!employee) {
+    return null;
+  }
+
+  return upsertPayroll({
+    employee,
+    month: Number(month),
+    year: Number(year),
+    overtimeHours: existingPayroll.overtimeHours,
+    penalties: existingPayroll.penalties ?? 0,
+    loanAmount: existingPayroll.loanAmount,
+    extraAmount: existingPayroll.extraAmount,
+    status: existingPayroll.status || 'unpaid',
+    processedBy,
+  });
 };
 
 const emailPaidPayrollPayslip = async ({ payroll, employee, processedBy }) => {

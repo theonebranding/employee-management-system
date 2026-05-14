@@ -9,6 +9,7 @@ const StatCard = () => {
     totalEmployees: 0,
     presentToday: 0,
     absentToday: 0,
+    checkedInToday: 0,
     lateArrivals: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -38,6 +39,7 @@ const StatCard = () => {
           totalEmployees: data.totalEmployees || 0,
           presentToday: data.present || 0,
           absentToday: data.absent || 0,
+          checkedInToday: data.checkedIn || 0,
           lateArrivals: data.late || 0,
         });
       } catch (err) {
@@ -62,6 +64,12 @@ const StatCard = () => {
       label: 'Present Today',
       key: 'presentToday',
       color: 'bg-success/10 text-success',
+    },
+    {
+      icon: Clock,
+      label: 'Checked In',
+      key: 'checkedInToday',
+      color: 'bg-blue-500/10 text-blue-500',
     },
     {
       icon: UserX,

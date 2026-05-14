@@ -6,7 +6,6 @@ import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 
 import { useAuth } from '../../context/authContext';
-import { useLocation } from '../../context/locationContext';
 import { useTheme } from '../../context/themeContext';
 
 const Login = () => {
@@ -16,26 +15,9 @@ const Login = () => {
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [initialDelay, setInitialDelay] = useState(true);
   const navigate = useNavigate();
   const { login } = useAuth();
-  const {
-    isLocationPermissionGranted,
-    loading: locationLoading,
-    location,
-    locationAttempts,
-    locationResolved,
-  } = useLocation();
   const { theme, toggleTheme } = useTheme();
-
-  // Initial delay to fetch location
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setInitialDelay(false);
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, []);
 
   const validateForm = () => {
     const newErrors = {};
@@ -50,11 +32,6 @@ const Login = () => {
 
   const handleSubmit = async e => {
     e.preventDefault();
-
-    if (!isLocationPermissionGranted || !location.latitude || !location.longitude) {
-      toast.error('Cannot login without location access. Please enable location services.');
-      return;
-    }
 
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length > 0) {
@@ -111,51 +88,6 @@ const Login = () => {
     });
   };
 
-  // After max attempts or if we get a good location, or if initial delay ends
-  const shouldShowLoginForm = !initialDelay && (locationResolved || locationAttempts >= 2);
-
-  // Show loading screen while getting location
-  if (!shouldShowLoginForm) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-light-bg dark:bg-dark-bg transition-colors duration-300">
-        <div className="text-center">
-          <div className="mb-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
-          </div>
-          <p className="text-lg font-semibold text-light-text dark:text-dark-text">
-            {locationAttempts === 0
-              ? 'Initializing location services...'
-              : locationAttempts === 1
-                ? 'Getting your location...'
-                : 'Improving location accuracy...'}
-          </p>
-          <p className="mt-2 text-sm text-light-text dark:text-dark-text opacity-70">
-            Please wait while we retrieve your precise location (Attempt {locationAttempts}/2)
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show permission denied message if explicitly denied
-  if (
-    isLocationPermissionGranted === false ||
-    (!location?.latitude && !locationLoading && locationResolved)
-  ) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-light-bg dark:bg-dark-bg transition-colors duration-300">
-        <div className="text-center">
-          <p className="text-lg font-semibold text-danger">Location Access Required</p>
-          <p className="mt-2 text-sm text-light-text dark:text-dark-text opacity-70">
-            We couldn't fetch your location. Please enable location services in your browser
-            settings and refresh the page.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show login form when location is resolved or max attempts reached
   return (
     <div className="relative flex items-center justify-center min-h-screen bg-light-bg dark:bg-dark-bg transition-colors duration-300">
       <button
@@ -165,12 +97,6 @@ const Login = () => {
       >
         {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
       </button>
-
-      {location?.accuracy && (
-        <div className="absolute top-4 right-4 bg-light-card dark:bg-dark-card rounded-md px-3 py-1 text-xs text-light-text dark:text-dark-text opacity-70 ring-1 ring-light-border dark:ring-dark-border">
-          Location accuracy: {Math.round(location.accuracy)}m
-        </div>
-      )}
 
       <form
         onSubmit={handleSubmit}

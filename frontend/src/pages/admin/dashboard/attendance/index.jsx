@@ -18,6 +18,7 @@ import LocationMap from '../../../../components/locationMap';
 import Header from '../../../../components/pageHeader';
 import StatCard from '../home/components/statCard';
 import AbsentEmployees from './components/absentEmployees';
+import CheckedInEmployees from './components/checkedInEmployees';
 import HalfDayEmployees from './components/halfDayEmployees';
 import HolidayEmployees from './components/holidayEmployees';
 import PresentEmployees from './components/presentEmployees';
@@ -55,7 +56,53 @@ const AdminAttendance = () => {
       const uniqueData = Array.from(
         new Map(data.summary.map(item => [item.employeeEmail, item])).values()
       );
-      setAttendanceData(uniqueData);
+
+      // Helper: compute realtime resolved status for a record
+      const computeRealtimeStatus = (rec) => {
+        if (!rec) return 'Unknown';
+        // Respect explicit leave first
+        if (rec.manualPayrollStatus === 'leave') return 'Leave';
+
+        // Respect other manual overrides if present
+        if (rec.manualPayrollStatus === 'absent') return 'Absent';
+        if (rec.manualPayrollStatus === 'half-day') return 'Half Day';
+        if (rec.manualPayrollStatus === 'full-day') return 'Present';
+
+        const minAbsent = Number(rec.minAbsentHours || 180);
+        const halfDayThreshold = Number(rec.halfDayThresholdMinutes || rec.halfDayThreshold || 240);
+        const fullDay = Number(rec.fullDayThresholdMinutes || 470);
+
+        // Calculate working minutes (use live elapsed if currently checked-in)
+        let workingMinutes = Number(rec.totalWorkTime || 0);
+        if (rec.hasCheckInPunch && rec.originalCheckInTime && rec.originalCheckInTime !== 'N/A') {
+          const elapsed = Math.floor((currentTime.getTime() - new Date(rec.originalCheckInTime).getTime()) / 60000);
+          workingMinutes = Math.max(elapsed, workingMinutes);
+        }
+
+        // Thresholds take precedence for Half Day / Full Day
+        if (workingMinutes >= fullDay) return 'Present';
+        if (workingMinutes >= halfDayThreshold) return 'Half Day';
+
+        // If employee is currently checked-in and below half-day, show 'Checked In' (not Absent)
+        if (rec.hasCheckInPunch && !rec.hasCheckOutPunch) return 'Checked In';
+
+        // Otherwise evaluate absent / half-day defaults
+        if (workingMinutes < minAbsent) return 'Absent';
+        return 'Half Day';
+      };
+
+      // Filter: show checked-in, half-day and present employees; exclude 'Leave'
+      const filteredData = uniqueData.filter((item) => {
+        const status = computeRealtimeStatus(item);
+        if (status === 'Leave') return false;
+        // show if checked-in now or evaluated as not Absent
+        if (item.hasCheckInPunch && !item.hasCheckOutPunch) return true;
+        return status !== 'Absent';
+      });
+
+      // Attach realtime status for rendering
+      const withRealtime = filteredData.map(item => ({ ...item, realtimeStatus: computeRealtimeStatus(item) }));
+      setAttendanceData(withRealtime);
       toast.success('Attendance data fetched successfully.');
     } catch (error) {
       console.error('Error fetching attendance data:', error);
@@ -66,14 +113,28 @@ const AdminAttendance = () => {
   };
 
   useEffect(() => {
-    fetchAttendanceSummary(new Date());
+    fetchAttendanceSummary(selectedDate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Listen for global attendance updates (dispatched after quick actions elsewhere)
+  useEffect(() => {
+    const handler = () => {
+      // Always refresh the current view when an attendance update occurs elsewhere
+      fetchAttendanceSummary(selectedDate);
+    };
+    window.addEventListener('attendanceUpdated', handler);
+    return () => window.removeEventListener('attendanceUpdated', handler);
+  }, [selectedDate]);
 
   const getStatusColor = status => {
     switch (status?.toLowerCase()) {
       case 'present':
         return 'text-success bg-success/10';
+      case 'checked in':
+      case 'checked-in':
+      case 'checkedin':
+        return 'text-primary bg-primary/10';
       case 'absent':
         return 'text-danger bg-danger/10';
       case 'late':
@@ -252,10 +313,20 @@ const AdminAttendance = () => {
 
                           {/* Check-in Time */}
                           <td className="px-6 py-4 text-light-text dark:text-dark-text">
-                            {record.checkInTime !== 'N/A' ? (
+                            {(
+                              (record.checkInTime && record.checkInTime !== 'N/A') ||
+                              (record.originalCheckInTime && record.originalCheckInTime !== 'N/A')
+                            ) ? (
                               <div className="flex items-center gap-2">
                                 <Clock className="w-4 h-4 text-success" />
-                                {format(parseISO(record.checkInTime), 'hh:mm a')}
+                                {format(
+                                  parseISO(
+                                    record.checkInTime && record.checkInTime !== 'N/A'
+                                      ? record.checkInTime
+                                      : record.originalCheckInTime
+                                  ),
+                                  'hh:mm a'
+                                )}
                               </div>
                             ) : (
                               'N/A'
@@ -333,9 +404,11 @@ const AdminAttendance = () => {
                           {/* Status */}
                           <td className="px-6 py-4">
                             <span
-                              className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(record.currentStatus)}`}
+                              className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
+                                record.realtimeStatus || record.currentStatus
+                              )}`}
                             >
-                              {record.currentStatus || 'Unknown'}
+                              {record.realtimeStatus || record.currentStatus || 'Unknown'}
                             </span>
                           </td>
 
@@ -366,6 +439,7 @@ const AdminAttendance = () => {
         </div>
 
         <PresentEmployees startDate={selectedDate} endDate={selectedDate} />
+        <CheckedInEmployees selectedDate={selectedDate} />
         <AbsentEmployees startDate={selectedDate} endDate={selectedDate} />
         <HalfDayEmployees startDate={selectedDate} endDate={selectedDate} />
         <HolidayEmployees selectedDate={selectedDate} />
