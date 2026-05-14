@@ -12,15 +12,20 @@ const AdminAttendanceSettingsSchema = new mongoose.Schema(
       required: true,
       default: 480, // Default required working minutes in a day
     },
+    fullDayHours: {
+      type: Number,
+      required: true,
+      default: 470, // If employee works >= this many minutes, it's a full-day
+    },
     halfDayHours: {
       type: Number,
       required: true,
-      default: 300, // If employee works less than this minutes, it's a half-day
+      default: 240, // If employee works >= this many minutes but < fullDayHours, it's a half-day (4 hours)
     },
     minAbsentHours: {
       type: Number,
       required: true,
-      default: 180, // If employee works less than this minutes, they are absent
+      default: 180, // If employee works less than this minutes, they are absent (3 hours)
     },
     maxLateCheckIns: {
       type: Number,

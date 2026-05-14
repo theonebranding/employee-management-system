@@ -32,6 +32,13 @@ const attendanceSchema = new mongoose.Schema(
     earlyCheckOut: { type: Boolean, default: false },
     halfDay: { type: Boolean, default: false },
     totalWorkingTime: { type: Number, default: 0 }, // Store total working time in **minutes**
+
+    // Admin payroll override for Attendance Master
+    manualPayrollStatus: {
+      type: String,
+      enum: ['full-day', 'half-day', 'leave', 'absent'],
+      default: null,
+    },
   },
   { timestamps: true }
 );

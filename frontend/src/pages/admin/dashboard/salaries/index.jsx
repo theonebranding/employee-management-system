@@ -13,10 +13,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 
+import { useTheme } from '../../../../context/themeContext';
 import Header from '../../../../components/pageHeader';
 
 const AdminSalaryManagement = () => {
   const navigate = useNavigate();
+  const { theme } = useTheme();
   const [employees, setEmployees] = useState([]);
   const [salaries, setSalaries] = useState([]);
   const [payrolls, setPayrolls] = useState([]);
@@ -30,6 +32,10 @@ const AdminSalaryManagement = () => {
   const [loanFilterYear, setLoanFilterYear] = useState(new Date().getFullYear());
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [isPanelMounted, setIsPanelMounted] = useState(false);
+  const [isPanelVisible, setIsPanelVisible] = useState(false);
+  const [isPanelLoading, setIsPanelLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState('name');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -94,6 +100,12 @@ const AdminSalaryManagement = () => {
   });
   const salaryTableScrollRef = useRef(null);
   const salaryScrollIntervalRef = useRef(null);
+  const panelCloseTimeoutRef = useRef(null);
+  const settingsPanelCloseTimeoutRef = useRef(null);
+  const hasLoadedMonthYearRef = useRef(false);
+  const [isSettingsPanelMounted, setIsSettingsPanelMounted] = useState(false);
+  const [isSettingsPanelVisible, setIsSettingsPanelVisible] = useState(false);
+  const [isSettingsContentVisible, setIsSettingsContentVisible] = useState(false);
   const [lateCheckInCounts, setLateCheckInCounts] = useState({});
   const HOURS_PER_DAY = 8;
   const IST_OFFSET_MINUTES = 330;
@@ -193,7 +205,49 @@ const AdminSalaryManagement = () => {
     }, 16);
   };
 
-  useEffect(() => () => stopSalaryTableAutoScroll(), []);
+  useEffect(
+    () => () => {
+      stopSalaryTableAutoScroll();
+      if (panelCloseTimeoutRef.current) {
+        clearTimeout(panelCloseTimeoutRef.current);
+      }
+      if (settingsPanelCloseTimeoutRef.current) {
+        clearTimeout(settingsPanelCloseTimeoutRef.current);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!settingsPanel) {
+      setIsSettingsPanelVisible(false);
+      setIsSettingsContentVisible(false);
+      if (settingsPanelCloseTimeoutRef.current) {
+        clearTimeout(settingsPanelCloseTimeoutRef.current);
+      }
+      settingsPanelCloseTimeoutRef.current = setTimeout(() => {
+        setIsSettingsPanelMounted(false);
+        settingsPanelCloseTimeoutRef.current = null;
+      }, 300);
+      return undefined;
+    }
+
+    if (settingsPanelCloseTimeoutRef.current) {
+      clearTimeout(settingsPanelCloseTimeoutRef.current);
+      settingsPanelCloseTimeoutRef.current = null;
+    }
+
+    setIsSettingsPanelMounted(true);
+    setIsSettingsPanelVisible(false);
+    setIsSettingsContentVisible(false);
+    const openTimeoutId = setTimeout(() => setIsSettingsPanelVisible(true), 20);
+    const contentTimeoutId = setTimeout(() => setIsSettingsContentVisible(true), 120);
+
+    return () => {
+      clearTimeout(openTimeoutId);
+      clearTimeout(contentTimeoutId);
+    };
+  }, [settingsPanel]);
 
   const fetchSalaries = async () => {
     try {
@@ -354,14 +408,34 @@ const AdminSalaryManagement = () => {
   };
 
   useEffect(() => {
-    fetchEmployees();
-    fetchSalaries();
-    fetchPayrolls();
-    fetchPayslipSettings();
-    fetchPayrollSettings();
-    fetchLoanAdvances();
-    fetchExtraAllowances();
-    fetchPayrollPreview();
+    let active = true;
+
+    const loadDashboard = async () => {
+      setIsLoading(true);
+      try {
+        await Promise.all([
+          fetchEmployees(),
+          fetchSalaries(),
+          fetchPayrolls(),
+          fetchPayslipSettings(),
+          fetchPayrollSettings(),
+          fetchLoanAdvances(),
+          fetchExtraAllowances(),
+          fetchPayrollPreview(),
+          fetchLateCheckInCounts(),
+        ]);
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadDashboard();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -380,6 +454,11 @@ const AdminSalaryManagement = () => {
   }, [employees, loanForm.employeeId, extraForm.employeeId]);
 
   useEffect(() => {
+    if (!hasLoadedMonthYearRef.current) {
+      hasLoadedMonthYearRef.current = true;
+      return;
+    }
+
     fetchPayrolls();
     fetchPayrollPreview();
     fetchLateCheckInCounts();
@@ -589,7 +668,14 @@ const AdminSalaryManagement = () => {
 
   const openPanel = async (employee, event) => {
     if (event) event.stopPropagation();
+    if (panelCloseTimeoutRef.current) {
+      clearTimeout(panelCloseTimeoutRef.current);
+      panelCloseTimeoutRef.current = null;
+    }
     const payroll = mergedPayrollMap[employee._id];
+    setIsPanelMounted(true);
+    setIsPanelVisible(false);
+    setIsPanelLoading(true);
     setSelectedEmployee({ ...employee, payroll });
     setFormState({
       overtimeHours: payroll?.overtimeHours || 0,
@@ -602,9 +688,12 @@ const AdminSalaryManagement = () => {
       status: payroll?.status || 'unpaid',
     });
     setIsPanelOpen(true);
-    fetchPanelDeductions(employee._id);
     try {
-      const latestPayroll = await fetchLatestPayrollForEmployee(employee._id);
+      requestAnimationFrame(() => setIsPanelVisible(true));
+      const [latestPayroll] = await Promise.all([
+        fetchLatestPayrollForEmployee(employee._id),
+        fetchPanelDeductions(employee._id),
+      ]);
       const preferredPayroll =
         latestPayroll?.status === 'paid'
           ? latestPayroll
@@ -625,6 +714,8 @@ const AdminSalaryManagement = () => {
       }
     } catch (error) {
       toast.error(error.message || 'Failed to refresh employee payroll status.');
+    } finally {
+      setIsPanelLoading(false);
     }
   };
 
@@ -642,8 +733,17 @@ const AdminSalaryManagement = () => {
 
   const closePanel = () => {
     setIsPanelOpen(false);
-    setSelectedEmployee(null);
-    setPanelDeductions({ lateCheckin: 0, halfDay: 0, absent: 0 });
+    setIsPanelVisible(false);
+    setIsPanelLoading(false);
+    if (panelCloseTimeoutRef.current) {
+      clearTimeout(panelCloseTimeoutRef.current);
+    }
+    panelCloseTimeoutRef.current = setTimeout(() => {
+      setIsPanelMounted(false);
+      setSelectedEmployee(null);
+      setPanelDeductions({ lateCheckin: 0, halfDay: 0, absent: 0 });
+      panelCloseTimeoutRef.current = null;
+    }, 300);
   };
 
   const saveSettingsPanel = async () => {
@@ -1360,6 +1460,10 @@ const AdminSalaryManagement = () => {
   };
 
   const renderPanelContent = (showClose = false) => {
+    if (isPanelLoading) {
+      return <PanelSkeleton showClose={showClose} />;
+    }
+
     const payroll = selectedEmployee?.payroll;
     const employeeId = selectedEmployee?._id;
     const lateCount = Number(lateCheckInCounts[employeeId] || 0);
@@ -1723,6 +1827,21 @@ const AdminSalaryManagement = () => {
     </div>
     );
   };
+
+  if (isLoading) {
+    return (
+      <>
+        <SalaryDashboardSkeleton />
+        <ToastContainer
+          theme={theme}
+          position="top-right"
+          pauseOnHover={false}
+          limit={1}
+          autoClose={2000}
+        />
+      </>
+    );
+  }
 
   return (
     <div
@@ -2134,14 +2253,14 @@ const AdminSalaryManagement = () => {
         </div>
       </div>
 
-      {isPanelOpen && selectedEmployee && (
+      {isPanelMounted && selectedEmployee && (
         <div
-          className="fixed inset-0 bg-black/40 z-50 flex justify-end animate-fade-in"
+          className={`fixed inset-0 z-50 bg-black/40 transition-opacity duration-300 ${isPanelVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
           onClick={closePanel}
           role="presentation"
         >
           <div
-            className="h-full w-full max-w-xl bg-light-bg dark:bg-dark-bg p-6 shadow-xl overflow-y-auto animate-slide-in-right"
+            className={`absolute right-0 top-0 h-full w-full max-w-xl bg-light-bg dark:bg-dark-bg p-6 shadow-2xl overflow-y-auto transform-gpu transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${isPanelVisible ? 'translate-x-0' : 'translate-x-full'}`}
             onClick={(event) => event.stopPropagation()}
             role="presentation"
           >
@@ -2150,17 +2269,34 @@ const AdminSalaryManagement = () => {
         </div>
       )}
 
-      {settingsPanel && (
+      {isSettingsPanelMounted && settingsPanel && (
         <div
-          className="fixed inset-0 bg-black/40 z-50 flex justify-end animate-fade-in"
+          className="fixed inset-0 z-50 bg-black/40"
+          style={{
+            opacity: isSettingsPanelVisible ? 1 : 0,
+            pointerEvents: isSettingsPanelVisible ? 'auto' : 'none',
+            transition: 'opacity 300ms ease',
+          }}
           onClick={() => setSettingsPanel(null)}
           role="presentation"
         >
           <div
-            className="h-full w-full max-w-lg bg-light-bg dark:bg-dark-bg p-6 shadow-xl overflow-y-auto animate-slide-in-right"
+            className="absolute right-0 top-0 h-full w-full max-w-lg bg-light-bg dark:bg-dark-bg p-6 shadow-2xl overflow-y-auto will-change-transform"
+            style={{
+              transform: isSettingsPanelVisible ? 'translate3d(0, 0, 0)' : 'translate3d(100%, 0, 0)',
+              transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
             onClick={(event) => event.stopPropagation()}
             role="presentation"
           >
+            <div
+              className="transform-gpu"
+              style={{
+                opacity: isSettingsContentVisible ? 1 : 0,
+                transform: isSettingsContentVisible ? 'translate3d(0, 0, 0)' : 'translate3d(12px, 0, 0)',
+                transition: 'opacity 240ms ease, transform 240ms ease',
+              }}
+            >
             <div className="flex items-center justify-between mb-6">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-light-text/60 dark:text-dark-text/60">
@@ -2978,6 +3114,7 @@ const AdminSalaryManagement = () => {
                 </button>
               )}
             </div>
+            </div>
           </div>
         </div>
       )}
@@ -2997,6 +3134,103 @@ const AdminSalaryManagement = () => {
     </div>
   );
 };
+
+const SalaryDashboardSkeleton = () => (
+  <div className="min-h-screen px-6 py-6 lg:ml-16 bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text">
+    <div className="max-w-7xl mx-auto space-y-6 animate-pulse">
+      <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card p-6 space-y-4">
+        <div className="h-5 w-32 rounded bg-light-bg dark:bg-dark-bg" />
+        <div className="h-8 w-72 rounded bg-light-bg dark:bg-dark-bg" />
+        <div className="h-4 w-96 max-w-full rounded bg-light-bg dark:bg-dark-bg" />
+      </div>
+
+      <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card p-4 space-y-4">
+        <div className="grid gap-3 lg:grid-cols-3">
+          <div className="h-10 rounded-lg bg-light-bg dark:bg-dark-bg" />
+          <div className="h-10 rounded-lg bg-light-bg dark:bg-dark-bg" />
+          <div className="h-10 rounded-lg bg-light-bg dark:bg-dark-bg" />
+        </div>
+        <div className="grid gap-3 lg:grid-cols-4">
+          <div className="h-11 rounded-lg bg-light-bg dark:bg-dark-bg" />
+          <div className="h-11 rounded-lg bg-light-bg dark:bg-dark-bg" />
+          <div className="h-11 rounded-lg bg-light-bg dark:bg-dark-bg" />
+          <div className="h-11 rounded-lg bg-light-bg dark:bg-dark-bg" />
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-light-bg/70 dark:bg-dark-bg/70">
+              <tr>
+                {[...Array(16)].map((_, index) => (
+                  <th key={index} className="px-4 py-3 text-left">
+                    <div className="h-3 rounded bg-light-bg dark:bg-dark-bg" />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[...Array(7)].map((_, rowIndex) => (
+                <tr key={rowIndex} className="border-t border-light-border/70 dark:border-dark-border/70">
+                  {[...Array(16)].map((__, colIndex) => (
+                    <td key={colIndex} className="px-4 py-4">
+                      <div className="h-4 rounded bg-light-bg dark:bg-dark-bg" />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const PanelSkeleton = ({ showClose = false }) => (
+  <div className="space-y-5 animate-pulse">
+    <div className="flex items-center justify-between mb-6">
+      <div className="space-y-3">
+        <div className="h-3 w-32 rounded bg-light-card dark:bg-dark-card" />
+        <div className="h-6 w-56 rounded bg-light-card dark:bg-dark-card" />
+        <div className="h-4 w-40 rounded bg-light-card dark:bg-dark-card" />
+      </div>
+      {showClose ? <div className="h-9 w-9 rounded-full bg-light-card dark:bg-dark-card" /> : null}
+    </div>
+
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {['Overtime', 'Penalties', 'Loan', 'Extras'].map((label) => (
+        <div
+          key={label}
+          className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3 bg-light-card/40 dark:bg-dark-card/40"
+        >
+          <div className="h-3 w-20 rounded bg-light-card dark:bg-dark-card" />
+          <div className="space-y-2">
+            <div className="h-2.5 w-3/4 rounded bg-light-card dark:bg-dark-card" />
+            <div className="h-10 rounded-lg bg-light-card dark:bg-dark-card" />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="h-3 w-14 rounded bg-light-card dark:bg-dark-card" />
+            <div className="h-3 w-10 rounded bg-light-card dark:bg-dark-card" />
+          </div>
+        </div>
+      ))}
+    </div>
+
+    {[...Array(4)].map((_, index) => (
+      <div key={index} className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3">
+        <div className="h-3 w-28 rounded bg-light-card dark:bg-dark-card" />
+        {[...Array(4)].map((__, rowIndex) => (
+          <div key={rowIndex} className="flex items-center justify-between gap-4">
+            <div className="h-4 w-28 rounded bg-light-card dark:bg-dark-card" />
+            <div className="h-4 w-20 rounded bg-light-card dark:bg-dark-card" />
+          </div>
+        ))}
+      </div>
+    ))}
+  </div>
+);
 
 export default AdminSalaryManagement;
 

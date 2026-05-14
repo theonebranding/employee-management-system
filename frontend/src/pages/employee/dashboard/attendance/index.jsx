@@ -45,6 +45,26 @@ const Attendance = () => {
   });
 
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
+  const getActionLocation = () =>
+    new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation is not supported by your browser.'));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) =>
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          }),
+        (error) => {
+          if (error.code === 1) reject(new Error('Location permission denied.'));
+          else if (error.code === 2) reject(new Error('Location unavailable.'));
+          else reject(new Error('Location request timed out.'));
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    });
 
   const checkInIcon = new L.Icon({
     iconUrl:
@@ -157,19 +177,11 @@ const Attendance = () => {
 
   const handleAttendanceAction = async action => {
     setLoading(true);
-    requestLocation();
-
-    await new Promise(resolve => {
-      const checkLocation = setInterval(() => {
-        if (deviceLocation.latitude && deviceLocation.longitude) {
-          clearInterval(checkLocation);
-          resolve();
-        }
-      }, 100);
-    });
-
-    if (!isLocationPermissionGranted || !deviceLocation.latitude || !deviceLocation.longitude) {
-      toast.error('Location unavailable. Enable location services.');
+    let actionLocation;
+    try {
+      actionLocation = await getActionLocation();
+    } catch (locationError) {
+      toast.error(locationError.message || 'Location unavailable. Enable location services.');
       setLoading(false);
       return;
     }
@@ -182,8 +194,8 @@ const Attendance = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          latitude: deviceLocation.latitude,
-          longitude: deviceLocation.longitude,
+          latitude: actionLocation.latitude,
+          longitude: actionLocation.longitude,
         }),
       });
 
@@ -257,7 +269,6 @@ const Attendance = () => {
 
   useEffect(() => {
     fetchAttendanceStatus();
-    requestLocation();
   }, []);
 
   useEffect(() => {
