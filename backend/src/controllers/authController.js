@@ -129,11 +129,26 @@ export const confirmRegistration = async (req, res) => {
 
 // Login User
 export const login = async (req, res) => {
-  const { email, password } = req.body;
+  const { identifier, email, password } = req.body;
+  const loginId = (identifier || email || '').trim();
 
   try {
-    // Find user by email in both Admin and Employee collections
-    const user = (await Employee.findOne({ email })) || (await Admin.findOne({ email }));
+    if (!loginId) {
+      return res.status(400).json({ message: 'Email or employee ID is required' });
+    }
+
+    const isEmail = loginId.includes('@');
+    const normalizedEmployeeCode = loginId.toUpperCase();
+
+    // Admins log in with email only
+    const adminUser = isEmail ? await Admin.findOne({ email: loginId }) : null;
+
+    // Employees can log in with email or employeeCode
+    const employeeUser = isEmail
+      ? await Employee.findOne({ email: loginId })
+      : await Employee.findOne({ employeeCode: normalizedEmployeeCode });
+
+    const user = employeeUser || adminUser;
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     // Validate password
@@ -152,6 +167,7 @@ export const login = async (req, res) => {
       role: user.role,
       _id: user._id,
       email: user.email,
+      employeeCode: user.employeeCode,
       token: accessToken,
     });
   } catch (err) {

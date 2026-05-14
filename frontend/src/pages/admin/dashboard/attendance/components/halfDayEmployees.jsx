@@ -43,6 +43,7 @@ const HalfDayEmployees = ({ startDate, endDate }) => {
         .map(entry => ({
           date: new Date(entry.checkInTime).toLocaleDateString(),
           employeeName: entry.employeeName,
+          employeeCode: entry.employeeCode,
           hoursWorked: formatHoursWorked(entry.workHours),
           checkInTime: new Date(entry.checkInTime).toLocaleTimeString(),
           checkOutTime: new Date(entry.checkOutTime).toLocaleTimeString(),
@@ -85,6 +86,7 @@ const HalfDayEmployees = ({ startDate, endDate }) => {
               <tr>
                 <th className="px-4 py-2 font-medium">Date</th>
                 <th className="px-4 py-2 font-medium">Employee</th>
+                <th className="px-4 py-2 font-medium">Employee ID</th>
                 <th className="px-4 py-2 font-medium">Check In</th>
                 <th className="px-4 py-2 font-medium">Check Out</th>
                 <th className="px-4 py-2 font-medium">Hours Worked</th>
@@ -98,6 +100,7 @@ const HalfDayEmployees = ({ startDate, endDate }) => {
                 >
                   <td className="px-4 py-2">{entry.date}</td>
                   <td className="px-4 py-2">{entry.employeeName}</td>
+                  <td className="px-4 py-2">{entry.employeeCode || 'ID Pending'}</td>
                   <td className="px-4 py-2">{entry.checkInTime}</td>
                   <td className="px-4 py-2">{entry.checkOutTime}</td>
                   <td className="px-4 py-2">{entry.hoursWorked}</td>

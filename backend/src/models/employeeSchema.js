@@ -3,15 +3,24 @@ import mongoose from 'mongoose';
 const employeeSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
+    employeeCode: { type: String, unique: true },
     email: { type: String, unique: true, required: true },
     phoneNumber: { type: String, unique: true, required: true },
     password: { type: String, required: true },
     role: { type: String, default: 'employee' },
     dateofBirth: { type: Date },
     // professional info
-    jobRole: { type: String },
+    department: { type: String },
+    designation: { type: String },
+    employmentType: { type: String },
+    workLocation: { type: String },
     joinedDate: { type: Date },
     serviceTime: { type: String },
+    onboardingStatus: {
+      type: String,
+      enum: ['draft', 'onboarding_complete', 'payroll_ready', 'active'],
+      default: 'draft',
+    },
     // identification info
     aadharNumber: { type: String },
     panNumber: { type: String },
@@ -27,6 +36,8 @@ const employeeSchema = new mongoose.Schema(
     city: { type: String },
     district: { type: String },
     pinCode: { type: String },
+    emergencyContactName: { type: String },
+    emergencyContactPhone: { type: String },
     // predefined Checkin time
     predefinedCheckInTime: { type: String, default: '10:00' },
     // email verification

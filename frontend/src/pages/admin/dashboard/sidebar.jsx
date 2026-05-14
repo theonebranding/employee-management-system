@@ -2,6 +2,8 @@ import {
   BadgeDollarSign,
   BarChart2,
   CalendarFold,
+  ChevronDown,
+  ClipboardList,
   FileText,
   Home as HomeIcon,
   LogOut,
@@ -11,14 +13,19 @@ import {
   X,
 } from 'lucide-react';
 import React, { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../../context/authContext';
 
 const AdminSidebar = () => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [openSections, setOpenSections] = useState({ reports: true });
   const navigate = useNavigate();
+  const location = useLocation();
   const { logout } = useAuth();
+
+  const isReportsRoute = location.pathname.startsWith('/admin/dashboard/reports');
+  const reportsTab = new URLSearchParams(location.search).get('tab') || 'attendance';
 
   const menuItems = [
     {
@@ -47,6 +54,11 @@ const AdminSidebar = () => {
       path: '/admin/dashboard/leaves',
     },
     {
+      name: 'Tasks',
+      icon: <ClipboardList className="w-5 h-5" />,
+      path: '/admin/dashboard/tasks',
+    },
+    {
       name: 'Manage Holidays',
       icon: <CalendarFold className="w-5 h-5" />,
       path: '/admin/dashboard/holidays',
@@ -56,6 +68,18 @@ const AdminSidebar = () => {
       icon: <Settings className="w-5 h-5" />,
       path: '/admin/dashboard/settings',
     },
+    {
+      name: 'Reports',
+      icon: <FileText className="w-5 h-5" />,
+      path: '/admin/dashboard/reports?tab=attendance',
+      key: 'reports',
+      children: [
+        { name: 'Attendance', path: '/admin/dashboard/reports?tab=attendance' },
+        { name: 'Daily Punch', path: '/admin/dashboard/reports?tab=daily-punch' },
+        { name: 'Daily Work', path: '/admin/dashboard/reports?tab=daily-report' },
+        { name: 'Hourly', path: '/admin/dashboard/reports?tab=hourly' },
+      ],
+    },
   ];
 
   const handleLogout = () => {
@@ -64,94 +88,157 @@ const AdminSidebar = () => {
   };
 
   const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-    if (!isSidebarOpen) {
-      setTimeout(() => {
-        setIsSidebarOpen(false);
-      }, 2500); // Automatically close after 2.5 seconds
-    }
+    setIsSidebarOpen((prev) => !prev);
+  };
+
+  const toggleSection = (key) => {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   return (
     <>
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 lg:hidden"
+          onClick={toggleSidebar}
+          aria-hidden="true"
+        />
+      )}
       {/* Sidebar */}
       <div
-        className={`fixed bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text shadow-xl h-full top-0 left-0 z-50
-          ${isSidebarOpen ? 'w-64' : 'w-20 overflow-hidden'} 
-          transition-all duration-300 ease-in-out flex flex-col`}
+        className={`group fixed top-0 left-0 z-50 h-screen glass-sidebar text-light-text dark:text-dark-text rounded-r-3xl rounded-l-none transition-all duration-300 ease-in-out flex flex-col overflow-hidden
+          ${isSidebarOpen ? 'translate-x-0 w-72' : '-translate-x-[120%] w-72'} lg:translate-x-0 lg:w-16 lg:hover:w-72`}
       >
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-light-border dark:border-dark-border">
-          <h2
-            className={`font-bold text-light-text dark:text-dark-text text-lg transition-opacity duration-300
-              ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0'}`}
-          >
-            Admin Dashboard
-          </h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-light-border/70 dark:border-dark-border lg:px-2">
+          <div className="flex items-center gap-3 lg:w-full lg:justify">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-primary-dark text-white flex items-center justify-center font-bold lg:mx-auto lg:group-hover:mx-0">
+              EMS
+            </div>
+            <div className="lg:opacity-0 lg:w-0 lg:overflow-hidden lg:group-hover:w-auto lg:group-hover:overflow-visible lg:group-hover:opacity-100 lg:transition-all lg:duration-200">
+              <p className="text-xs uppercase tracking-[0.24em] text-light-text/60 dark:text-dark-text/60">
+                Console
+              </p>
+              <h2 className="font-semibold text-lg">Admin Hub</h2>
+            </div>
+          </div>
           <button
             onClick={toggleSidebar}
-            className="p-2 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg transition-colors"
+            className="p-2 rounded-xl hover:bg-light-bg dark:hover:bg-dark-bg transition-colors lg:hidden"
           >
             {isSidebarOpen ? (
-              <X className="w-6 h-6 text-light-text dark:text-dark-text" />
+              <X className="w-5 h-5 text-light-text dark:text-dark-text" />
             ) : (
-              <Menu className="w-6 h-6 text-light-text dark:text-dark-text" />
+              <Menu className="w-5 h-5 text-light-text dark:text-dark-text" />
             )}
           </button>
         </div>
 
         {/* Sidebar Navigation */}
-        <nav className="flex-1 p-4 space-y-3">
-          {menuItems.map((item, index) => (
-            <NavLink
-              to={item.path}
-              key={index}
-              onClick={() => setIsSidebarOpen(false)}
-              className={({ isActive }) =>
-                `relative flex items-center px-3 py-2 rounded-lg transition-all duration-200 group
-                ${
-                  isActive
-                    ? 'bg-primary text-white'
-                    : 'text-light-text dark:text-dark-text opacity-70 hover:bg-light-bg dark:hover:bg-dark-bg hover:text-primary'
-                }`
-              }
-            >
-              {/* Tooltip */}
-              {!isSidebarOpen && (
-                <span
-                  className="fixed left-14 bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text text-xs font-medium px-2 py-1 rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-50"
-                  style={{ whiteSpace: 'nowrap' }}
-                >
-                  {item.name}
-                </span>
-              )}
-              <div
-                className={`${isSidebarOpen ? 'text-light-text dark:text-dark-text' : 'text-light-text dark:text-dark-text opacity-70'} transition-colors duration-100`}
-              >
-                {item.icon}
+        <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto overflow-x-hidden no-scrollbar lg:px-2">
+          {menuItems.map((item, index) => {
+            const hasChildren = Boolean(item.children?.length);
+            const isSectionOpen = item.key ? openSections[item.key] : false;
+            const isItemActive =
+              hasChildren && item.key === 'reports'
+                ? isReportsRoute
+                : location.pathname === item.path;
+
+            return (
+              <div key={`${item.name}-${index}`} className="space-y-2">
+                <div className="relative">
+                  <NavLink
+                    to={item.path}
+                    onClick={() => {
+                      if (item.key) {
+                        setOpenSections((prev) => ({
+                          ...prev,
+                          [item.key]: true,
+                        }));
+                      }
+                      setIsSidebarOpen(false);
+                    }}
+                    className={() =>
+                      `relative flex items-center w-full px-4 py-3 rounded-2xl transition-all duration-200 group
+                      lg:w-12 lg:h-12 lg:justify-center lg:px-0 lg:mx-auto lg:self-center
+                      lg:group-hover:w-full lg:group-hover:justify-start lg:group-hover:px-4 lg:group-hover:mx-0
+                      ${
+                        isItemActive
+                          ? 'bg-primary text-white shadow-md shadow-primary/20'
+                          : 'text-light-text dark:text-dark-text opacity-70 hover:bg-white/60 dark:hover:bg-dark-card/60 hover:text-primary'
+                      }`
+                    }
+                  >
+                    <div className="w-6 h-6 shrink-0 flex items-center justify-center transition-colors duration-100">
+                      {item.icon}
+                    </div>
+                    <span className="ml-3 font-medium text-sm lg:opacity-0 lg:w-0 lg:overflow-hidden lg:ml-0 lg:group-hover:w-auto lg:group-hover:overflow-visible lg:group-hover:ml-3 lg:group-hover:opacity-100 lg:transition-all lg:duration-200">
+                      {item.name}
+                    </span>
+                  </NavLink>
+                  {hasChildren && (
+                    <button
+                      type="button"
+                      onClick={() => toggleSection(item.key)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md text-light-text/70 dark:text-dark-text/70 hover:text-primary lg:opacity-0 lg:group-hover:opacity-100"
+                      aria-label={`Toggle ${item.name}`}
+                    >
+                      <ChevronDown
+                        className={`w-4 h-4 transition-transform ${
+                          isSectionOpen ? 'rotate-180' : 'rotate-0'
+                        }`}
+                      />
+                    </button>
+                  )}
+                </div>
+                {hasChildren && isSectionOpen && (
+                  <div
+                    className={`pl-10 pr-3 space-y-1 ${
+                      isSidebarOpen ? 'block' : 'hidden'
+                    } lg:hidden`}
+                  >
+                    {item.children.map((child) => {
+                      const isChildActive =
+                        item.key === 'reports'
+                          ? isReportsRoute && reportsTab === new URLSearchParams(child.path.split('?')[1]).get('tab')
+                          : location.pathname === child.path;
+
+                      return (
+                        <NavLink
+                          key={child.name}
+                          to={child.path}
+                          onClick={() => setIsSidebarOpen(false)}
+                          className={() =>
+                            `flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-colors
+                            ${
+                              isChildActive
+                                ? 'bg-primary/10 text-primary'
+                                : 'text-light-text/60 dark:text-dark-text/60 hover:text-primary'
+                            }`
+                          }
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                          {child.name}
+                        </NavLink>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              <span
-                className={`ml-3 font-medium text-sm ${
-                  isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0'
-                } transition-all duration-200`}
-              >
-                {item.name}
-              </span>
-            </NavLink>
-          ))}
+            );
+          })}
         </nav>
 
         {/* Logout Button */}
-        <div className="p-4 border-t border-light-border dark:border-dark-border">
+        <div className="p-5 border-t border-light-border/70 dark:border-dark-border lg:px-2">
           <button
             onClick={handleLogout}
-            className={`flex items-center w-full px-4 py-3 text-sm font-medium text-light-text dark:text-dark-text
-              transition-all hover:bg-danger hover:text-white ${
-                isSidebarOpen ? 'justify-start' : 'justify-center'
-              }`}
+            className="flex items-center w-full px-4 py-3 text-sm font-medium text-light-text dark:text-dark-text rounded-2xl transition-all hover:bg-danger hover:text-white lg:w-12 lg:h-12 lg:justify-center lg:px-0 lg:mx-auto lg:self-center lg:group-hover:w-full lg:group-hover:justify-start lg:group-hover:px-4 lg:group-hover:mx-0"
           >
-            <LogOut className="w-5 h-5" />
-            {isSidebarOpen && <span className="ml-3">Logout</span>}
+            <LogOut className="w-5 h-5 shrink-0" />
+            <span className="ml-3 lg:opacity-0 lg:w-0 lg:overflow-hidden lg:ml-0 lg:group-hover:w-auto lg:group-hover:overflow-visible lg:group-hover:ml-3 lg:group-hover:opacity-100 lg:transition-all lg:duration-200">
+              Logout
+            </span>
           </button>
         </div>
       </div>

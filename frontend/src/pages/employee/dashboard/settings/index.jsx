@@ -7,6 +7,13 @@ import { toast, ToastContainer } from 'react-toastify';
 import Header from '../../../../components/pageHeader';
 
 const Settings = () => {
+  const IST_OFFSET_MINUTES = 330;
+  const toIstInputDate = (dateValue) => {
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return '';
+    const shifted = new Date(date.getTime() + IST_OFFSET_MINUTES * 60 * 1000);
+    return shifted.toISOString().split('T')[0];
+  };
   const [activeTab, setActiveTab] = useState('personalInfo');
   const [formData, setFormData] = useState({
     personalInfo: {
@@ -58,7 +65,7 @@ const Settings = () => {
           email: employee.email || '',
           phoneNumber: employee.phoneNumber || '',
           dateofBirth: employee.dateofBirth
-            ? new Date(employee.dateofBirth).toISOString().split('T')[0]
+            ? toIstInputDate(employee.dateofBirth)
             : '',
           address: employee.address || '',
           state: employee.state || '',
@@ -69,7 +76,7 @@ const Settings = () => {
         professionalInfo: {
           jobRole: employee.jobRole || '',
           joinedDate: employee.joinedDate
-            ? new Date(employee.joinedDate).toISOString().split('T')[0]
+            ? toIstInputDate(employee.joinedDate)
             : '',
           serviceTime: employee.serviceTime || '',
         },
@@ -149,7 +156,7 @@ const Settings = () => {
   );
 
   return (
-    <div className="p-6 ml-8 min-h-screen pl-20 bg-light-bg dark:bg-dark-bg transition-colors duration-300">
+    <div className="min-h-screen px-6 py-6 lg:ml-16 bg-light-bg dark:bg-dark-bg transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <Header

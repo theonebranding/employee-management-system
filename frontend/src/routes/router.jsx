@@ -4,14 +4,18 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 // Admin Routes
 import AdminAttendance from '../pages/admin/dashboard/attendance';
 import AdminManageEmployees from '../pages/admin/dashboard/employees';
+import AdminAddEmployee from '../pages/admin/dashboard/employees/addEmployee';
 import AdminEmployeeProfile from '../pages/admin/dashboard/employees/employeeProfile';
 import AdminHolidays from '../pages/admin/dashboard/holidays';
 import AdminDashboardHome from '../pages/admin/dashboard/home';
 import AdminLeaveManagement from '../pages/admin/dashboard/leaves';
+import AdminPayroll from '../pages/admin/dashboard/payroll';
+import AdminReports from '../pages/admin/dashboard/reports';
 import AdminSalaryManagement from '../pages/admin/dashboard/salaries';
 import AdminEmployeeSalaryProfile from '../pages/admin/dashboard/salaries/employeeSalary';
 import AdminSettings from '../pages/admin/dashboard/settings';
 import AdminSidebar from '../pages/admin/dashboard/sidebar';
+import AdminTasks from '../pages/admin/dashboard/tasks';
 import ConfirmRegistration from '../pages/auth/confirmRegistration';
 import ForgotPassword from '../pages/auth/forgotPassword';
 import Login from '../pages/auth/login';
@@ -24,7 +28,9 @@ import Holidays from '../pages/employee/dashboard/holidays';
 import DashboardHome from '../pages/employee/dashboard/home';
 import Leaves from '../pages/employee/dashboard/leaves';
 import Settings from '../pages/employee/dashboard/settings';
+import EmployeeTasks from '../pages/employee/dashboard/tasks';
 import EmployeeSidebar from '../pages/employee/dashboard/sidebar';
+import EmployeeDailyWork from '../pages/employee/dashboard/dailyWork';
 import Home from '../pages/home';
 import ProtectedRoute from '../routes/protectedRoute';
 
@@ -97,6 +103,24 @@ const AppRouter = () => {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/employee/dashboard/daily-work"
+        element={
+          <ProtectedRoute allowedRoles={['employee']}>
+            <EmployeeSidebar isActive="Daily Work" />
+            <EmployeeDailyWork />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/employee/dashboard/tasks"
+        element={
+          <ProtectedRoute allowedRoles={['employee']}>
+            <EmployeeSidebar isActive="Tasks" />
+            <EmployeeTasks />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Admin Routes */}
       <Route
@@ -123,6 +147,15 @@ const AppRouter = () => {
           <ProtectedRoute allowedRoles={['admin']}>
             <AdminSidebar isActive="Employees" />
             <AdminManageEmployees />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/dashboard/employees/add"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminSidebar isActive="Employees" />
+            <AdminAddEmployee />
           </ProtectedRoute>
         }
       />
@@ -154,6 +187,15 @@ const AppRouter = () => {
         }
       />
       <Route
+        path="/admin/dashboard/payroll"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminSidebar isActive="Payroll" />
+            <AdminPayroll />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/admin/dashboard/leaves"
         element={
           <ProtectedRoute allowedRoles={['admin']}>
@@ -177,6 +219,24 @@ const AppRouter = () => {
           <ProtectedRoute allowedRoles={['admin']}>
             <AdminSidebar isActive="Settings" />
             <AdminSettings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/dashboard/tasks"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminSidebar isActive="Tasks" />
+            <AdminTasks />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/dashboard/reports"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminSidebar isActive="Reports" />
+            <AdminReports />
           </ProtectedRoute>
         }
       />

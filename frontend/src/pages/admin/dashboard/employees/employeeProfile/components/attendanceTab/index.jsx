@@ -74,13 +74,20 @@ const DateFilter = ({ month, setMonth, year, setYear, onRefresh }) => (
 );
 
 const AttendanceTab = ({ employeeId }) => {
+  const IST_OFFSET_MINUTES = 330;
+  const toIstInputDate = (dateValue) => {
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return '';
+    const shifted = new Date(date.getTime() + IST_OFFSET_MINUTES * 60 * 1000);
+    return shifted.toISOString().slice(0, 10);
+  };
   const [activeTab, setActiveTab] = useState('attendance');
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-  const endDate = new Date(year, month, 0).toISOString().slice(0, 10);
+  const endDate = toIstInputDate(new Date(year, month, 0));
   // console.log(startDate, endDate);
   const handleRefresh = () => {
     setRefreshTrigger(prev => prev + 1);

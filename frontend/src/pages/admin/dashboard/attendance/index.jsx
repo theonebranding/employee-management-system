@@ -110,8 +110,9 @@ const AdminAttendance = () => {
     }
   };
 
+
   return (
-    <div className="p-6 ml-8 min-h-screen pl-20 bg-light-bg dark:bg-dark-bg">
+    <div className="min-h-screen px-6 py-6 lg:ml-16 bg-light-bg dark:bg-dark-bg">
       <div className="max-w-7xl mx-auto">
         <Header
           title="Attendance Dashboard"
@@ -199,6 +200,7 @@ const AdminAttendance = () => {
               </button>
             </div>
 
+
             {/* Table */}
             {loading ? (
               <div className="flex justify-center items-center py-12">
@@ -213,7 +215,8 @@ const AdminAttendance = () => {
                   <table className="w-full text-sm text-left">
                     <thead className="bg-light-bg/50 dark:bg-dark-bg/50 text-light-text dark:text-dark-text">
                       <tr>
-                        <th className="px-6 py-4 font-medium">Employee</th>
+                        <th className="px-6 py-4 font-medium">Employee ID</th>
+                        <th className="px-6 py-4 font-medium">Employee Name</th>
                         <th className="px-6 py-4 font-medium">Check-in</th>
                         <th className="px-6 py-4 font-medium">Check-in Location</th>
                         <th className="px-6 py-4 font-medium">Check-out</th>
@@ -235,18 +238,16 @@ const AdminAttendance = () => {
                           onMouseLeave={() => setHoveredRow(null)}
                         >
                           {/* Employee Name & Email */}
+                          <td className="px-6 py-4 text-light-text dark:text-dark-text">
+                            {record.employeeCode || 'ID Pending'}
+                          </td>
                           <td className="px-6 py-4">
-                            <div className="flex flex-col">
-                              <Link
-                                to={`/admin/dashboard/employees/${record.employeeId}`}
-                                className="font-medium text-light-text dark:text-dark-text hover:text-primary transition-colors"
-                              >
-                                {record.employeeName}
-                              </Link>
-                              <span className="text-xs text-light-text dark:text-dark-text opacity-70">
-                                {record.employeeEmail}
-                              </span>
-                            </div>
+                            <Link
+                              to={`/admin/dashboard/employees/${record.employeeId}`}
+                              className="font-medium text-light-text dark:text-dark-text hover:text-primary transition-colors"
+                            >
+                              {record.employeeName}
+                            </Link>
                           </td>
 
                           {/* Check-in Time */}

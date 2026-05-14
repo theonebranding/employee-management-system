@@ -13,6 +13,8 @@ const salarySchema = new mongoose.Schema(
     totalSalary: { type: Number, required: true, default: 0 },
     salaryMonth: { type: Number, min: 1, max: 12 },
     salaryYear: { type: Number },
+    effectiveFrom: { type: Date },
+    revisionReason: { type: String },
     payslipStatus: { type: String, enum: ['draft', 'generated'], default: 'draft' },
     templateId: { type: String, default: 'classic-template' },
     templateName: { type: String, default: 'Classic Ledger' },

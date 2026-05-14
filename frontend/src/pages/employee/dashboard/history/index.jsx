@@ -192,6 +192,7 @@ const MonthlyAttendance = () => {
     const sortedLateCheckIns = sortData(lateCheckIns, sortConfig);
     const filteredSortedLateCheckIns = filterByDate(sortedLateCheckIns, searchDate);
     setFilteredLateCheckIns(filteredSortedLateCheckIns);
+
   }, [records, lateCheckIns, sortConfig, searchDate]);
 
   const handleSort = key => {
@@ -220,7 +221,7 @@ const MonthlyAttendance = () => {
   };
 
   return (
-    <div className="p-6 ml-8 min-h-screen pl-20 bg-light-bg dark:bg-dark-bg transition-colors duration-300">
+    <div className="min-h-screen px-6 py-6 lg:ml-16 bg-light-bg dark:bg-dark-bg transition-colors duration-300">
       <div className="max-w-7xl mx-auto space-y-6">
         <Header
           title="Monthly Attendance"
@@ -261,15 +262,17 @@ const MonthlyAttendance = () => {
               ) : (
                 <EmptyState isLateTab={false} searchDate={searchDate} />
               )
-            ) : filteredLateCheckIns.length > 0 ? (
+            ) : (
+              filteredLateCheckIns.length > 0 ? (
               <LateCheckInsTable
                 filteredLateCheckIns={filteredLateCheckIns}
                 sortConfig={sortConfig}
                 handleSort={handleSort}
                 formatLateBy={formatLateBy}
               />
-            ) : (
-              <EmptyState isLateTab={true} searchDate={searchDate} />
+              ) : (
+                <EmptyState isLateTab={true} searchDate={searchDate} />
+              )
             )}
           </div>
         </div>

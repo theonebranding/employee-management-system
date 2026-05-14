@@ -1,20 +1,223 @@
 import Employee from '../models/employeeSchema.js';
+import EmployeeSequence from '../models/employeeSequenceSchema.js';
 import bcrypt from 'bcrypt';
 // import { sendInvitationRequestEmail } from '../services/emailService.js';
 
+const PHONE_REGEX = /^[0-9]{10,15}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const AADHAR_REGEX = /^[0-9]{12}$/;
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+const PIN_REGEX = /^[0-9]{6}$/;
+const ACCOUNT_REGEX = /^[0-9]{8,20}$/;
+const NAME_REGEX = /^[A-Za-z][A-Za-z\s.'-]{1,99}$/;
+const ALLOWED_ONBOARDING_STATUS = ['draft', 'onboarding_complete', 'payroll_ready', 'active'];
+const ALLOWED_EMPLOYMENT_TYPES = ['Full Time', 'Part Time', 'Contract', 'Intern'];
+
+const normalizeText = value => (value === undefined || value === null ? value : String(value).trim());
+
+const validateEmployeeFields = (payload, { isUpdate = false } = {}) => {
+  const errors = [];
+  const normalized = { ...payload };
+  const has = field => payload[field] !== undefined;
+
+  if (!isUpdate || has('name')) {
+    const value = normalizeText(payload.name);
+    if (!value) errors.push('Name is required');
+    else if (!NAME_REGEX.test(value)) errors.push('Name format is invalid');
+    normalized.name = value;
+  }
+
+  if (!isUpdate || has('email')) {
+    const value = normalizeText(payload.email)?.toLowerCase();
+    if (!value) errors.push('Email is required');
+    else if (!EMAIL_REGEX.test(value)) errors.push('Email format is invalid');
+    normalized.email = value;
+  }
+
+  if (!isUpdate || has('phoneNumber')) {
+    const value = normalizeText(payload.phoneNumber);
+    if (!value) errors.push('Phone number is required');
+    else if (!PHONE_REGEX.test(value)) errors.push('Phone number must be 10-15 digits');
+    normalized.phoneNumber = value;
+  }
+
+  if (has('emergencyContactPhone')) {
+    const value = normalizeText(payload.emergencyContactPhone);
+    if (value && !PHONE_REGEX.test(value)) {
+      errors.push('Emergency contact phone must be 10-15 digits');
+    }
+    normalized.emergencyContactPhone = value || '';
+  }
+
+  if (has('aadharNumber')) {
+    const value = normalizeText(payload.aadharNumber);
+    if (value && !AADHAR_REGEX.test(value)) errors.push('Aadhar must be 12 digits');
+    normalized.aadharNumber = value || '';
+  }
+
+  if (has('panNumber')) {
+    const value = normalizeText(payload.panNumber)?.toUpperCase();
+    if (value && !PAN_REGEX.test(value)) errors.push('PAN format is invalid');
+    normalized.panNumber = value || '';
+  }
+
+  if (has('ifscCode')) {
+    const value = normalizeText(payload.ifscCode)?.toUpperCase();
+    if (value && !IFSC_REGEX.test(value)) errors.push('IFSC format is invalid');
+    normalized.ifscCode = value || '';
+  }
+
+  if (has('pinCode')) {
+    const value = normalizeText(payload.pinCode);
+    if (value && !PIN_REGEX.test(value)) errors.push('Pin code must be 6 digits');
+    normalized.pinCode = value || '';
+  }
+
+  if (has('bankAccountNumber')) {
+    const value = normalizeText(payload.bankAccountNumber);
+    if (value && !ACCOUNT_REGEX.test(value)) errors.push('Bank account number must be 8-20 digits');
+    normalized.bankAccountNumber = value || '';
+  }
+
+  if (has('dateofBirth')) {
+    const raw = normalizeText(payload.dateofBirth);
+    if (raw) {
+      const dob = new Date(raw);
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      if (Number.isNaN(dob.getTime()) || dob >= now) {
+        errors.push('Date of birth must be a valid past date');
+      } else {
+        normalized.dateofBirth = dob;
+      }
+    } else {
+      normalized.dateofBirth = undefined;
+    }
+  }
+
+  if (has('joinedDate')) {
+    const raw = normalizeText(payload.joinedDate);
+    if (raw) {
+      const joined = new Date(raw);
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      if (Number.isNaN(joined.getTime()) || joined > now) {
+        errors.push('Joining date must be valid and cannot be in future');
+      } else {
+        normalized.joinedDate = joined;
+      }
+    } else {
+      normalized.joinedDate = undefined;
+    }
+  }
+
+  if (has('employmentType')) {
+    const value = normalizeText(payload.employmentType);
+    if (value && !ALLOWED_EMPLOYMENT_TYPES.includes(value)) {
+      errors.push('Employment type is invalid');
+    }
+    normalized.employmentType = value || '';
+  }
+
+  if (has('onboardingStatus')) {
+    const value = normalizeText(payload.onboardingStatus);
+    if (value && !ALLOWED_ONBOARDING_STATUS.includes(value)) {
+      errors.push('Onboarding status is invalid');
+    }
+    normalized.onboardingStatus = value || 'draft';
+  }
+
+  [
+    'department',
+    'designation',
+    'workLocation',
+    'bankName',
+    'branchName',
+    'address',
+    'state',
+    'city',
+    'district',
+    'emergencyContactName',
+  ].forEach(field => {
+    if (has(field)) normalized[field] = normalizeText(payload[field]) || '';
+  });
+
+  return { errors, normalized };
+};
+
 export const addEmployee = async (req, res) => {
   try {
-    const { name, email, password, phoneNumber, jobRole } = req.body;
+    const {
+      name,
+      email,
+      password,
+      phoneNumber,
+      department,
+      designation,
+      employmentType,
+      workLocation,
+      joinedDate,
+      dateofBirth,
+      aadharNumber,
+      panNumber,
+      bankName,
+      branchName,
+      bankAccountNumber,
+      ifscCode,
+      address,
+      state,
+      city,
+      district,
+      pinCode,
+      emergencyContactName,
+      emergencyContactPhone,
+      onboardingStatus,
+    } = req.body;
 
-    // Check if all required fields are provided
-    if (!name || !email || !password || !phoneNumber || !jobRole) {
-      return res.status(400).json({ message: 'Please provide all required fields' });
+    if (!password) {
+      return res.status(400).json({ message: 'Password is required' });
+    }
+    const { errors, normalized } = validateEmployeeFields(
+      {
+        name,
+        email,
+        phoneNumber,
+        department,
+        designation,
+        employmentType,
+        workLocation,
+        joinedDate,
+        dateofBirth,
+        aadharNumber,
+        panNumber,
+        bankName,
+        branchName,
+        bankAccountNumber,
+        ifscCode,
+        address,
+        state,
+        city,
+        district,
+        pinCode,
+        emergencyContactName,
+        emergencyContactPhone,
+        onboardingStatus,
+      },
+      { isUpdate: false }
+    );
+    if (errors.length) {
+      return res.status(400).json({ message: errors[0], errors });
     }
 
     // Check if the employee already exists (by email or phone)
+    const duplicateChecks = [{ email: normalized.email }, { phoneNumber: normalized.phoneNumber }];
+    if (normalized.panNumber) duplicateChecks.push({ panNumber: normalized.panNumber });
+    if (normalized.aadharNumber) duplicateChecks.push({ aadharNumber: normalized.aadharNumber });
+    if (normalized.bankAccountNumber) duplicateChecks.push({ bankAccountNumber: normalized.bankAccountNumber });
+
     const employeeExists = await Employee.findOne({
-      $or: [{ email }, { phoneNumber }],
-      isVerified: true,
+      $or: duplicateChecks,
     });
 
     if (employeeExists) {
@@ -27,13 +230,49 @@ export const addEmployee = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    const normalizedName = normalized.name.trim().replace(/\s+/g, ' ');
+    const initials = normalizedName
+      .split(' ')
+      .filter(Boolean)
+      .map(part => part[0].toUpperCase())
+      .join('')
+      .slice(0, 3);
+    const yearSuffix = new Date().getFullYear().toString().slice(-2);
+    const sequenceDoc = await EmployeeSequence.findOneAndUpdate(
+      { name: 'employee_code' },
+      { $inc: { sequence: 1 } },
+      { new: true, upsert: true }
+    );
+    const sequenceNumber = String(sequenceDoc.sequence).padStart(3, '0');
+    const employeeCode = `${initials}${yearSuffix}${sequenceNumber}`;
+
     // Create a new employee
     const employee = new Employee({
-      name,
-      email,
+      name: normalizedName,
+      employeeCode,
+      email: normalized.email,
       password: hashedPassword, // Store the hashed password
-      phoneNumber,
-      jobRole,
+      phoneNumber: normalized.phoneNumber,
+      department: normalized.department,
+      designation: normalized.designation,
+      employmentType: normalized.employmentType,
+      workLocation: normalized.workLocation,
+      joinedDate: normalized.joinedDate,
+      dateofBirth: normalized.dateofBirth,
+      aadharNumber: normalized.aadharNumber,
+      panNumber: normalized.panNumber,
+      bankName: normalized.bankName,
+      branchName: normalized.branchName,
+      bankAccountNumber: normalized.bankAccountNumber,
+      ifscCode: normalized.ifscCode,
+      address: normalized.address,
+      state: normalized.state,
+      city: normalized.city,
+      district: normalized.district,
+      pinCode: normalized.pinCode,
+      emergencyContactName: normalized.emergencyContactName,
+      emergencyContactPhone: normalized.emergencyContactPhone,
+      onboardingStatus: normalized.onboardingStatus || 'draft',
     });
     console.log('New Employee Data:', employee);
 
@@ -81,9 +320,31 @@ export const updateEmployee = async (req, res) => {
       return res.status(400).json({ message: 'No valid fields to update' });
     }
 
+    const { errors, normalized } = validateEmployeeFields(updates, { isUpdate: true });
+    if (errors.length) {
+      return res.status(400).json({ message: errors[0], errors });
+    }
+
+    const duplicateChecks = [];
+    if (normalized.email) duplicateChecks.push({ email: normalized.email });
+    if (normalized.phoneNumber) duplicateChecks.push({ phoneNumber: normalized.phoneNumber });
+    if (normalized.panNumber) duplicateChecks.push({ panNumber: normalized.panNumber });
+    if (normalized.aadharNumber) duplicateChecks.push({ aadharNumber: normalized.aadharNumber });
+    if (normalized.bankAccountNumber) duplicateChecks.push({ bankAccountNumber: normalized.bankAccountNumber });
+
+    if (duplicateChecks.length) {
+      const existingEmployee = await Employee.findOne({
+        _id: { $ne: req.params.id },
+        $or: duplicateChecks,
+      }).select('_id');
+      if (existingEmployee) {
+        return res.status(400).json({ message: 'Another employee already uses one of these details' });
+      }
+    }
+
     const updatedEmployee = await Employee.findByIdAndUpdate(
       req.params.id, // Use the employee ID from params
-      { $set: updates },
+      { $set: normalized },
       { new: true, runValidators: true }
     ).select('-isVerified -otp -otpExpires -createdAt -updatedAt -role -password');
 
@@ -123,6 +384,28 @@ export const deleteEmployee = async (req, res) => {
   }
 };
 
+// Delete an employee by employeeCode
+export const deleteEmployeeByCode = async (req, res) => {
+  try {
+    const { employeeCode } = req.params;
+
+    if (!employeeCode) {
+      return res.status(400).json({ message: 'Bad Request: No employee code provided' });
+    }
+
+    const normalizedCode = employeeCode.trim().toUpperCase();
+    const deletedEmployee = await Employee.findOneAndDelete({ employeeCode: normalizedCode });
+
+    if (!deletedEmployee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    return res.status(200).json({ message: 'Employee deleted successfully', employee: deletedEmployee });
+  } catch (error) {
+    return res.status(500).json({ message: 'Error deleting employee', error: error.message });
+  }
+};
+
 // Get All Employees
 export const getAllEmployees = async (req, res) => {
   try {
@@ -135,7 +418,7 @@ export const getAllEmployees = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .sort({ createdAt: -1 })
-      .select('-password -role -otp -otpExpires -isVerified -createdAt -updatedAt -__v -salary')
+      .select('-password -role -otp -otpExpires -isVerified -updatedAt -__v -salary')
       .lean();
 
     // Get total count of employees for pagination meta

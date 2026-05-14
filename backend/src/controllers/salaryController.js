@@ -40,6 +40,44 @@ const normalizeSalaryValues = ({ baseSalary = 0, bonuses = 0, deductions = 0 }) 
   };
 };
 
+const parseMoneyField = (value, { field, required = false, min = 0 } = {}) => {
+  if (value === undefined || value === null || value === '') {
+    if (required) return { error: `${field} is required` };
+    return { value: undefined };
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return { error: `${field} must be a valid number` };
+  if (parsed < min) return { error: `${field} must be at least ${min}` };
+  return { value: parsed };
+};
+
+const parseMonthYear = ({ month, year, defaultDate = new Date() }) => {
+  const monthNum = month === undefined || month === null || month === '' ? defaultDate.getMonth() + 1 : Number(month);
+  const yearNum = year === undefined || year === null || year === '' ? defaultDate.getFullYear() : Number(year);
+  if (!Number.isInteger(monthNum) || monthNum < 1 || monthNum > 12) {
+    return { error: 'Salary month must be between 1 and 12' };
+  }
+  if (!Number.isInteger(yearNum) || yearNum < 2000 || yearNum > 2100) {
+    return { error: 'Salary year must be between 2000 and 2100' };
+  }
+  return { value: { month: monthNum, year: yearNum } };
+};
+
+const parseEffectiveDate = value => {
+  if (value === undefined) return { value: undefined };
+  if (value === null || value === '') return { value: null };
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return { error: 'Effective date is invalid' };
+  return { value: parsed };
+};
+
+const sanitizeReason = value => {
+  if (value === undefined) return { value: undefined };
+  const trimmed = String(value || '').trim();
+  if (trimmed.length > 200) return { error: 'Revision reason cannot exceed 200 characters' };
+  return { value: trimmed || null };
+};
+
 export const addSalary = async (req, res) => {
   try {
     const { employeeId } = req.params;
@@ -48,10 +86,32 @@ export const addSalary = async (req, res) => {
       return res.status(400).json({ message: 'Invalid employee ID' });
     }
 
-    const { baseSalary, bonuses = 0, deductions = 0, salaryMonth, salaryYear } = req.body;
+    const {
+      baseSalary,
+      bonuses = 0,
+      deductions = 0,
+      salaryMonth,
+      salaryYear,
+      effectiveFrom,
+      revisionReason,
+    } = req.body;
 
-    if (baseSalary === undefined || Number(baseSalary) <= 0) {
-      return res.status(400).json({ message: 'Please provide valid base salary' });
+    const parsedBase = parseMoneyField(baseSalary, { field: 'Base salary', required: true, min: 1 });
+    const parsedBonuses = parseMoneyField(bonuses, { field: 'Bonuses', min: 0 });
+    const parsedDeductions = parseMoneyField(deductions, { field: 'Deductions', min: 0 });
+    const parsedMonthYear = parseMonthYear({ month: salaryMonth, year: salaryYear });
+    const parsedEffectiveFrom = parseEffectiveDate(effectiveFrom);
+    const parsedReason = sanitizeReason(revisionReason);
+    const firstError = [
+      parsedBase.error,
+      parsedBonuses.error,
+      parsedDeductions.error,
+      parsedMonthYear.error,
+      parsedEffectiveFrom.error,
+      parsedReason.error,
+    ].find(Boolean);
+    if (firstError) {
+      return res.status(400).json({ message: firstError });
     }
 
     const employee = await Employee.findById(employeeId);
@@ -59,15 +119,21 @@ export const addSalary = async (req, res) => {
       return res.status(404).json({ message: 'Employee not found' });
     }
 
-    const normalized = normalizeSalaryValues({ baseSalary, bonuses, deductions });
+    const normalized = normalizeSalaryValues({
+      baseSalary: parsedBase.value,
+      bonuses: parsedBonuses.value ?? 0,
+      deductions: parsedDeductions.value ?? 0,
+    });
 
     const salary = new Salary({
       employee: employeeId,
       employeeName: employee.name,
       employeeEmail: employee.email,
       ...normalized,
-      salaryMonth: Number(salaryMonth) || new Date().getMonth() + 1,
-      salaryYear: Number(salaryYear) || new Date().getFullYear(),
+      salaryMonth: parsedMonthYear.value.month,
+      salaryYear: parsedMonthYear.value.year,
+      effectiveFrom: parsedEffectiveFrom.value === undefined ? new Date() : parsedEffectiveFrom.value,
+      revisionReason: parsedReason.value || 'Initial onboarding salary',
     });
 
     await salary.save();
@@ -311,16 +377,34 @@ export const getMyPayslips = async (req, res) => {
 export const updateSalary = async (req, res) => {
   try {
     const { salaryId } = req.params;
-    const { baseSalary, bonuses, deductions } = req.body;
+    const { baseSalary, bonuses, deductions, effectiveFrom, revisionReason } = req.body;
 
     const salary = await Salary.findById(salaryId);
     if (!salary) {
       return res.status(404).json({ message: 'Salary record not found' });
     }
 
-    if (baseSalary !== undefined) salary.baseSalary = Number(baseSalary);
-    if (bonuses !== undefined) salary.bonuses = Number(bonuses);
-    if (deductions !== undefined) salary.deductions = Number(deductions);
+    const parsedBase = parseMoneyField(baseSalary, { field: 'Base salary', min: 1 });
+    const parsedBonuses = parseMoneyField(bonuses, { field: 'Bonuses', min: 0 });
+    const parsedDeductions = parseMoneyField(deductions, { field: 'Deductions', min: 0 });
+    const parsedEffectiveFrom = parseEffectiveDate(effectiveFrom);
+    const parsedReason = sanitizeReason(revisionReason);
+    const firstError = [
+      parsedBase.error,
+      parsedBonuses.error,
+      parsedDeductions.error,
+      parsedEffectiveFrom.error,
+      parsedReason.error,
+    ].find(Boolean);
+    if (firstError) {
+      return res.status(400).json({ message: firstError });
+    }
+
+    if (parsedBase.value !== undefined) salary.baseSalary = parsedBase.value;
+    if (parsedBonuses.value !== undefined) salary.bonuses = parsedBonuses.value;
+    if (parsedDeductions.value !== undefined) salary.deductions = parsedDeductions.value;
+    if (parsedEffectiveFrom.value !== undefined) salary.effectiveFrom = parsedEffectiveFrom.value;
+    if (parsedReason.value !== undefined) salary.revisionReason = parsedReason.value;
     salary.totalSalary = salary.baseSalary + salary.bonuses - salary.deductions;
 
     await salary.save();
@@ -375,6 +459,16 @@ export const addSalaryWithDeductions = async (req, res) => {
   try {
     const { employeeId, baseSalary, bonuses = 0, workingDaysInMonth } = req.body;
 
+    const parsedBase = parseMoneyField(baseSalary, { field: 'Base salary', required: true, min: 1 });
+    const parsedBonuses = parseMoneyField(bonuses, { field: 'Bonuses', min: 0 });
+    const parsedWorkingDays = Number(workingDaysInMonth);
+    if (parsedBase.error || parsedBonuses.error) {
+      return res.status(400).json({ message: parsedBase.error || parsedBonuses.error });
+    }
+    if (!Number.isFinite(parsedWorkingDays) || parsedWorkingDays <= 0) {
+      return res.status(400).json({ message: 'Working days in month must be greater than 0' });
+    }
+
     const employee = await Employee.findById(employeeId);
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
@@ -389,7 +483,7 @@ export const addSalaryWithDeductions = async (req, res) => {
     });
 
     let lateComingDeductions = 0;
-    const absences = Number(workingDaysInMonth) - attendances.length;
+    const absences = parsedWorkingDays - attendances.length;
 
     attendances.forEach(record => {
       if (record.checkInTime) {
@@ -399,19 +493,19 @@ export const addSalaryWithDeductions = async (req, res) => {
       }
     });
 
-    const absenceDeductions = (Number(baseSalary) / Number(workingDaysInMonth)) * absences;
+    const absenceDeductions = (parsedBase.value / parsedWorkingDays) * absences;
     const totalDeductions = lateComingDeductions + absenceDeductions;
 
     const salary = new Salary({
       employee: employeeId,
       employeeName: employee.name,
       employeeEmail: employee.email,
-      baseSalary: Number(baseSalary),
-      bonuses: Number(bonuses),
+      baseSalary: parsedBase.value,
+      bonuses: parsedBonuses.value ?? 0,
       deductions: totalDeductions,
       lateComingDeductions,
       absenceDeductions,
-      totalSalary: Number(baseSalary) + Number(bonuses) - totalDeductions,
+      totalSalary: parsedBase.value + (parsedBonuses.value ?? 0) - totalDeductions,
       salaryMonth: new Date().getMonth() + 1,
       salaryYear: new Date().getFullYear(),
     });

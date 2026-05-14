@@ -7,7 +7,8 @@ import 'leaflet/dist/leaflet.css';
 import confetti from 'canvas-confetti';
 import L from 'leaflet';
 import { Clock, Coffee, LogIn, LogOut, StopCircle, Timer } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 
 import Header from '../../../../components/pageHeader';
@@ -18,6 +19,8 @@ import LocationMap from './components/locationMap';
 import StatsCard from './components/statsCard';
 
 const Attendance = () => {
+  const navigate = useNavigate();
+  const hasTriggeredAutoCheckout = useRef(false);
   const [status, setStatus] = useState('');
   const [checkInTime, setCheckInTime] = useState(null);
   const [checkOutTime, setCheckOutTime] = useState(null);
@@ -226,6 +229,20 @@ const Attendance = () => {
     } catch (error) {
       console.error(`Error during ${action}:`, error.message);
       toast.error(error.message || `Failed to ${action}.`);
+
+      if (
+        action === 'checkout' &&
+        (error.message || '')
+          .toLowerCase()
+          .includes('submit your daily work report before check-out')
+      ) {
+        sessionStorage.setItem(
+          'dailyWorkRedirectMessage',
+          'Please submit your daily work report to complete check-out.'
+        );
+        sessionStorage.setItem('pendingCheckoutAfterReport', '1');
+        navigate('/employee/dashboard/daily-work?checkoutBlocked=1');
+      }
     } finally {
       setLoading(false);
     }
@@ -242,6 +259,24 @@ const Attendance = () => {
     fetchAttendanceStatus();
     requestLocation();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shouldAutoCheckout = params.get('autoCheckout') === '1';
+
+    if (
+      shouldAutoCheckout &&
+      status === 'Checked In' &&
+      !loading &&
+      !hasTriggeredAutoCheckout.current
+    ) {
+      hasTriggeredAutoCheckout.current = true;
+      sessionStorage.removeItem('pendingCheckoutAfterReport');
+      navigate('/employee/dashboard/attendance', { replace: true });
+      handleAttendanceAction('checkout');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, loading, navigate]);
 
   const getStatusColor = () => {
     switch (status) {
@@ -294,7 +329,7 @@ const Attendance = () => {
   ];
 
   return (
-    <div className="p-6 ml-8 min-h-screen pl-20 bg-light-bg dark:bg-dark-bg transition-colors duration-300">
+    <div className="min-h-screen px-6 py-6 lg:ml-16 bg-light-bg dark:bg-dark-bg transition-colors duration-300">
       <div className="max-w-7xl mx-auto space-y-6">
         <Header
           title="Attendance"

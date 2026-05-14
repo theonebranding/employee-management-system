@@ -7,6 +7,10 @@ import {
   getAttendanceSettings,
   getPayslipSettings,
   updatePayslipSettings,
+  getPayrollSettings,
+  updatePayrollSettings,
+  getEmployeeMasterOptions,
+  updateEmployeeMasterOptions,
 } from '../controllers/adminController.js';
 import verifyToken from '../middleware/verifyToken.js';
 import checkRole from '../middleware/checkRole.js';
@@ -25,5 +29,14 @@ router.patch(
 ); // Update admin attendance settings
 router.get('/payslip-settings', verifyToken, checkRole(['admin']), getPayslipSettings);
 router.patch('/payslip-settings', verifyToken, checkRole(['admin']), updatePayslipSettings);
+router.get('/payroll-settings', verifyToken, checkRole(['admin']), getPayrollSettings);
+router.patch('/payroll-settings', verifyToken, checkRole(['admin']), updatePayrollSettings);
+router.get('/employee-master-options', verifyToken, checkRole(['admin']), getEmployeeMasterOptions);
+router.patch(
+  '/employee-master-options',
+  verifyToken,
+  checkRole(['admin']),
+  updateEmployeeMasterOptions
+);
 
 export default router;

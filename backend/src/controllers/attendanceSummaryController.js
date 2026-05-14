@@ -3,6 +3,14 @@ import Employee from '../models/employeeSchema.js';
 import SelectedHoliday from '../models/selectedHolidaySchema.js';
 import Salary from '../models/salarySchema.js';
 import mongoose from 'mongoose';
+import {
+  getEndOfIstDay,
+  getIstDayKey,
+  getIstDayOfWeek,
+  getIstDayStartFromParts,
+  getIstMonthRange,
+  getStartOfIstDay,
+} from '../utils/timezoneUtils.js';
 
 // Get Daily Attendance
 export const getDailyAttendance = async (req, res) => {
@@ -10,13 +18,14 @@ export const getDailyAttendance = async (req, res) => {
     const { date } = req.query;
     if (!date) return res.status(400).json({ message: 'Date is required' });
 
-    const formattedDate = new Date(date).toISOString().split('T')[0];
+    const dayStart = getStartOfIstDay(date);
+    const dayEnd = getEndOfIstDay(dayStart);
 
     // Get all employees count
     const totalEmployees = await Employee.countDocuments();
 
     const summary = await Attendance.aggregate([
-      { $match: { date: new Date(formattedDate) } },
+      { $match: { date: { $gte: dayStart, $lte: dayEnd } } },
       {
         $lookup: {
           from: 'employees',
@@ -31,6 +40,7 @@ export const getDailyAttendance = async (req, res) => {
           employeeName: '$employeeDetails.name',
           employeeEmail: '$employeeDetails.email',
           employeeId: '$employeeDetails._id',
+          employeeCode: '$employeeDetails.employeeCode',
           checkInTime: { $ifNull: ['$checkInTime', 'N/A'] },
           checkInLocation: { $ifNull: ['$checkInLocation', 'N/A'] },
           checkOutTime: { $ifNull: ['$checkOutTime', 'N/A'] },
@@ -66,21 +76,51 @@ export const getMonthlyAttendance = async (req, res) => {
   try {
     const { employeeId, month, year } = req.query;
 
-    if (!employeeId || !month || !year) {
-      return res.status(400).json({ message: 'Employee ID, month, and year are required' });
+    if (!month || !year) {
+      return res.status(400).json({ message: 'Month and year are required' });
     }
 
+    const { start: startDate, end: endDate } = getIstMonthRange(Number(month), Number(year));
+
+    // Admin monthly report mode: return all attendance entries for selected month.
+    if (req.user.role === 'admin' && !employeeId) {
+      const records = await Attendance.find({
+        date: { $gte: startDate, $lte: endDate },
+      })
+        .populate('employee', 'name email employeeCode')
+        .sort({ date: 1 });
+
+      const attendanceData = records.map((record) => ({
+        _id: record._id,
+        employeeId: record.employee?._id?.toString() || '',
+        employeeName: record.employee?.name || 'Unknown',
+        employeeCode: record.employee?.employeeCode || '',
+        date: record.date,
+        checkInTime: record.checkInTime,
+        checkOutTime: record.checkOutTime || null,
+        status: record.halfDay ? 'half-day' : 'present',
+        actualHours: Number(((record.totalWorkingTime || 0) / 60).toFixed(2)),
+        totalWorkingTime: record.totalWorkingTime || 0,
+        totalRecessDuration: record.totalRecessDuration || 0,
+      }));
+
+      return res.status(200).json({
+        message: 'Monthly attendance fetched successfully',
+        attendanceData,
+      });
+    }
+
+    if (!employeeId) {
+      return res.status(400).json({ message: 'Employee ID is required' });
+    }
     if (!mongoose.Types.ObjectId.isValid(employeeId)) {
       return res.status(400).json({ message: 'Invalid Employee ID' });
     }
 
-    const startDate = new Date(`${year}-${month}-01`);
-    const endDate = new Date(new Date(startDate).setMonth(startDate.getMonth() + 1));
-
     // Fetch attendance records
     const records = await Attendance.find({
       employee: new mongoose.Types.ObjectId(employeeId),
-      date: { $gte: startDate, $lt: endDate },
+      date: { $gte: startDate, $lte: endDate },
     }).sort({ date: 1 });
 
     // Calculate total working hours using stored totalWorkingTime
@@ -120,7 +160,7 @@ export const getAbsenteeList = async (req, res) => {
     // Parse dates in dd-mm-yyyy format
     const parseDate = (dateStr) => {
       const [day, month, year] = dateStr.split('-').map(Number);
-      return new Date(year, month - 1, day, 0, 0, 0, 0); // Ensure midnight for accurate comparison
+      return getIstDayStartFromParts(year, month, day);
     };
 
     const start = parseDate(startDate);
@@ -132,14 +172,14 @@ export const getAbsenteeList = async (req, res) => {
     }
 
     // Adjust end date to include the entire day
-    end.setHours(23, 59, 59, 999);
+    const endOfDay = getEndOfIstDay(end);
 
     // Step 1: Fetch all employees
-    const allEmployees = await Employee.find({}, '_id name email');
+    const allEmployees = await Employee.find({}, '_id name email employeeCode');
 
     // Step 2: Fetch attendance records within the date range
     const attendanceRecords = await Attendance.find({
-      date: { $gte: start, $lte: end },
+      date: { $gte: start, $lte: endOfDay },
     });
 
     // Extract IDs of employees who **checked in** (only check-in matters, checkout ignored)
@@ -151,14 +191,14 @@ export const getAbsenteeList = async (req, res) => {
 
     // Step 3: Fetch holiday records (Only for the requested date range)
     const holidayRecords = await SelectedHoliday.find({
-      'selectedHolidays.date': { $gte: start, $lte: end },
+      'selectedHolidays.date': { $gte: start, $lte: endOfDay },
     });
 
     // Extract employees **who have a holiday** in this range
     const holidayEmployeeIds = new Set();
     holidayRecords.forEach((record) => {
       const isOnHoliday = record.selectedHolidays.some(
-        (holiday) => holiday.date >= start && holiday.date <= end
+        (holiday) => holiday.date >= start && holiday.date <= endOfDay
       );
       if (isOnHoliday) {
         holidayEmployeeIds.add(record.employee.toString());
@@ -208,7 +248,7 @@ export const getEmployeeAbsenteeList = async (req, res) => {
     // Parse dates in dd-mm-yyyy format
     const parseDate = (dateStr) => {
       const [day, month, year] = dateStr.split('-').map(Number);
-      return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0)); // Force UTC
+      return getIstDayStartFromParts(year, month, day);
     };
 
     const start = parseDate(startDate);
@@ -220,12 +260,10 @@ export const getEmployeeAbsenteeList = async (req, res) => {
     }
 
     // Get current date at start of day for consistent comparison
-    const currentDate = new Date();
-    currentDate.setHours(0, 0, 0, 0);
+    const currentDate = getStartOfIstDay();
 
     // Adjust end date to be either the requested end date or current date, whichever is earlier
-    const effectiveEndDate = new Date(Math.min(end.getTime(), currentDate.getTime()));
-    effectiveEndDate.setHours(23, 59, 59, 999);
+    const effectiveEndDate = getEndOfIstDay(new Date(Math.min(end.getTime(), currentDate.getTime())));
 
     // Calculate total days in the month
     const totalDaysInMonth = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
@@ -234,14 +272,14 @@ export const getEmployeeAbsenteeList = async (req, res) => {
     const dailySalary = salary.baseSalary / totalDaysInMonth;
 
     // Helper function to format date to YYYY-MM-DD for comparison
-    const formatDateForComparison = (date) => date.toISOString().split('T')[0];
+    const formatDateForComparison = (date) => getIstDayKey(date);
 
     // Generate all working dates (Excluding Sundays)
     const getWorkingDates = (start, end) => {
       const dates = [];
       const current = new Date(start);
       while (current <= end) {
-        if (current.getUTCDay() !== 0) {
+        if (getIstDayOfWeek(current) !== 0) {
           // Exclude Sundays
           dates.push(new Date(current));
         }
@@ -296,6 +334,7 @@ export const getEmployeeAbsenteeList = async (req, res) => {
     const formattedAbsentDates = absentDates.map((date) => ({
       date: date,
       formattedDate: date.toLocaleDateString('en-GB', {
+        timeZone: 'Asia/Kolkata',
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -335,7 +374,7 @@ export const getPresentList = async (req, res) => {
     // Parse dates in dd-mm-yyyy format
     const parseDate = (dateStr) => {
       const [day, month, year] = dateStr.split('-').map(Number);
-      return new Date(year, month - 1, day); // Month is zero-indexed in JavaScript
+      return getIstDayStartFromParts(year, month, day);
     };
 
     const start = parseDate(startDate);
@@ -347,11 +386,11 @@ export const getPresentList = async (req, res) => {
     }
 
     // Adjust end date to include the entire day
-    end.setHours(23, 59, 59, 999);
+    const endOfDay = getEndOfIstDay(end);
 
-    const allEmployees = await Employee.find({}, '_id name email');
+    const allEmployees = await Employee.find({}, '_id name email employeeCode');
     const attendanceRecords = await Attendance.find({
-      date: { $gte: start, $lte: end },
+      date: { $gte: start, $lte: endOfDay },
     });
 
     const presentEmployeeIds = new Set(
@@ -386,7 +425,7 @@ export const getEmployeeHalfDays = async (req, res) => {
     // Parse dates in dd-mm-yyyy format
     const parseDate = (dateStr) => {
       const [day, month, year] = dateStr.split('-').map(Number);
-      return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0)); // Force UTC
+      return getIstDayStartFromParts(year, month, day);
     };
 
     const start = parseDate(startDate);
@@ -398,12 +437,10 @@ export const getEmployeeHalfDays = async (req, res) => {
     }
 
     // Get current date at start of day
-    const currentDate = new Date();
-    currentDate.setHours(0, 0, 0, 0);
+    const currentDate = getStartOfIstDay();
 
     // Adjust end date to be either the requested end date or current date, whichever is earlier
-    const effectiveEndDate = new Date(Math.min(end.getTime(), currentDate.getTime()));
-    effectiveEndDate.setHours(23, 59, 59, 999);
+    const effectiveEndDate = getEndOfIstDay(new Date(Math.min(end.getTime(), currentDate.getTime())));
 
     // Fetch employee details
     const employee = await Employee.findById(employeeId);
@@ -422,6 +459,7 @@ export const getEmployeeHalfDays = async (req, res) => {
     const halfDays = halfDayRecords.map((record) => ({
       date: record.date,
       formattedDate: record.date.toLocaleDateString('en-GB', {
+        timeZone: 'Asia/Kolkata',
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -471,7 +509,7 @@ export const getAverageWorkingHoursByDayOfWeek = async (req, res) => {
 
     const parseDate = (dateStr) => {
       const [day, month, year] = dateStr.split('-').map(Number);
-      return new Date(year, month - 1, day);
+      return getIstDayStartFromParts(year, month, day);
     };
 
     const start = parseDate(startDate);
@@ -481,11 +519,11 @@ export const getAverageWorkingHoursByDayOfWeek = async (req, res) => {
       return res.status(400).json({ message: 'Invalid date format. Use dd-mm-yyyy.' });
     }
 
-    end.setHours(23, 59, 59, 999);
+    const endOfDay = getEndOfIstDay(end);
 
     // Fetch attendance records within the date range
     const attendanceRecords = await Attendance.find({
-      date: { $gte: start, $lte: end },
+      date: { $gte: start, $lte: endOfDay },
     }).populate('employee', 'name email');
 
     const workingHoursByDay = {};
@@ -495,7 +533,7 @@ export const getAverageWorkingHoursByDayOfWeek = async (req, res) => {
     const uniqueEmployeeWorkHours = new Map();
 
     attendanceRecords.forEach((record) => {
-      const dayOfWeek = record.date.getDay();
+      const dayOfWeek = getIstDayOfWeek(record.date);
       const employeeId = record.employee._id.toString();
       const workingHours = (record.totalWorkingTime || 0) / 60; // Convert minutes to hours
 

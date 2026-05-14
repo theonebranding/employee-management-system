@@ -2,8 +2,9 @@ import mongoose from 'mongoose';
 import DailyReport from '../models/dailyReportSchema.js';
 import Employee from '../models/employeeSchema.js';
 import {
-  getStartOfUtcDay,
-  getUtcDayKey,
+  getStartOfIstDay,
+  getEndOfIstDay,
+  getIstDayKey,
   normalizeReportText,
 } from '../utils/dailyReportUtils.js';
 
@@ -15,12 +16,11 @@ const applyDateRangeFilter = (query, startDate, endDate) => {
   query.reportDate = {};
 
   if (startDate) {
-    query.reportDate.$gte = getStartOfUtcDay(startDate);
+    query.reportDate.$gte = getStartOfIstDay(startDate);
   }
 
   if (endDate) {
-    const end = getStartOfUtcDay(endDate);
-    end.setUTCHours(23, 59, 59, 999);
+    const end = getEndOfIstDay(endDate);
     query.reportDate.$lte = end;
   }
 };
@@ -36,8 +36,8 @@ const applyStatusFilter = (query, status) => {
 };
 
 export const upsertDailyReportForToday = async ({ employeeId, report, actorId, actorRole }) => {
-  const dayKey = getUtcDayKey();
-  const reportDate = getStartOfUtcDay();
+  const dayKey = getIstDayKey();
+  const reportDate = getStartOfIstDay();
   const reportText = normalizeReportText(report);
 
   return DailyReport.findOneAndUpdate(
@@ -87,7 +87,7 @@ export const updateOwnDailyReport = async (req, res) => {
 
     const filter = reportId
       ? { _id: reportId, employee: employeeId }
-      : { employee: employeeId, dayKey: getUtcDayKey() };
+      : { employee: employeeId, dayKey: getIstDayKey() };
 
     const dailyReport = await DailyReport.findOneAndUpdate(
       filter,
@@ -118,7 +118,7 @@ export const deleteOwnDailyReport = async (req, res) => {
 
     const filter = reportId
       ? { _id: reportId, employee: employeeId }
-      : { employee: employeeId, dayKey: getUtcDayKey() };
+      : { employee: employeeId, dayKey: getIstDayKey() };
 
     const deletedReport = await DailyReport.findOneAndDelete(filter);
 

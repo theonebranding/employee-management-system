@@ -11,7 +11,7 @@ import { useTheme } from '../../context/themeContext';
 
 const Login = () => {
   const [formData, setFormData] = useState({
-    email: '',
+    identifier: '',
     password: '',
   });
   const [errors, setErrors] = useState({});
@@ -39,10 +39,8 @@ const Login = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
+    if (!formData.identifier) {
+      newErrors.identifier = 'Email or employee ID is required';
     }
     if (!formData.password) {
       newErrors.password = 'Password is required';
@@ -73,7 +71,10 @@ const Login = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          identifier: formData.identifier,
+          password: formData.password,
+        }),
         credentials: 'include',
       });
 
@@ -181,20 +182,20 @@ const Login = () => {
 
         <div className="mb-6">
           <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-2">
-            Email
+            Email or Employee ID
           </label>
           <input
-            type="email"
-            name="email"
-            value={formData.email}
+            type="text"
+            name="identifier"
+            value={formData.identifier}
             onChange={handleChange}
             className={`w-full px-4 py-2 border ${
-              errors.email ? 'border-danger' : 'border-light-border dark:border-dark-border'
+              errors.identifier ? 'border-danger' : 'border-light-border dark:border-dark-border'
             } rounded-md bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text placeholder-light-text placeholder-opacity-50 dark:placeholder-dark-text focus:ring-2 focus:ring-primary focus:border-primary transition-all`}
-            placeholder="Enter your email"
-            autoComplete="email"
+            placeholder="Enter your email or employee ID"
+            autoComplete="username"
           />
-          {errors.email && <p className="mt-1 text-sm text-danger">{errors.email}</p>}
+          {errors.identifier && <p className="mt-1 text-sm text-danger">{errors.identifier}</p>}
         </div>
 
         <div className="mb-6">
