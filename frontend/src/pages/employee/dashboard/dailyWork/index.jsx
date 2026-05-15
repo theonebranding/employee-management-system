@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Slide, toast, ToastContainer } from 'react-toastify';
 
 import Header from '../../../../components/pageHeader';
+import Modal from '../../../../components/Modal';
 
 const EmployeeDailyWork = () => {
   const navigate = useNavigate();
@@ -18,6 +19,13 @@ const EmployeeDailyWork = () => {
   const [searchDate, setSearchDate] = useState('');
   const [reports, setReports] = useState([]);
   const [todayReportText, setTodayReportText] = useState('');
+  const [subject, setSubject] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
+  const [template, setTemplate] = useState('');
+  const [openReportModal, setOpenReportModal] = useState(false);
+  const [modalSubject, setModalSubject] = useState('');
+  const [modalBody, setModalBody] = useState('');
+  const [modalAdminComment, setModalAdminComment] = useState('');
 
   const fetchDailyReports = async () => {
     setLoading(true);
@@ -45,9 +53,25 @@ const EmployeeDailyWork = () => {
           new Date(report.reportDate).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) ===
           todayKey
       );
-      setTodayReportText(
-        todayReport?.reportText && todayReport.reportText !== 'N/A' ? todayReport.reportText : ''
-      );
+
+      if (todayReport?.reportText && todayReport.reportText !== 'N/A') {
+        const text = todayReport.reportText;
+        // If report stored with Subject: ...\n\nBody, split it
+        if (text.startsWith('Subject:')) {
+          const parts = text.split(/\n\n/);
+          const subjectLine = parts.shift() || '';
+          const parsedSubject = subjectLine.replace(/^Subject:\s*/i, '').trim();
+          const parsedBody = parts.join('\n\n').trim();
+          setSubject(parsedSubject);
+          setTodayReportText(parsedBody);
+        } else {
+          setSubject('');
+          setTodayReportText(text);
+        }
+      } else {
+        setSubject('');
+        setTodayReportText('');
+      }
     } catch (error) {
       console.error('Error fetching daily reports:', error);
       toast.error(error.message || 'Failed to fetch daily reports');
@@ -59,13 +83,18 @@ const EmployeeDailyWork = () => {
   const saveTodayDailyReport = async () => {
     setSaving(true);
     try {
+      // Combine subject and body into a single report string so backend can store it
+      const combinedReport = subject.trim()
+        ? `Subject: ${subject.trim()}\n\n${todayReportText}`
+        : todayReportText;
+
       const response = await fetch(`${BASE_URL}/daily-reports`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({ report: todayReportText }),
+        body: JSON.stringify({ report: combinedReport }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -83,6 +112,23 @@ const EmployeeDailyWork = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const openReport = (record) => {
+    const text = record.reportText || '';
+    if (text.startsWith('Subject:')) {
+      const parts = text.split(/\n\n/);
+      const subjectLine = parts.shift() || '';
+      const parsedSubject = subjectLine.replace(/^Subject:\s*/i, '').trim();
+      const parsedBody = parts.join('\n\n').trim();
+      setModalSubject(parsedSubject);
+      setModalBody(parsedBody);
+    } else {
+      setModalSubject('');
+      setModalBody(text === 'N/A' ? '' : text);
+    }
+    setModalAdminComment(record.adminComment || '');
+    setTimeout(() => setOpenReportModal(true), 0);
   };
 
   useEffect(() => {
@@ -171,16 +217,80 @@ const EmployeeDailyWork = () => {
 
           <div className="rounded-xl border border-light-border dark:border-dark-border bg-white/80 dark:bg-dark-bg/70 p-4">
             <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-2">
-              Today&apos;s Work Report
+              Compose Daily Report (Mail style)
             </label>
-            <textarea
-              rows={4}
-              value={todayReportText}
-              onChange={(e) => setTodayReportText(e.target.value)}
-              placeholder="Write your work summary for today..."
-              className="w-full rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-card px-3 py-2 text-sm text-light-text dark:text-dark-text"
-            />
-            <div className="mt-3">
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+              <div className="md:col-span-2">
+                <input
+                  type="text"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="Subject (e.g. Today's progress on Project X)"
+                  className="w-full rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-card px-3 py-2 text-sm text-light-text dark:text-dark-text"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <select
+                  value={template}
+                  onChange={(e) => {
+                    setTemplate(e.target.value);
+                    if (e.target.value) {
+                      // small templates for quick drafting
+                      const templates = {
+                        '': '',
+                        'Standup Summary': `Planned:\n- \n\nCompleted:\n- \n\nBlockers:\n- `,
+                        'Bug Fixes': `Fixed:\n- \n\nPending:\n- \n\nNotes:\n- `,
+                      };
+                      setTodayReportText(templates[e.target.value] || '');
+                    }
+                  }}
+                  className="w-full rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-card px-3 py-2 text-sm text-light-text dark:text-dark-text"
+                >
+                  <option value="">No template</option>
+                  <option value="Standup Summary">Standup Summary</option>
+                  <option value="Bug Fixes">Bug Fixes</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="mb-2 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPreview((p) => !p);
+                }}
+                className="px-3 py-1 rounded-md bg-white/90 dark:bg-dark-card border border-light-border dark:border-dark-border text-sm"
+              >
+                {showPreview ? 'Edit' : 'Preview'}
+              </button>
+            </div>
+
+            {!showPreview ? (
+              <textarea
+                rows={6}
+                value={todayReportText}
+                onChange={(e) => setTodayReportText(e.target.value)}
+                placeholder="Write your work summary for today..."
+                className="w-full rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-card px-3 py-2 text-sm text-light-text dark:text-dark-text"
+              />
+            ) : (
+              <div className="prose max-w-none p-3 rounded-lg border border-light-border dark:border-dark-border bg-white/50 dark:bg-dark-card text-light-text dark:text-dark-text text-sm">
+                {/* simple markdown-ish preview: **bold**, *italic*, and line breaks */}
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html: (subject ? `<strong>${subject}</strong><br/><br/>` : '') +
+                      todayReportText
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                        .replace(/\n/g, '<br/>'),
+                  }}
+                />
+              </div>
+            )}
+
+            <div className="mt-3 flex gap-2">
               <button
                 type="button"
                 onClick={saveTodayDailyReport}
@@ -188,6 +298,17 @@ const EmployeeDailyWork = () => {
                 className="inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-60"
               >
                 {saving ? 'Saving...' : 'Save Daily Report'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSubject('');
+                  setTodayReportText('');
+                  setTemplate('');
+                }}
+                className="inline-flex items-center rounded-lg border border-light-border dark:border-dark-border px-4 py-2 text-sm font-medium text-light-text dark:text-dark-text"
+              >
+                Clear
               </button>
             </div>
           </div>
@@ -200,7 +321,7 @@ const EmployeeDailyWork = () => {
                 <thead className="bg-light-bg dark:bg-dark-bg">
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">Date</th>
-                    <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">Your Report</th>
+                    <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">View</th>
                     <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">Admin Comment</th>
                   </tr>
                 </thead>
@@ -210,7 +331,15 @@ const EmployeeDailyWork = () => {
                       <td className="px-4 py-3 text-light-text dark:text-dark-text">
                         {new Date(item.reportDate).toLocaleDateString()}
                       </td>
-                      <td className="px-4 py-3 text-light-text dark:text-dark-text">{item.reportText || 'N/A'}</td>
+                      <td className="px-4 py-3 text-light-text dark:text-dark-text">
+                        <button
+                          type="button"
+                          onClick={() => openReport(item)}
+                          className="px-2 py-1 rounded-md text-xs border border-light-border dark:border-dark-border bg-white/90 dark:bg-dark-card"
+                        >
+                          View
+                        </button>
+                      </td>
                       <td className="px-4 py-3 text-light-text dark:text-dark-text">{item.adminComment || '—'}</td>
                     </tr>
                   ))}
@@ -230,6 +359,44 @@ const EmployeeDailyWork = () => {
         autoClose={1600}
         transition={Slide}
       />
+      <Modal isOpen={openReportModal} onClose={() => setOpenReportModal(false)} title={`Report${modalSubject ? ` - ${modalSubject}` : ''}`} size="2xl">
+        <div className="flex flex-col gap-4">
+          <input
+            type="text"
+            value={modalSubject}
+            readOnly
+            placeholder="Subject"
+            className="w-full rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg px-3 py-2 text-sm text-light-text dark:text-dark-text"
+          />
+
+          <textarea
+            rows={8}
+            value={modalBody}
+            readOnly
+            className="w-full rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-card px-3 py-2 text-sm text-light-text dark:text-dark-text"
+          />
+
+          <div>
+            <label className="block text-xs text-light-text/70 dark:text-dark-text/70 mb-2">Admin Comment</label>
+            <textarea
+              rows={3}
+              value={modalAdminComment}
+              readOnly
+              className="w-full rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-card px-3 py-2 text-sm text-light-text dark:text-dark-text"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setOpenReportModal(false)}
+              className="px-4 py-2 rounded-lg border border-light-border dark:border-dark-border text-sm"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

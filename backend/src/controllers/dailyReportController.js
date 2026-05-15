@@ -7,6 +7,7 @@ import {
   getIstDayKey,
   normalizeReportText,
 } from '../utils/dailyReportUtils.js';
+import { sendDailyReportSubmittedEmail } from '../services/emailService.js';
 
 const applyDateRangeFilter = (query, startDate, endDate) => {
   if (!startDate && !endDate) {
@@ -71,6 +72,28 @@ export const createDailyReport = async (req, res) => {
       actorId: employeeId,
       actorRole: role,
     });
+
+    const employee = await Employee.findById(employeeId).select('name email employeeCode');
+    if (employee) {
+      try {
+        await sendDailyReportSubmittedEmail({
+          name: employee.name || 'Employee',
+          email: employee.email || '',
+          employeeCode: employee.employeeCode || employeeId.toString(),
+          reportDate: dailyReport.reportDate
+            ? new Date(dailyReport.reportDate).toLocaleDateString('en-IN')
+            : new Date().toLocaleDateString('en-IN'),
+          reportText: dailyReport.reportText || '',
+        });
+      } catch (emailError) {
+        console.error('Daily report email failed:', emailError);
+        return res.status(200).json({
+          message: 'Daily report saved successfully (email failed to send)',
+          dailyReport,
+          emailFailed: true,
+        });
+      }
+    }
 
     return res.status(200).json({ message: 'Daily report saved successfully', dailyReport });
   } catch (error) {

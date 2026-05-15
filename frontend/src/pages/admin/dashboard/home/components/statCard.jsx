@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { format } from 'date-fns';
-import { Clock, UserCheck, Users, UserX } from 'lucide-react';
+import { Clock, LogOut, UserCheck, Users, UserX } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -10,6 +10,7 @@ const StatCard = () => {
     presentToday: 0,
     absentToday: 0,
     checkedInToday: 0,
+    checkedOutToday: 0,
     lateArrivals: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -35,11 +36,16 @@ const StatCard = () => {
         if (!response.ok) throw new Error('Failed to fetch attendance stats');
 
         const data = await response.json();
+        const checkedOut = (data.summary || []).filter(
+          (emp) => emp.hasCheckInPunch && emp.hasCheckOutPunch
+        ).length;
+        
         setStats({
           totalEmployees: data.totalEmployees || 0,
           presentToday: data.present || 0,
           absentToday: data.absent || 0,
           checkedInToday: data.checkedIn || 0,
+          checkedOutToday: checkedOut || 0,
           lateArrivals: data.late || 0,
         });
       } catch (err) {
@@ -70,6 +76,12 @@ const StatCard = () => {
       label: 'Checked In',
       key: 'checkedInToday',
       color: 'bg-blue-500/10 text-blue-500',
+    },
+    {
+      icon: LogOut,
+      label: 'Checked Out',
+      key: 'checkedOutToday',
+      color: 'bg-green-500/10 text-green-500',
     },
     {
       icon: UserX,
