@@ -69,6 +69,32 @@ const sendInvitationRequestEmail = async (email) => {
   await sendEmail(email, 'Invitation Request', htmlContent);
 };
 
+const sendDailyReportSubmittedEmail = async ({ name, email, employeeCode, reportDate, reportText }) => {
+  const templatePath = path.join(__dirname, 'templates', 'dailyReportSubmitted.html');
+  const template = fs.readFileSync(templatePath, 'utf-8');
+
+  let subject = 'Daily Work Report';
+  let body = reportText || '';
+  if (reportText && reportText.startsWith('Subject:')) {
+    const parts = reportText.split(/\n\n/);
+    const subjectLine = parts.shift() || '';
+    subject = subjectLine.replace(/^Subject:\s*/i, '').trim() || subject;
+    body = parts.join('\n\n').trim();
+  }
+
+  const htmlContent = injectData(template, {
+    name,
+    email,
+    employeeCode,
+    date: reportDate,
+    subject,
+    body,
+  });
+
+  const subjectLine = `Daily Work Report - ${name} - ${reportDate}`;
+  await sendEmail(adminEmail, subjectLine, htmlContent);
+};
+
 export {
   sendOtpEmail,
   sendRegistrationSuccessEmail,
@@ -77,4 +103,5 @@ export {
   sendLeaveRequestEmail,
   sendLeaveStatusEmail,
   sendInvitationRequestEmail,
+  sendDailyReportSubmittedEmail,
 };

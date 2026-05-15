@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Download, ListFilterPlus, CheckCircle2, Circle, Flag, AlertCircle, Clock, Watch } from 'lucide-react';
 import { toast, ToastContainer } from 'react-toastify';
 import Header from '../../../../components/pageHeader';
+import Modal from '../../../../components/Modal';
 
 const AnimatedStatusBadge = ({ status, label }) => {
   const statusConfig = {
@@ -173,6 +174,12 @@ const AdminReports = () => {
     () => new Date().toISOString().split('T')[0]
   );
   const [commentDrafts, setCommentDrafts] = useState({});
+  const [openReportModal, setOpenReportModal] = useState(false);
+  const [modalReportId, setModalReportId] = useState('');
+  const [modalSubject, setModalSubject] = useState('');
+  const [modalBody, setModalBody] = useState('');
+  const [modalAdminComment, setModalAdminComment] = useState('');
+  const [modalSaving, setModalSaving] = useState(false);
   const [savingCommentId, setSavingCommentId] = useState('');
   const [selectedCheckoutHour, setSelectedCheckoutHour] = useState(18); // Default to 6:00 PM
 
@@ -392,6 +399,7 @@ const AdminReports = () => {
             return acc;
           }, {})
         );
+      
       }
     } catch (error) {
       console.error('Error fetching daily reports:', error);
@@ -430,6 +438,56 @@ const AdminReports = () => {
       toast.error(error.message || 'Failed to update admin comment');
     } finally {
       setSavingCommentId('');
+    }
+  };
+
+  const openReport = (record) => {
+    setModalReportId(record._id);
+    // parse subject if present
+    const text = record.reportText || '';
+    if (text.startsWith('Subject:')) {
+      const parts = text.split(/\n\n/);
+      const subjectLine = parts.shift() || '';
+      const parsedSubject = subjectLine.replace(/^Subject:\s*/i, '').trim();
+      const parsedBody = parts.join('\n\n').trim();
+      setModalSubject(parsedSubject);
+      setModalBody(parsedBody);
+    } else {
+      setModalSubject('');
+      setModalBody(text === 'N/A' ? '' : text);
+    }
+    setModalAdminComment(record.adminComment || '');
+    // Defer opening modal to avoid immediate backdrop click (same-click close)
+    setTimeout(() => setOpenReportModal(true), 0);
+  };
+
+
+
+  const saveReportAsAdmin = async () => {
+    try {
+      setModalSaving(true);
+      const response = await fetch(`${BASE_URL}/daily-reports/admin/${modalReportId}`, {
+        method: 'PATCH',
+        headers: {
+          ...authHeaders,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ adminComment: modalAdminComment }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update report');
+
+      const data = await response.json();
+      const updated = data.dailyReport;
+      setDailyReports((prev) => prev.map((r) => (r._id === updated._id ? updated : r)));
+      setCommentDrafts((prev) => ({ ...prev, [updated._id]: updated.adminComment || '' }));
+      toast.success('Admin comment updated');
+      setOpenReportModal(false);
+    } catch (error) {
+      console.error('Error saving report as admin:', error);
+      toast.error(error.message || 'Failed to update report');
+    } finally {
+      setModalSaving(false);
     }
   };
 
@@ -1682,7 +1740,7 @@ const AdminReports = () => {
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">Employee</th>
                     <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">Date</th>
-                    <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">Report</th>
+                    <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">View</th>
                     <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">Admin Comment</th>
                     <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">Status</th>
                   </tr>
@@ -1696,31 +1754,18 @@ const AdminReports = () => {
                       <td className="px-4 py-3 text-light-text dark:text-dark-text">
                         {formatDate(record.reportDate || record.date)}
                       </td>
-                      <td className="px-4 py-3 text-light-text dark:text-dark-text max-w-md">
-                        <p className="line-clamp-2">{record.reportText || 'N/A'}</p>
+                      <td className="px-4 py-3 text-light-text dark:text-dark-text">
+                        <button
+                          type="button"
+                          onClick={() => openReport(record)}
+                          className="px-2 py-1 rounded-md text-xs border border-light-border dark:border-dark-border bg-white/90 dark:bg-dark-card"
+                        >
+                          View
+                        </button>
                       </td>
                       <td className="px-4 py-3 text-light-text dark:text-dark-text min-w-[260px]">
-                        <div className="space-y-2">
-                          <textarea
-                            rows={2}
-                            value={commentDrafts[record._id] ?? ''}
-                            onChange={(e) =>
-                              setCommentDrafts((prev) => ({
-                                ...prev,
-                                [record._id]: e.target.value,
-                              }))
-                            }
-                            placeholder="Add admin comment..."
-                            className="w-full rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-card px-3 py-2 text-xs text-light-text dark:text-dark-text"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => updateAdminComment(record._id)}
-                            disabled={savingCommentId === record._id}
-                            className="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-dark disabled:opacity-60"
-                          >
-                            {savingCommentId === record._id ? 'Saving...' : 'Save Comment'}
-                          </button>
+                        <div className="text-xs">
+                          {record.adminComment ? record.adminComment : '—'}
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -2418,6 +2463,55 @@ const AdminReports = () => {
           </div>
         </div>
       </div>
+      <Modal isOpen={openReportModal} onClose={() => setOpenReportModal(false)} title={`Report${modalSubject ? ` - ${modalSubject}` : ''}`} size="2xl">
+        <div className="flex flex-col gap-4">
+          <input
+            type="text"
+            value={modalSubject}
+            readOnly
+            placeholder="Subject"
+            className="w-full rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg px-3 py-2 text-sm text-light-text dark:text-dark-text"
+          />
+
+          <div>
+            <textarea
+              rows={8}
+              value={modalBody}
+              readOnly
+              className="w-full rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-card px-3 py-2 text-sm text-light-text dark:text-dark-text"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs text-light-text/70 dark:text-dark-text/70 mb-2">Admin Comment</label>
+            <textarea
+              rows={3}
+              value={modalAdminComment}
+              onChange={(e) => setModalAdminComment(e.target.value)}
+              className="w-full rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-card px-3 py-2 text-sm text-light-text dark:text-dark-text"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setOpenReportModal(false)}
+              className="px-4 py-2 rounded-lg border border-light-border dark:border-dark-border text-sm"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={saveReportAsAdmin}
+              disabled={modalSaving}
+              className="px-4 py-2 rounded-lg bg-primary text-white text-sm"
+            >
+              {modalSaving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       <ToastContainer
         position="top-right"
         autoClose={2000}

@@ -19,6 +19,7 @@ import Header from '../../../../components/pageHeader';
 import StatCard from '../home/components/statCard';
 import AbsentEmployees from './components/absentEmployees';
 import CheckedInEmployees from './components/checkedInEmployees';
+import CheckedOutEmployees from './components/checkedOutEmployees';
 import HalfDayEmployees from './components/halfDayEmployees';
 import HolidayEmployees from './components/holidayEmployees';
 import PresentEmployees from './components/presentEmployees';
@@ -404,7 +405,7 @@ const AdminAttendance = () => {
                           {/* Status */}
                           <td className="px-6 py-4">
                             <span
-                              className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
+                              className={`whitespace-nowrap px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
                                 record.realtimeStatus || record.currentStatus
                               )}`}
                             >
@@ -440,6 +441,7 @@ const AdminAttendance = () => {
 
         <PresentEmployees startDate={selectedDate} endDate={selectedDate} />
         <CheckedInEmployees selectedDate={selectedDate} />
+        <CheckedOutEmployees selectedDate={selectedDate} />
         <AbsentEmployees startDate={selectedDate} endDate={selectedDate} />
         <HalfDayEmployees startDate={selectedDate} endDate={selectedDate} />
         <HolidayEmployees selectedDate={selectedDate} />
