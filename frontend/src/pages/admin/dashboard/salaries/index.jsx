@@ -1023,7 +1023,7 @@ const AdminSalaryManagement = () => {
         <head>
           <title>Payroll ${month}-${year}</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 16px; }
+            body { font-family: Sora, "Plus Jakarta Sans", Poppins, sans-serif; padding: 16px; }
             table { width: 100%; border-collapse: collapse; font-size: 12px; }
             th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
             th { background: #f5f5f5; }
@@ -3233,4 +3233,3 @@ const PanelSkeleton = ({ showClose = false }) => (
 );
 
 export default AdminSalaryManagement;
-

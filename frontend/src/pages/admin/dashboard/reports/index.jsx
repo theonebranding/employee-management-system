@@ -871,7 +871,7 @@ const AdminReports = () => {
           <head>
             <title>${filename}-${suffix}</title>
           </head>
-          <body style="font-family:Arial, sans-serif;padding:16px;">
+          <body style="font-family:Sora, 'Plus Jakarta Sans', Poppins, sans-serif;padding:16px;">
             <h2 style="margin:0 0 8px 0;">${filename.replace(/-/g, ' ').toUpperCase()}</h2>
             <p style="margin:0 0 12px 0;font-size:12px;">Range: ${startDate} to ${endDate}</p>
             <table style="border-collapse:collapse;width:100%;">
@@ -2529,6 +2529,5 @@ const AdminReports = () => {
 };
 
 export default AdminReports;
-
 
 

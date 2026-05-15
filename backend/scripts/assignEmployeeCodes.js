@@ -5,11 +5,12 @@ import EmployeeSequence from '../src/models/employeeSequenceSchema.js';
 
 dotenv.config();
 
-const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/test';
+const MONGO_URL = process.env.MONGO_URL || process.env.MONGO_URL 
+console.log('MONGO_URL:', MONGO_URL);
 const YEAR_SUFFIX = '25';
 
 async function connect() {
-  await mongoose.connect(MONGO_URI);
+  await mongoose.connect(MONGO_URL);
 }
 
 function getInitials(name = '') {
@@ -30,7 +31,7 @@ async function assignCodes({ dryRun = false } = {}) {
       { employeeCode: '' },
     ],
   };
-    console.log('Using MONGO_URI:', MONGO_URI);
+    console.log('Using MONGO_URL:', MONGO_URL);
     console.log('Connected DB:', mongoose.connection.db.databaseName);
 
 const missingCount = await Employee.countDocuments(filter);

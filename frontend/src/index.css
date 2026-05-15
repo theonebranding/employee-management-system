@@ -1,12 +1,80 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --font-primary: 'Sora';
+  --font-secondary: 'Plus Jakarta Sans';
+  --font-tertiary: 'Poppins';
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-secondary), var(--font-tertiary), ui-sans-serif, system-ui;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+h1 {
+  font-weight: 800;
+  line-height: 1.1;
+  font-size: clamp(1.875rem, 1.35rem + 1.6vw, 2.75rem);
+}
+
+h2 {
+  font-weight: 700;
+  font-size: clamp(1.5rem, 1.2rem + 1.1vw, 2.1rem);
+}
+
+h3 {
+  font-weight: 700;
+  font-size: clamp(1.25rem, 1.06rem + 0.72vw, 1.7rem);
+}
+
+h4,
+h5,
+h6 {
+  font-weight: 600;
+}
+
+h4 {
+  font-size: clamp(1.125rem, 1.02rem + 0.42vw, 1.35rem);
+}
+
+h5 {
+  font-size: clamp(1rem, 0.95rem + 0.22vw, 1.12rem);
+}
+
+h6 {
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+}
+
+p,
+li,
+label,
+input,
+textarea,
+select,
+button {
+  line-height: 1.55;
+}
 
 /* Global Styling */
 body {
   @apply bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text font-sans;
   margin: 0;
   padding: 0;
+  letter-spacing: -0.005em;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Link Styling */
