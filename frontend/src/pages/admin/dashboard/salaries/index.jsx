@@ -27,6 +27,7 @@ const AdminSalaryManagement = () => {
   const [extraAllowances, setExtraAllowances] = useState([]);
   const [extraDetails, setExtraDetails] = useState(null);
   const [loanDetails, setLoanDetails] = useState(null);
+  const [paidLeaveDetails, setPaidLeaveDetails] = useState(null);
   const [loanFilterMode, setLoanFilterMode] = useState('all');
   const [loanFilterMonth, setLoanFilterMonth] = useState(new Date().getMonth() + 1);
   const [loanFilterYear, setLoanFilterYear] = useState(new Date().getFullYear());
@@ -340,6 +341,20 @@ const AdminSalaryManagement = () => {
 
   const fetchExtraAllowances = async () => {
     try {
+      const syncResponse = await fetch(`${BASE_URL}/extra-allowances/sync-from-attendance`, {
+        method: 'POST',
+        headers: {
+          ...authHeaders,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ month, year }),
+      });
+
+      if (!syncResponse.ok) {
+        const syncData = await syncResponse.json().catch(() => ({}));
+        throw new Error(syncData?.message || 'Failed to sync extra allowances from attendance.');
+      }
+
       const response = await fetch(`${BASE_URL}/extra-allowances?status=active`, {
         headers: authHeaders,
       });
@@ -464,6 +479,31 @@ const AdminSalaryManagement = () => {
     fetchLateCheckInCounts();
   }, [month, year]);
 
+  useEffect(() => {
+    const refreshExtraAllowancesData = () => {
+      fetchExtraAllowances();
+    };
+
+    const onAttendanceUpdated = () => {
+      refreshExtraAllowancesData();
+    };
+
+    const onStorageUpdate = (event) => {
+      if (event.key === 'attendanceUpdated') {
+        refreshExtraAllowancesData();
+      }
+    };
+
+    window.addEventListener('attendanceUpdated', onAttendanceUpdated);
+    window.addEventListener('storage', onStorageUpdate);
+
+    return () => {
+      window.removeEventListener('attendanceUpdated', onAttendanceUpdated);
+      window.removeEventListener('storage', onStorageUpdate);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month, year]);
+
   const toMonthIndex = (yearValue, monthValue) => yearValue * 12 + (monthValue - 1);
 
   const isInSelectedMonth = (dateValue) => {
@@ -480,12 +520,124 @@ const AdminSalaryManagement = () => {
     return parsed.getMonth() + 1 === targetMonth && parsed.getFullYear() === targetYear;
   };
 
+  const doesLeaveOverlapSelectedMonth = (leave) => {
+    if (!leave?.startDate || !leave?.endDate) return false;
+    const leaveStart = new Date(leave.startDate);
+    const leaveEnd = new Date(leave.endDate);
+    if (Number.isNaN(leaveStart.getTime()) || Number.isNaN(leaveEnd.getTime())) return false;
+
+    const monthStart = new Date(year, month - 1, 1, 0, 0, 0, 0);
+    const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
+    return leaveStart <= monthEnd && leaveEnd >= monthStart;
+  };
+
   const getExtrasForEmployee = (employeeId) =>
     extraAllowances.filter((record) => {
       const recordEmployeeId = record.employee?._id || record.employee;
       if (!recordEmployeeId || recordEmployeeId !== employeeId) return false;
+      if (record?.reference === 'Leave Encashment' || record?.breakdown?.kind === 'leave-encashment') {
+        return false;
+      }
       return isInSelectedMonth(record.transactionDate);
     });
+
+  const getExtraAmountForEmployee = (employeeId) =>
+    getExtrasForEmployee(employeeId).reduce((sum, record) => sum + Number(record.amount || 0), 0);
+
+  const getLeaveEncashmentRecordsForEmployee = (employeeId) =>
+    extraAllowances.filter((record) => {
+      const recordEmployeeId = record.employee?._id || record.employee;
+      if (!recordEmployeeId || recordEmployeeId !== employeeId) return false;
+      if (!(record?.reference === 'Leave Encashment' || record?.breakdown?.kind === 'leave-encashment')) {
+        return false;
+      }
+      return isInSelectedMonth(record.transactionDate);
+    });
+
+  const getRecordMonthLabel = (record) => {
+    if (!record?.transactionDate) return 'Current Month';
+    const parsed = toIstDate(record.transactionDate);
+    if (Number.isNaN(parsed.getTime())) return 'Current Month';
+    return parsed.toLocaleDateString('en-IN', {
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  const getExtraSourceLabel = (record) => {
+    if (record?.reference === 'Compensation') return 'Sunday Compensation';
+    if (record?.reference === 'Leave Encashment' || record?.breakdown?.kind === 'leave-encashment') {
+      return 'Leave Encashment';
+    }
+    return record?.reference?.trim() || 'Manual Extra';
+  };
+
+  const getExtraSourcePeriodLabel = (record) => {
+    const monthLabel = getRecordMonthLabel(record);
+    if (record?.reference === 'Compensation') return `Sunday · ${monthLabel}`;
+    if (record?.reference === 'Leave Encashment' || record?.breakdown?.kind === 'leave-encashment') {
+      return `Encashment · ${monthLabel}`;
+    }
+    return `Manual · ${monthLabel}`;
+  };
+
+  const getExtraSourceSummary = (records) => {
+    const summary = {
+      sundayCompensation: { amount: 0, count: 0, records: [] },
+      manual: { amount: 0, count: 0, byType: {} },
+    };
+
+    (records || []).forEach((record) => {
+      const amount = Number(record?.amount || 0);
+      if (record?.reference === 'Compensation') {
+        summary.sundayCompensation.amount += amount;
+        summary.sundayCompensation.count += 1;
+        summary.sundayCompensation.records.push(record);
+        return;
+      }
+
+      const manualType = record?.reference?.trim() || 'Manual Extra';
+      summary.manual.amount += amount;
+      summary.manual.count += 1;
+      summary.manual.byType[manualType] = summary.manual.byType[manualType] || {
+        amount: 0,
+        count: 0,
+        records: [],
+      };
+      summary.manual.byType[manualType].amount += amount;
+      summary.manual.byType[manualType].count += 1;
+      summary.manual.byType[manualType].records.push(record);
+    });
+
+    return summary;
+  };
+
+  const getLeaveEncashmentSummary = (records) => {
+    const summary = {
+      amount: 0,
+      count: 0,
+      days: 0,
+      ratePerDay: 0,
+      records: [],
+    };
+
+    (records || []).forEach((record) => {
+      const amount = Number(record?.amount || 0);
+      summary.amount += amount;
+      summary.count += 1;
+      summary.records.push(record);
+      summary.days += Number(record?.breakdown?.encashmentDays || 0);
+      if (!summary.ratePerDay) {
+        summary.ratePerDay = Number(record?.breakdown?.ratePerDay || 0);
+      }
+    });
+
+    if (!summary.ratePerDay && summary.days) {
+      summary.ratePerDay = summary.amount / summary.days;
+    }
+
+    return summary;
+  };
 
   const getLoansForEmployee = (employeeId) =>
     loanAdvances.filter((record) => {
@@ -640,7 +792,8 @@ const AdminSalaryManagement = () => {
     const halfDays = Number(payroll?.halfDays || 0);
     const paidLeaves = Number(payroll?.paidLeaves || 0);
     const overtimeAmount = Number(payroll?.overtimeAmount || 0);
-    const extraAmount = Number(payroll?.extraAmount || 0);
+    const extraAmount = Number(getExtraAmountForEmployee(employeeId) || 0);
+    const leaveEncashmentAmount = Number(payroll?.leaveEncashmentAmount || 0);
     const penalties = Number(autoPenaltyMap[employeeId] ?? 0);
     const loanAmount = Number(
       loanAdvanceMap[employeeId] ?? payroll?.computedLoanAmount ?? 0
@@ -650,7 +803,8 @@ const AdminSalaryManagement = () => {
       halfDays * dailyWage * 0.5 +
       paidLeaves * dailyWage +
       overtimeAmount +
-      extraAmount;
+      extraAmount +
+      leaveEncashmentAmount;
     const netPay = grossPay - penalties - loanAmount;
 
     return Number.isFinite(netPay) ? netPay : 0;
@@ -684,7 +838,7 @@ const AdminSalaryManagement = () => {
         loanAdvanceMap[employee._id] ??
         payroll?.computedLoanAmount ??
         (payroll?.loanAmount || 0),
-      extraAmount: payroll?.extraAmount || 0,
+      extraAmount: getExtraAmountForEmployee(employee._id),
       status: payroll?.status || 'unpaid',
     });
     setIsPanelOpen(true);
@@ -694,10 +848,7 @@ const AdminSalaryManagement = () => {
         fetchLatestPayrollForEmployee(employee._id),
         fetchPanelDeductions(employee._id),
       ]);
-      const preferredPayroll =
-        latestPayroll?.status === 'paid'
-          ? latestPayroll
-          : mergedPayrollMap[employee._id] || latestPayroll;
+      const preferredPayroll = latestPayroll || mergedPayrollMap[employee._id];
       if (preferredPayroll) {
         setSelectedEmployee(prev => (prev ? { ...prev, payroll: preferredPayroll } : prev));
         setFormState(prev => ({
@@ -708,7 +859,7 @@ const AdminSalaryManagement = () => {
             loanAdvanceMap[employee._id] ??
             preferredPayroll?.computedLoanAmount ??
             (preferredPayroll?.loanAmount || 0),
-          extraAmount: preferredPayroll?.extraAmount || 0,
+          extraAmount: getExtraAmountForEmployee(employee._id),
           status: preferredPayroll?.status || 'unpaid',
         }));
       }
@@ -723,6 +874,22 @@ const AdminSalaryManagement = () => {
     if (event) event.stopPropagation();
     setExtraForm(prev => ({ ...prev, employeeId: employee._id }));
     setSettingsPanel('extras');
+  };
+
+  const openPaidLeavesPanel = (employee, event) => {
+    if (event) event.stopPropagation();
+    setPaidLeaveDetails({
+      employeeId: employee._id,
+      employee,
+      payroll: mergedPayrollMap[employee._id] || employee?.payroll || null,
+      paidLeaves: 0,
+      dailyWage: 0,
+      paidLeavesGross: 0,
+      leaveRecords: [],
+      encashmentRecords: [],
+      encashmentSummary: { amount: 0, count: 0, days: 0, ratePerDay: 0, records: [] },
+    });
+    setSettingsPanel('paidLeaves');
   };
 
   const openLoansPanel = (employee, event) => {
@@ -929,7 +1096,7 @@ const AdminSalaryManagement = () => {
           ? loanAdvanceMap[employee._id] ?? payroll.computedLoanAmount ?? 0
           : payroll.loanAmount || 0
       );
-      const extras = Number(payroll.extraAmount || 0);
+      const extras = Number(getExtraAmountForEmployee(employee._id) || 0);
       const grossWage =
         Number(payroll.dailyWage || 0) *
         (Number(payroll.fullDays || 0) + Number(payroll.halfDays || 0) * 0.5);
@@ -984,7 +1151,7 @@ const AdminSalaryManagement = () => {
             ? loanAdvanceMap[employee._id] ?? payroll.computedLoanAmount ?? 0
             : payroll.loanAmount || 0
         );
-        const extras = Number(payroll.extraAmount || 0);
+        const extras = Number(getExtraAmountForEmployee(employee._id) || 0);
         const grossWage =
           Number(payroll.dailyWage || 0) *
           (Number(payroll.fullDays || 0) + Number(payroll.halfDays || 0) * 0.5);
@@ -1154,24 +1321,44 @@ const AdminSalaryManagement = () => {
       try {
         const latestPayroll = await fetchLatestPayrollForEmployee(selectedEmployee._id);
         const fallbackPayroll = mergedPayrollMap[selectedEmployee._id];
-        const preferredPayroll =
-          latestPayroll?.status === 'paid'
-            ? latestPayroll
-            : fallbackPayroll || latestPayroll;
+        const preferredPayroll = latestPayroll || fallbackPayroll;
         setSelectedEmployee(prev =>
           prev ? { ...prev, payroll: preferredPayroll || prev.payroll } : prev
         );
+        if (preferredPayroll) {
+          setFormState(prev => ({
+            ...prev,
+            overtimeHours: Number(preferredPayroll?.overtimeHours || 0),
+            penalties: Number(preferredPayroll?.penalties || 0),
+            loanAmount:
+              loanAdvances.find((item) => item.employee === selectedEmployee._id)?._id
+                ? prev.loanAmount
+                : Number((preferredPayroll?.computedLoanAmount ?? preferredPayroll?.loanAmount) || 0),
+            extraAmount: getExtraAmountForEmployee(selectedEmployee._id),
+            status: preferredPayroll?.status || prev.status,
+          }));
+        }
       } catch (error) {
         const fallbackPayroll = mergedPayrollMap[selectedEmployee._id];
         setSelectedEmployee(prev =>
           prev ? { ...prev, payroll: fallbackPayroll || prev.payroll } : prev
         );
+        if (fallbackPayroll) {
+          setFormState(prev => ({
+            ...prev,
+            overtimeHours: Number(fallbackPayroll?.overtimeHours || 0),
+            penalties: Number(fallbackPayroll?.penalties || 0),
+            loanAmount: Number((fallbackPayroll?.computedLoanAmount ?? fallbackPayroll?.loanAmount) || 0),
+            extraAmount: getExtraAmountForEmployee(selectedEmployee._id),
+            status: fallbackPayroll?.status || prev.status,
+          }));
+        }
       }
     };
     syncLatest();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedEmployee?._id, month, year, payrolls.length]);
-
+  //}, [selectedEmployee?._id, month, year, payrolls.length]);
+    }, [selectedEmployee?._id, month, year, payrolls, previewPayrolls]);
   useEffect(() => {
     if (settingsPanel !== 'extras') {
       setExtraDetails(null);
@@ -1187,6 +1374,68 @@ const AdminSalaryManagement = () => {
     setExtraDetails({ employee, records, total, count: records.length });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsPanel, extraForm.employeeId, extraAllowances, month, year, employees]);
+
+  useEffect(() => {
+    if (settingsPanel !== 'paidLeaves') {
+      setPaidLeaveDetails(null);
+      return;
+    }
+    if (!paidLeaveDetails?.employeeId) {
+      setPaidLeaveDetails(null);
+      return;
+    }
+
+    let active = true;
+
+    const syncPaidLeaveDetails = async () => {
+      try {
+        const employee = employees.find((item) => item._id === paidLeaveDetails.employeeId) || null;
+        const payroll = mergedPayrollMap[paidLeaveDetails.employeeId] || employee?.payroll || null;
+        const dailyWage = Number(payroll?.dailyWage || 0);
+
+        const [leaveResponse] = await Promise.all([
+          fetch(`${BASE_URL}/leaves/employee-leaves/${paidLeaveDetails.employeeId}`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+          }),
+        ]);
+
+        const leaveData = leaveResponse.ok ? await leaveResponse.json().catch(() => ({})) : { leaves: [] };
+        const approvedLeaves = (leaveData.leaves || [])
+          .filter((leave) => leave?.status === 'approved')
+          .filter(doesLeaveOverlapSelectedMonth)
+          .filter((leave) => Number(leave.paidDays || 0) > 0 || Boolean(leave.isPaidLeave));
+
+        const paidLeaves = approvedLeaves.reduce((sum, leave) => sum + Number(leave.paidDays || 0), 0);
+        const paidLeavesGross = paidLeaves * dailyWage;
+        const encashmentRecords = getLeaveEncashmentRecordsForEmployee(paidLeaveDetails.employeeId);
+        const encashmentSummary = getLeaveEncashmentSummary(encashmentRecords);
+
+        if (!active) return;
+
+        setPaidLeaveDetails({
+          employeeId: paidLeaveDetails.employeeId,
+          employee,
+          payroll,
+          paidLeaves,
+          dailyWage,
+          paidLeavesGross,
+          leaveRecords: approvedLeaves,
+          encashmentRecords,
+          encashmentSummary,
+        });
+      } catch (error) {
+        if (!active) return;
+        toast.error(error.message || 'Failed to load paid leave summary.');
+      }
+    };
+
+    syncPaidLeaveDetails();
+
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsPanel, paidLeaveDetails?.employeeId, mergedPayrollMap, extraAllowances, month, year, employees]);
 
   useEffect(() => {
     if (settingsPanel !== 'loans') {
@@ -1222,7 +1471,7 @@ const AdminSalaryManagement = () => {
         : selectedPayroll?.loanAmount || 0
     );
     const derivedOvertimeHours = Number(selectedPayroll?.overtimeHours || 0);
-    const derivedExtraAmount = Number(selectedPayroll?.extraAmount || 0);
+    const derivedExtraAmount = getExtraAmountForEmployee(selectedEmployee._id);
     try {
       const response = await fetch(`${BASE_URL}/payroll/process/${selectedEmployee._id}`, {
         method: 'POST',
@@ -1251,6 +1500,7 @@ const AdminSalaryManagement = () => {
         return [data.payroll, ...updated];
       });
       setSelectedEmployee((prev) => (prev ? { ...prev, payroll: data.payroll } : prev));
+      await fetchExtraAllowances();
     } catch (error) {
       toast.error(error.message || 'Failed to process payroll.');
     }
@@ -1486,7 +1736,7 @@ const AdminSalaryManagement = () => {
           : overtimeFromDailyWage;
     const overtimeHours = Number(payroll?.overtimeHours || 0);
     const overtimeAmount = Number(payroll?.overtimeAmount || 0);
-    const extraAmount = Number(payroll?.extraAmount || 0);
+    const extraAmount = getExtraAmountForEmployee(selectedEmployee?._id);
     const snapshotPenaltyAmount = Number(
       payroll?.isPreview ? autoPenaltyMap[selectedEmployee?._id] ?? 0 : payroll?.penalties || 0
     );
@@ -1675,7 +1925,10 @@ const AdminSalaryManagement = () => {
             const paidLeaves = Number(payroll?.paidLeaves || 0);
             const paidLeavesGross = paidLeaves * dailyWage;
             const overtimeAmount = Number(payroll?.overtimeAmount || 0);
-            const extraAmount = Number(payroll?.extraAmount || 0);
+            const leaveEncashmentAmount = Number(
+              payroll?.leaveEncashmentAmount ?? payroll?.leaveEncashment?.total ?? 0
+            );
+            const extraAmount = getExtraAmountForEmployee(selectedEmployee?._id);
             const penalties = Number(
               payroll?.isPreview
                 ? autoPenaltyMap[selectedEmployee?._id] ?? 0
@@ -1693,7 +1946,8 @@ const AdminSalaryManagement = () => {
               halfDays * dailyWage * 0.5 +
               paidLeaves * dailyWage +
               overtimeAmount +
-              extraAmount;
+              extraAmount +
+              leaveEncashmentAmount;
             const deductions = penalties + loanAmount;
             const totalSalary = payroll?.isPreview
               ? getPreviewNetPay(selectedEmployee?._id, payroll)
@@ -1705,6 +1959,12 @@ const AdminSalaryManagement = () => {
                   <div className="flex items-center justify-between text-sm">
                     <span>Paid Leaves Gross</span>
                     <span>₹{paidLeavesGross.toFixed(2)}</span>
+                  </div>
+                ) : null}
+                {leaveEncashmentAmount > 0 ? (
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Leave Encashment</span>
+                    <span>₹{leaveEncashmentAmount.toFixed(2)}</span>
                   </div>
                 ) : null}
                 <div className="flex items-center justify-between text-sm">
@@ -2089,7 +2349,13 @@ const AdminSalaryManagement = () => {
                     ? loanAdvanceMap[employee._id] ?? payroll.computedLoanAmount ?? 0
                     : payroll.loanAmount || 0
                 );
-                const extras = Number(payroll.extraAmount || 0);
+                const employeeExtras = getExtrasForEmployee(employee._id);
+                const extraSourceSummary = getExtraSourceSummary(employeeExtras);
+                const extras = Number(getExtraAmountForEmployee(employee._id) || 0);
+                const extraSourceLabels = [
+                  extraSourceSummary.sundayCompensation.count > 0 ? 'Sunday Compensation' : null,
+                  extraSourceSummary.manual.count > 0 ? 'Manual Extras' : null,
+                ].filter(Boolean);
                 const grossWage =
                   Number(payroll.dailyWage || 0) *
                   (Number(payroll.fullDays || 0) + Number(payroll.halfDays || 0) * 0.5);
@@ -2123,7 +2389,16 @@ const AdminSalaryManagement = () => {
                     </td>
                     <td className="px-4 py-3">{payroll.fullDays || 0}</td>
                     <td className="px-4 py-3">{payroll.halfDays || 0}</td>
-                    <td className="px-4 py-3">{payroll.paidLeaves || 0}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={(event) => openPaidLeavesPanel(employee, event)}
+                        className="text-left underline decoration-dotted"
+                        aria-label={`Open paid leave panel for ${employee.name}`}
+                      >
+                        {payroll.paidLeaves || 0}
+                      </button>
+                    </td>
                     <td className="px-4 py-3">{payroll.unpaidDays || 0}</td>
                     <td className="px-4 py-3">₹{Number(payroll.dailyWage || 0).toFixed(2)}</td>
                     <td className="px-4 py-3">₹{grossWage.toFixed(2)}</td>
@@ -2168,14 +2443,25 @@ const AdminSalaryManagement = () => {
                       </button>
                     </td>
                     <td className="px-4 py-3">
+                      {(() => {
+                        return (
                       <button
                         type="button"
                         onClick={(event) => openExtrasPanel(employee, event)}
                         className="text-left underline decoration-dotted"
                         aria-label={`Open extras panel for ${employee.name}`}
                       >
-                        ₹{extras.toFixed(2)}
+                        <span className="flex flex-col items-start leading-tight">
+                          <span>₹{extras.toFixed(2)}</span>
+                          {extraSourceLabels.length > 0 ? (
+                            <span className="text-[11px] font-medium text-info">
+                              {extraSourceLabels.join(' + ')}
+                            </span>
+                          ) : null}
+                        </span>
                       </button>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 font-semibold">₹{netPay.toFixed(2)}</td>
                     <td className="px-4 py-3">
@@ -2309,12 +2595,14 @@ const AdminSalaryManagement = () => {
                       ? 'Penalty Settings'
                       : settingsPanel === 'loans'
                         ? 'Add Loan/Advance'
+                        : settingsPanel === 'paidLeaves'
+                          ? 'Paid Leave Summary'
                         : 'Add Extra Allowance'}
                 </h2>
               </div>
               <button
                 onClick={() => setSettingsPanel(null)}
-                aria-label="Close overtime settings"
+                aria-label="Close payroll settings"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2933,6 +3221,176 @@ const AdminSalaryManagement = () => {
                 </div>
               )}
 
+              {settingsPanel === 'paidLeaves' && (
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-base font-semibold">
+                          {paidLeaveDetails?.employee?.name || 'Paid Leaves'}
+                        </h3>
+                        <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                          Paid Leave Summary
+                        </p>
+                        <p className="text-sm text-light-text/60 dark:text-dark-text/60">
+                          {paidLeaveDetails?.employee?.employeeCode || 'N/A'}
+                          {paidLeaveDetails?.employee?.email ? ` · ${paidLeaveDetails.employee.email}` : ''}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                          Paid Leaves
+                        </p>
+                        <p className="text-lg font-semibold">{Number(paidLeaveDetails?.paidLeaves || 0).toFixed(0)}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="rounded-xl border border-light-border/70 dark:border-dark-border/70 bg-white/70 dark:bg-dark-card/70 px-4 py-3 space-y-1">
+                        <p className="text-xs uppercase tracking-[0.12em] text-info/70">Paid Leaves Gross</p>
+                        <p className="text-lg font-semibold text-info">
+                          ₹{Number(paidLeaveDetails?.paidLeavesGross || 0).toFixed(2)}
+                        </p>
+                        <p className="text-xs text-light-text/60 dark:text-dark-text/60">
+                          {Number(paidLeaveDetails?.paidLeaves || 0)} day(s) × ₹
+                          {Number(paidLeaveDetails?.dailyWage || 0).toFixed(2)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-light-border/70 dark:border-dark-border/70 bg-white/70 dark:bg-dark-card/70 px-4 py-3 space-y-1">
+                        <p className="text-xs uppercase tracking-[0.12em] text-warning/70">Leave Encashment</p>
+                        <p className="text-lg font-semibold text-warning">
+                          ₹{Number(paidLeaveDetails?.encashmentSummary?.amount || 0).toFixed(2)}
+                        </p>
+                        <p className="text-xs text-light-text/60 dark:text-dark-text/60">
+                          {Number(paidLeaveDetails?.encashmentSummary?.count || 0)} record(s)
+                          {paidLeaveDetails?.encashmentSummary?.days
+                            ? ` · ${Number(paidLeaveDetails.encashmentSummary.days)} day(s)`
+                            : ''}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                          Approved Paid Leave Requests
+                        </p>
+                        <p className="text-sm text-light-text/60 dark:text-dark-text/60">
+                          These are the approved leave requests counted as paid leave in payroll.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-semibold">Date</th>
+                          <th className="px-4 py-3 text-left font-semibold">Days</th>
+                          <th className="px-4 py-3 text-left font-semibold">Type</th>
+                          <th className="px-4 py-3 text-left font-semibold">Amount</th>
+                          <th className="px-4 py-3 text-left font-semibold">Remarks</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {!paidLeaveDetails ? (
+                          <tr>
+                            <td
+                              colSpan={5}
+                              className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
+                            >
+                              Select an employee to view paid leave details.
+                            </td>
+                          </tr>
+                        ) : (paidLeaveDetails.leaveRecords || []).length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={5}
+                              className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
+                            >
+                              No approved paid leave requests for this period.
+                            </td>
+                          </tr>
+                        ) : (
+                          (paidLeaveDetails.leaveRecords || []).map((record) => {
+                            const paidDayAmount =
+                              Number(record.paidDays || 0) * Number(paidLeaveDetails?.dailyWage || 0);
+
+                            return (
+                            <tr
+                              key={record._id}
+                              className="border-t border-light-border/70 dark:border-dark-border/70"
+                            >
+                              <td className="px-4 py-3">
+                                {record.startDate
+                                  ? new Date(record.startDate).toLocaleDateString('en-IN', {
+                                      timeZone: 'Asia/Kolkata',
+                                    })
+                                  : 'N/A'}
+                              </td>
+                              <td className="px-4 py-3">{Number(record.paidDays || 0)}</td>
+                              <td className="px-4 py-3">{record.leaveMode || 'N/A'}</td>
+                              <td className="px-4 py-3">₹{paidDayAmount.toFixed(2)}</td>
+                              <td className="px-4 py-3">{record.reason || '—'}</td>
+                            </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-semibold">Date</th>
+                          <th className="px-4 py-3 text-left font-semibold">Days</th>
+                          <th className="px-4 py-3 text-left font-semibold">Rate / Day</th>
+                          <th className="px-4 py-3 text-left font-semibold">Amount</th>
+                          <th className="px-4 py-3 text-left font-semibold">Remarks</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {!paidLeaveDetails?.encashmentRecords?.length ? (
+                          <tr>
+                            <td
+                              colSpan={5}
+                              className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
+                            >
+                              No leave encashment records for this period.
+                            </td>
+                          </tr>
+                        ) : (
+                          paidLeaveDetails.encashmentRecords.map((record) => (
+                            <tr
+                              key={record._id}
+                              className="border-t border-light-border/70 dark:border-dark-border/70"
+                            >
+                              <td className="px-4 py-3">
+                                {record.transactionDate
+                                  ? new Date(record.transactionDate).toLocaleDateString('en-IN', {
+                                      timeZone: 'Asia/Kolkata',
+                                    })
+                                  : 'N/A'}
+                              </td>
+                              <td className="px-4 py-3">{Number(record.breakdown?.encashmentDays || 0)}</td>
+                              <td className="px-4 py-3">₹{Number(record.breakdown?.ratePerDay || 0).toFixed(2)}</td>
+                              <td className="px-4 py-3">₹{Number(record.amount || 0).toFixed(2)}</td>
+                              <td className="px-4 py-3">{record.comment || '—'}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               {settingsPanel === 'extras' && (
                 <div className="space-y-4">
                   <div>
@@ -3033,6 +3491,95 @@ const AdminSalaryManagement = () => {
                       </div>
                     </div>
 
+                    <div className="rounded-xl border border-info/20 bg-info/5 p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.12em] text-info/70">
+                            Extras Source Summary
+                          </p>
+                          <p className="text-sm text-light-text/60 dark:text-dark-text/60">
+                            Clear source-wise breakdown of the extras shown here.
+                            Leave encashment is shown in Paid Leaves.
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs uppercase tracking-[0.12em] text-info/70">Total Extras</p>
+                          <p className="text-lg font-semibold text-info">₹{(extraDetails?.total || 0).toFixed(2)}</p>
+                        </div>
+                      </div>
+
+                      {(() => {
+                        const sourceSummary = getExtraSourceSummary(extraDetails?.records || []);
+                        const manualTypes = Object.entries(sourceSummary.manual.byType || {});
+                        const hasAnySources =
+                          sourceSummary.sundayCompensation.count > 0 ||
+                          sourceSummary.manual.count > 0;
+
+                        if (!hasAnySources) {
+                          return (
+                            <div className="rounded-lg border border-dashed border-info/30 bg-white/50 dark:bg-dark-card/50 px-4 py-3 text-sm text-light-text/60 dark:text-dark-text/60">
+                              No extra sources are linked to this month yet.
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-3">
+                            {sourceSummary.sundayCompensation.count > 0 ? (
+                              <div className="rounded-lg border border-light-border/70 dark:border-dark-border/70 bg-white/70 dark:bg-dark-card/70 px-4 py-3 flex items-start justify-between gap-4">
+                                <div>
+                                  <p className="text-sm font-semibold text-light-text dark:text-dark-text">
+                                    Sunday Compensation
+                                  </p>
+                                  <p className="text-xs text-light-text/60 dark:text-dark-text/60">
+                                    Auto-added for Sunday attendance with check-in and check-out.
+                                  </p>
+                                    <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-1">
+                                      {getRecordMonthLabel(sourceSummary.sundayCompensation.records[0])}
+                                    </p>
+                                  <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-1">
+                                    {sourceSummary.sundayCompensation.count} record(s)
+                                  </p>
+                                </div>
+                                <p className="text-lg font-semibold text-success">₹{sourceSummary.sundayCompensation.amount.toFixed(2)}</p>
+                              </div>
+                            ) : null}
+
+                            {sourceSummary.manual.count > 0 ? (
+                              <div className="rounded-lg border border-light-border/70 dark:border-dark-border/70 bg-white/70 dark:bg-dark-card/70 px-4 py-3 space-y-2">
+                                <div className="flex items-start justify-between gap-4">
+                                  <div>
+                                    <p className="text-sm font-semibold text-light-text dark:text-dark-text">
+                                      Manual Extras
+                                    </p>
+                                    <p className="text-xs text-light-text/60 dark:text-dark-text/60">
+                                      Added manually by payroll/admin.
+                                    </p>
+                                    <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-1">
+                                      {manualTypes.map(([label, item]) => (
+                                        <span key={label} className="mr-3 inline-block">
+                                          {label}: {getRecordMonthLabel(item.records[0])}
+                                        </span>
+                                      ))}
+                                    </p>
+                                  </div>
+                                  <p className="text-lg font-semibold text-warning">₹{sourceSummary.manual.amount.toFixed(2)}</p>
+                                </div>
+                                <div className="space-y-1 text-xs text-light-text/70 dark:text-dark-text/70">
+                                  {manualTypes.map(([label, item]) => (
+                                    <div key={label} className="flex items-center justify-between gap-3">
+                                      <span>{label}</span>
+                                      <span>₹{Number(item.amount || 0).toFixed(2)} · {item.count} item(s)</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
+                    </div>
+
                     <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
                       <table className="min-w-full text-sm">
                         <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
@@ -3075,9 +3622,20 @@ const AdminSalaryManagement = () => {
                                       })
                                     : 'N/A'}
                                 </td>
-                                <td className="px-4 py-3">{record.reference || 'Manual Adjustment'}</td>
+                                <td className="px-4 py-3">
+                                  <div className="flex flex-col">
+                                    <span>{getExtraSourceLabel(record)}</span>
+                                    <span className="text-[11px] text-light-text/50 dark:text-dark-text/50">
+                                      {getExtraSourcePeriodLabel(record)}
+                                    </span>
+                                  </div>
+                                </td>
                                 <td className="px-4 py-3">₹{Number(record.amount || 0).toFixed(2)}</td>
-                                <td className="px-4 py-3">{record.comment || '—'}</td>
+                                <td className="px-4 py-3">
+                                  {record.reference === 'Compensation'
+                                    ? `${record.comment || 'Sunday attendance'}`
+                                    : record.comment || '—'}
+                                </td>
                               </tr>
                             ))
                           )}
@@ -3105,6 +3663,13 @@ const AdminSalaryManagement = () => {
                     Save Details
                   </button>
                 </>
+              ) : settingsPanel === 'paidLeaves' ? (
+                <button
+                  onClick={() => setSettingsPanel(null)}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-light-border dark:border-dark-border"
+                >
+                  Close
+                </button>
               ) : (
                 <button
                   onClick={saveSettingsPanel}

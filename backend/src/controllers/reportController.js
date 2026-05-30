@@ -5,6 +5,7 @@ import Payroll from '../models/payrollSchema.js';
 import AdminAttendanceSettings from '../models/adminAttendanceSettingsSchema.js';
 import { recomputePayrollForAttendanceChange } from './payrollController.js';
 import { getIstDayKey, getIstDayOfWeek, getIstDayStartFromParts } from '../utils/timezoneUtils.js';
+import { getEmployeesOnHoliday } from '../services/holidayPayrollService.js';
 
 const parseYmd = (value) => {
   const [year, month, day] = String(value || '').split('-').map(Number);
@@ -101,6 +102,31 @@ export const getAttendanceMaster = async (req, res) => {
       byKey.set(`${String(record.employee)}_${toYmd(record.date)}`, record);
     });
 
+    // Fetch holiday assignments (fixed templates + redeemed floating credits) for
+    // every employee in scope across the requested range. We build two lookup
+    // structures so the per-day render loop can override status to `holiday` in
+    // O(1) without re-querying the holiday service per cell. Sundays are
+    // already stripped by getEmployeesOnHoliday, so any hit here is guaranteed
+    // to be a real working-day holiday.
+    const holidayRows = await getEmployeesOnHoliday({
+      startDate: rangeStart,
+      endDate: rangeEnd,
+      ...(employeeId ? { employeeId } : {}),
+    });
+    const holidaySetByEmployee = new Map(); // empId -> Set<dateKey>
+    const holidayInfoByKey = new Map(); // `${empId}_${dateKey}` -> { name, source }
+    holidayRows.forEach((row) => {
+      const empKey = String(row.employee._id);
+      if (!holidaySetByEmployee.has(empKey)) holidaySetByEmployee.set(empKey, new Set());
+      row.holidays.forEach((h) => {
+        const dateKey = toYmd(new Date(h.date));
+        holidaySetByEmployee.get(empKey).add(dateKey);
+        // Last write wins on duplicate (fixed + floating on same day) - matches
+        // holidayPayrollService union semantics.
+        holidayInfoByKey.set(`${empKey}_${dateKey}`, { name: h.name, source: h.source });
+      });
+    });
+
     const rows = [];
     employees.forEach((emp) => {
       const joinedDate = emp.joinedDate ? new Date(emp.joinedDate) : null;
@@ -128,10 +154,23 @@ export const getAttendanceMaster = async (req, res) => {
         const payrollMonthKey = `${dayStr.slice(0, 4)}-${dayStr.slice(5, 7)}`;
         const payrollStatus =
           payrollByEmployeeMonth.get(`${String(emp._id)}_${payrollMonthKey}`) || 'unpaid';
-        
+
+        // Holiday check runs before the working-hours-based resolver.
+        // Per the holiday-template spec, a holiday for an assigned employee
+        // wins regardless of whether they punched in (employees who want to
+        // work a floating-credit day must cancel the redemption first - see
+        // POST /holidays/me/credits/:creditId/cancel-redemption).
+        const holidaySet = holidaySetByEmployee.get(String(emp._id));
+        const isHoliday = holidaySet ? holidaySet.has(dayStr) : false;
+        const holidayInfo = isHoliday
+          ? holidayInfoByKey.get(`${String(emp._id)}_${dayStr}`)
+          : null;
+
         // Apply attendance settings: if manual status is set, use it; otherwise calculate from working hours
         let resolvedStatus;
-        if (attendance?.manualPayrollStatus) {
+        if (isHoliday) {
+          resolvedStatus = 'holiday';
+        } else if (attendance?.manualPayrollStatus) {
           resolvedStatus = attendance.manualPayrollStatus;
         } else {
           resolvedStatus = calculateStatusFromWorkingHours(attendance, settings);
@@ -144,19 +183,22 @@ export const getAttendanceMaster = async (req, res) => {
           continue;
         }
 
-        const hidePunchTimes = ['absent', 'leave'].includes(attendance?.manualPayrollStatus);
-        const statusLabel =
-          attendance?.checkInTime && !attendance?.checkOutTime && !attendance?.manualPayrollStatus
+        const hidePunchTimes = ['absent', 'leave'].includes(attendance?.manualPayrollStatus) || isHoliday;
+        const statusLabel = isHoliday
+          ? holidayInfo?.name
+            ? `Holiday (${holidayInfo.name})`
+            : 'Holiday'
+          : attendance?.checkInTime && !attendance?.checkOutTime && !attendance?.manualPayrollStatus
             ? 'Checkout Pending'
             : resolvedStatus === 'absent' && !attendance?.manualPayrollStatus && attendance?.checkInTime
-            ? 'Absent (Early Checkout)'
-            : resolvedStatus === 'full-day'
-              ? 'Full Day'
-              : resolvedStatus === 'half-day'
-                ? 'Half Day'
-                : resolvedStatus === 'leave'
-                  ? 'Leave'
-                  : 'Absent';
+              ? 'Absent (Early Checkout)'
+              : resolvedStatus === 'full-day'
+                ? 'Full Day'
+                : resolvedStatus === 'half-day'
+                  ? 'Half Day'
+                  : resolvedStatus === 'leave'
+                    ? 'Leave'
+                    : 'Absent';
         rows.push({
           employeeId: emp._id,
           employeeCode: emp.employeeCode || '',
@@ -173,7 +215,13 @@ export const getAttendanceMaster = async (req, res) => {
           status: resolvedStatus,
           statusLabel,
           payrollStatus,
-          canEdit: payrollStatus !== 'paid',
+          // Holiday rows are derived from template assignments / floating-credit
+          // redemptions, not from the Attendance Master dropdown. Disable inline
+          // edit so admins manage holidays through the holidays page instead.
+          canEdit: payrollStatus !== 'paid' && !isHoliday,
+          isHoliday,
+          holidayName: holidayInfo?.name || null,
+          holidaySource: holidayInfo?.source || null,
         });
         cursor.setUTCDate(cursor.getUTCDate() + 1);
       }

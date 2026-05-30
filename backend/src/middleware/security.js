@@ -5,6 +5,7 @@ const fallbackOrigins = [
   'https://company.theonebranding.com',
   'https://theone-it-frontend.vercel.app',
   'http://localhost:5173',
+  'http://localhost:5174',
 ];
 
 const parseOriginsFromEnv = () => {

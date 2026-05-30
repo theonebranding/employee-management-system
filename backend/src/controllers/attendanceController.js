@@ -8,6 +8,20 @@ import {
   getEndOfIstDay,
   getIstDayKey,
 } from '../utils/dailyReportUtils.js';
+import {
+  syncSundayCompensationForAttendanceChange,
+} from './payrollController.js';
+
+const triggerPayrollRecomputeForDay = async (employeeId, dayStart, processedBy) => {
+  if (!employeeId || !dayStart) return;
+
+  await syncSundayCompensationForAttendanceChange({
+    employeeId,
+    month: Number(dayStart.getMonth() + 1),
+    year: Number(dayStart.getFullYear()),
+    processedBy,
+  });
+};
 
 // Fetch Current Attendance Status
 export const getCurrentStatus = async (req, res) => {
@@ -177,6 +191,8 @@ export const checkIn = async (req, res) => {
 
     await attendance.save();
 
+    await triggerPayrollRecomputeForDay(employeeId, dayStart, req.user?._id);
+
     res.status(200).json({
       message: 'Check-in successful',
       attendance,
@@ -213,6 +229,7 @@ export const startRecess = async (req, res) => {
     attendance.currentStatus = 'In Recess';
 
     await attendance.save();
+    await triggerPayrollRecomputeForDay(employeeId, dayStart, req.user?._id);
     res.status(200).json({ message: 'Recess started', attendance });
   } catch (err) {
     res.status(500).json({ message: 'Error during recess start', error: err.message });
@@ -243,6 +260,7 @@ export const endRecess = async (req, res) => {
     attendance.currentStatus = 'Checked In';
 
     await attendance.save();
+    await triggerPayrollRecomputeForDay(employeeId, dayStart, req.user?._id);
     res.status(200).json({ message: 'Recess ended', attendance });
   } catch (err) {
     res.status(500).json({ message: 'Error during recess end', error: err.message });
@@ -326,6 +344,8 @@ export const checkOut = async (req, res) => {
 
     await attendance.save();
 
+    await triggerPayrollRecomputeForDay(employeeId, dayStart, req.user?._id);
+
     // Format total working time as hours and minutes for response
     const hours = Math.floor(totalWorkingTimeInMinutes / 60);
     const minutes = totalWorkingTimeInMinutes % 60;
@@ -363,6 +383,8 @@ export const updateAttendance = async (req, res) => {
     }
 
     await attendance.save();
+
+    await triggerPayrollRecomputeForDay(attendance.employee, attendance.date, req.user?._id);
 
     res.status(200).json({ message: 'Attendance record updated successfully', attendance });
   } catch (err) {

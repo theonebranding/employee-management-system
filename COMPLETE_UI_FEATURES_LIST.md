@@ -315,8 +315,6 @@
 | Feature Name | Status | Component Path | Description |
 |---|---|---|---|
 | Login Page | ✅ Complete | `/login` | User login with email and password |
-| Signup Page | ✅ Complete | `/signup` | New user registration |
-| Confirm Registration Page | ✅ Complete | `/confirm-registration` | Email verification step |
 | Forgot Password Page | ✅ Complete | `/forgot-password` | Initiate password reset process |
 | Verify OTP Page | ✅ Complete | `/verify-otp` | OTP verification for password reset |
 | Reset Password Page | ✅ Complete | `/reset-password` | Set new password after verification |

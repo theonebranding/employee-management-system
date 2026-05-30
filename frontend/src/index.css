@@ -1,12 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --font-primary: 'Sora';
-  --font-secondary: 'Plus Jakarta Sans';
+  --font-primary: 'Poppins';
+  --font-secondary: 'Poppins';
   --font-tertiary: 'Poppins';
 }
 
@@ -16,7 +16,7 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: var(--font-secondary), var(--font-tertiary), ui-sans-serif, system-ui;
+  font-family: var(--font-primary), ui-sans-serif, system-ui;
   letter-spacing: -0.015em;
   line-height: 1.2;
 }

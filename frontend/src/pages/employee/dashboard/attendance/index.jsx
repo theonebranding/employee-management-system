@@ -175,6 +175,27 @@ const Attendance = () => {
     }
   };
 
+  const notifyAttendanceUpdated = (attendance) => {
+    const payload = {
+      ts: Date.now(),
+      employeeId: attendance?.employee,
+      date: attendance?.date,
+      currentStatus: attendance?.currentStatus,
+    };
+
+    try {
+      window.dispatchEvent(new CustomEvent('attendanceUpdated', { detail: payload }));
+    } catch (error) {
+      // ignore in non-browser environments
+    }
+
+    try {
+      localStorage.setItem('attendanceUpdated', JSON.stringify(payload));
+    } catch (error) {
+      // ignore storage failures
+    }
+  };
+
   const handleAttendanceAction = async action => {
     setLoading(true);
     let actionLocation;
@@ -237,6 +258,7 @@ const Attendance = () => {
       }
 
       if (action === 'checkin' || action === 'checkout') triggerConfetti();
+      notifyAttendanceUpdated(attendance);
       await fetchAttendanceStatus();
     } catch (error) {
       console.error(`Error during ${action}:`, error.message);

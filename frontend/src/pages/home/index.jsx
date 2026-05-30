@@ -63,15 +63,9 @@ const Home = () => {
             <nav className="hidden md:flex items-center space-x-6">
               <a
                 href="/login"
-                className="px-4 py-2 text-white hover:bg-yellow-500 rounded-lg transition"
-              >
-                Log In
-              </a>
-              <a
-                href="/signup"
                 className="px-4 py-2 bg-yellow-500 text-black rounded-lg hover:bg-yellow-600 transition shadow-sm"
               >
-                Sign Up
+                Log In
               </a>
             </nav>
 
@@ -91,18 +85,12 @@ const Home = () => {
                 <a href="#stats" className="text-gray-300 hover:text-yellow-500">
                   Stats
                 </a>
-                <div className="grid grid-cols-2 gap-4 pt-4">
+                <div className="pt-4">
                   <a
                     href="/login"
-                    className="px-4 py-2 text-yellow-500 border border-yellow-500 rounded-lg text-center hover:bg-yellow-500 hover:text-black transition"
+                    className="block px-4 py-2 bg-yellow-500 text-black rounded-lg text-center hover:bg-yellow-600 transition"
                   >
                     Log In
-                  </a>
-                  <a
-                    href="/signup"
-                    className="px-4 py-2 bg-yellow-500 text-black rounded-lg text-center hover:bg-yellow-600 transition"
-                  >
-                    Sign Up
                   </a>
                 </div>
               </div>
@@ -135,14 +123,8 @@ const Home = () => {
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 mt-8">
                   <a
-                    href="/signup"
-                    className="px-8 py-4 bg-yellow-500 text-black font-medium rounded-lg shadow-md hover:bg-yellow-600 transition"
-                  >
-                    Sign Up
-                  </a>
-                  <a
                     href="/login"
-                    className="px-8 py-4 bg-white text-black font-medium rounded-lg border border-gray-300 hover:bg-gray-100 transition"
+                    className="px-8 py-4 bg-yellow-500 text-black font-medium rounded-lg shadow-md hover:bg-yellow-600 transition"
                   >
                     Log In
                   </a>

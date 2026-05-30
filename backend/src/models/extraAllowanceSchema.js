@@ -23,6 +23,10 @@ const extraAllowanceSchema = new mongoose.Schema(
       default: 'active',
     },
     comment: String,
+    breakdown: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
     approvedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Admin',

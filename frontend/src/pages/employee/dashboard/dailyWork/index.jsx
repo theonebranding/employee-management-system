@@ -1,5 +1,5 @@
 import { FileText } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Slide, toast, ToastContainer } from 'react-toastify';
 
@@ -26,6 +26,8 @@ const EmployeeDailyWork = () => {
   const [modalSubject, setModalSubject] = useState('');
   const [modalBody, setModalBody] = useState('');
   const [modalAdminComment, setModalAdminComment] = useState('');
+  const reportsTableScrollRef = useRef(null);
+  const reportsScrollIntervalRef = useRef(null);
 
   const fetchDailyReports = async () => {
     setLoading(true);
@@ -157,6 +159,24 @@ const EmployeeDailyWork = () => {
       new Date(item.reportDate).toLocaleDateString().includes(searchDate)
     );
   }, [reports, searchDate]);
+
+  const stopReportsAutoScroll = () => {
+    if (reportsScrollIntervalRef.current) {
+      clearInterval(reportsScrollIntervalRef.current);
+      reportsScrollIntervalRef.current = null;
+    }
+  };
+
+  const startReportsAutoScroll = direction => {
+    if (!reportsTableScrollRef.current) return;
+    stopReportsAutoScroll();
+    const step = direction === 'left' ? -18 : 18;
+    reportsScrollIntervalRef.current = setInterval(() => {
+      reportsTableScrollRef.current?.scrollBy({ left: step, behavior: 'auto' });
+    }, 16);
+  };
+
+  useEffect(() => () => stopReportsAutoScroll(), []);
 
   return (
     <div className="min-h-screen px-6 py-6 lg:ml-16 bg-light-bg dark:bg-dark-bg transition-colors duration-300">
@@ -313,8 +333,9 @@ const EmployeeDailyWork = () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            {loading ? (
+          <div className="relative group/table">
+            <div ref={reportsTableScrollRef} className="overflow-x-auto">
+              {loading ? (
               <p className="text-sm text-light-text/70 dark:text-dark-text/70">Loading daily reports...</p>
             ) : filteredReports.length > 0 ? (
               <table className="min-w-full text-sm">
@@ -348,6 +369,19 @@ const EmployeeDailyWork = () => {
             ) : (
               <p className="text-sm text-light-text/70 dark:text-dark-text/70">No daily reports found.</p>
             )}
+            </div>
+            <div
+              className="absolute left-0 top-0 bottom-0 z-10 w-12 cursor-w-resize"
+              onMouseEnter={() => startReportsAutoScroll('left')}
+              onMouseLeave={stopReportsAutoScroll}
+              aria-hidden="true"
+            />
+            <div
+              className="absolute right-0 top-0 bottom-0 z-10 w-12 cursor-e-resize"
+              onMouseEnter={() => startReportsAutoScroll('right')}
+              onMouseLeave={stopReportsAutoScroll}
+              aria-hidden="true"
+            />
           </div>
         </div>
       </div>

@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Download, ListFilterPlus, CheckCircle2, Circle, Flag, AlertCircle, Clock, Watch } from 'lucide-react';
+import { Calendar, Download, ListFilterPlus, CheckCircle2, Circle, Flag, AlertCircle, Clock, Watch } from 'lucide-react';
 import { toast, ToastContainer } from 'react-toastify';
 import Header from '../../../../components/pageHeader';
 import Modal from '../../../../components/Modal';
+import { useAuth } from '../../../../context/authContext';
 
 const AnimatedStatusBadge = ({ status, label }) => {
   const statusConfig = {
@@ -42,6 +43,13 @@ const AnimatedStatusBadge = ({ status, label }) => {
       borderColor: 'border-orange-300 dark:border-orange-700',
       animation: 'rotate-in'
     },
+    'holiday': {
+      icon: Calendar,
+      color: 'text-purple-600 dark:text-purple-400',
+      bgColor: 'bg-purple-100/80 dark:bg-purple-900/30',
+      borderColor: 'border-purple-300 dark:border-purple-700',
+      animation: 'slide-in'
+    },
     'checkout-pending': {
       icon: Watch,
       color: 'text-gray-600 dark:text-gray-400',
@@ -51,12 +59,23 @@ const AnimatedStatusBadge = ({ status, label }) => {
     }
   };
 
-  const normalizedStatus = label
+  // Prefer the explicit `status` prop (lower-case enum from the backend) so
+  // composite labels like "Holiday (Diwali)" still resolve to the correct
+  // badge config; the label-based fallback remains for callers that only
+  // pass a display string.
+  const normalizedFromLabel = label
     ? label.toLowerCase()
         .replace('(', '')
         .replace(')', '')
         .replace(/\s+/g, '-')
-    : status;
+    : null;
+  const normalizedStatus = (status && statusConfig[status])
+    ? status
+    : (normalizedFromLabel && statusConfig[normalizedFromLabel])
+      ? normalizedFromLabel
+      : (normalizedFromLabel && normalizedFromLabel.startsWith('holiday'))
+        ? 'holiday'
+        : (status || normalizedFromLabel || 'absent');
 
   const config = statusConfig[normalizedStatus] || statusConfig['absent'];
   const Icon = config.icon;
@@ -141,6 +160,9 @@ const AnimatedStatusBadge = ({ status, label }) => {
 const AdminReports = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get('tab') || 'attendance';
+  const employeeParam = searchParams.get('employee') || 'all';
+  const auth = useAuth();
+  const adminEmail = auth?.email ?? 'Unknown';
   const [loading, setLoading] = useState(false);
   const [attendanceReport, setAttendanceReport] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -149,7 +171,7 @@ const AdminReports = () => {
   const [particularDate, setParticularDate] = useState(new Date().toISOString().split('T')[0]);
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
-  const [filterEmployee, setFilterEmployee] = useState('all');
+  const [filterEmployee, setFilterEmployee] = useState(employeeParam);
   const [currentPage, setCurrentPage] = useState(1);
   const [employees, setEmployees] = useState([]);
   const [punchRecords, setPunchRecords] = useState([]);
@@ -165,6 +187,7 @@ const AdminReports = () => {
     'half-day': true,
     leave: true,
     absent: true,
+    holiday: true,
   });
   const [isLogPanelVisible, setIsLogPanelVisible] = useState(false);
   const [attendanceMasterFromDate, setAttendanceMasterFromDate] = useState(
@@ -173,6 +196,8 @@ const AdminReports = () => {
   const [attendanceMasterToDate, setAttendanceMasterToDate] = useState(
     () => new Date().toISOString().split('T')[0]
   );
+  const attendanceMasterTableScrollRef = useRef(null);
+  const attendanceMasterScrollIntervalRef = useRef(null);
   const [commentDrafts, setCommentDrafts] = useState({});
   const [openReportModal, setOpenReportModal] = useState(false);
   const [modalReportId, setModalReportId] = useState('');
@@ -213,6 +238,32 @@ const AdminReports = () => {
     };
     fetchEmployees();
   }, []);
+
+  // If an employee query param was provided but doesn't match any known
+  // employee, fall back to "all" so the page still renders meaningful data.
+  useEffect(() => {
+    if (filterEmployee === 'all' || employees.length === 0) return;
+    const match = employees.some((emp) => emp._id === filterEmployee);
+    if (!match) {
+      setFilterEmployee('all');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employees]);
+
+  // Keep the URL's `employee` query param in sync with the active filter so
+  // deep links remain shareable and the filter survives tab switches.
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (filterEmployee && filterEmployee !== 'all') {
+      next.set('employee', filterEmployee);
+    } else {
+      next.delete('employee');
+    }
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterEmployee]);
 
   // Fetch data based on active tab
   useEffect(() => {
@@ -522,6 +573,7 @@ const AdminReports = () => {
         'half-day': true,
         leave: true,
         absent: true,
+        holiday: true,
       });
       setStatusFilterOpen(false);
     } catch (error) {
@@ -648,8 +700,28 @@ const AdminReports = () => {
     if (value === 'full-day') return 'Full Day';
     if (value === 'half-day') return 'Half Day';
     if (value === 'leave') return 'Leave';
+    if (value === 'holiday') return 'Holiday';
     return 'Absent';
   };
+
+  const stopAttendanceMasterAutoScroll = () => {
+    if (attendanceMasterScrollIntervalRef.current) {
+      clearInterval(attendanceMasterScrollIntervalRef.current);
+      attendanceMasterScrollIntervalRef.current = null;
+    }
+  };
+
+  const startAttendanceMasterAutoScroll = direction => {
+    if (!attendanceMasterTableScrollRef.current) return;
+    stopAttendanceMasterAutoScroll();
+    const step = direction === 'left' ? -18 : 18;
+    attendanceMasterScrollIntervalRef.current = setInterval(() => {
+      attendanceMasterTableScrollRef.current?.scrollBy({ left: step, behavior: 'auto' });
+    }, 16);
+  };
+
+  useEffect(() => () => stopAttendanceMasterAutoScroll(), []);
+
   const formatHoursFromMinutes = (minutes) => {
     const mins = Number(minutes || 0);
     if (!mins) return '-';
@@ -763,7 +835,645 @@ const AdminReports = () => {
 
 
   const handleTabChange = (newTab) => {
-    setSearchParams({ tab: newTab });
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', newTab);
+    setSearchParams(next);
+  };
+
+  // ----------------------------------------------------------------------------------
+  // Per-tab PDF column maps + TAB_PDF_CONFIG
+  // Each `render(row)` returns an HTML-safe string built from the existing in-file IST
+  // formatters. Missing values fall back to the em-dash placeholder; raw status codes
+  // (e.g. 'full-day', 'half-day') and ISO timestamps must never leak into the output.
+  // The `summary` slot below is wired in Task 3.
+  // ----------------------------------------------------------------------------------
+  const PDF_EMPTY_PLACEHOLDER = '—';
+
+  const renderAttendanceStatus = (record) => {
+    if (record?.statusLabel) return record.statusLabel;
+    if (record?.status) return formatStatusLabel(record.status);
+    return PDF_EMPTY_PLACEHOLDER;
+  };
+
+  const renderReportText = (record) => {
+    const raw = record?.reportText;
+    if (!raw || raw === 'N/A') return PDF_EMPTY_PLACEHOLDER;
+    const trimmed = String(raw).trim();
+    if (!trimmed) return PDF_EMPTY_PLACEHOLDER;
+    return trimmed.length > 280 ? `${trimmed.slice(0, 277)}...` : trimmed;
+  };
+
+  const ATTENDANCE_PDF_COLUMNS = [
+    { header: 'Employee',   render: (record) => record?.employeeName || PDF_EMPTY_PLACEHOLDER },
+    { header: 'Emp Code',   render: (record) => record?.employeeCode || PDF_EMPTY_PLACEHOLDER },
+    { header: 'Date',       render: (record) => formatDate(record?.date) },
+    { header: 'Check In',   render: (record) => formatTime(record?.checkInTime) },
+    { header: 'Check Out',  render: (record) => formatTime(record?.checkOutTime) },
+    { header: 'Break',      render: (record) => formatDurationFromMilliseconds(record?.totalRecessDuration) },
+    { header: 'Gross Span', render: (record) => getGrossSpan(record) },
+    { header: 'Net Hours',  render: (record) => formatHoursDecimal(record?.actualHours) },
+    { header: 'Status',     render: renderAttendanceStatus },
+  ];
+
+  const PUNCH_PDF_COLUMNS = [
+    { header: 'Employee',     render: (record) => record?.employeeName || PDF_EMPTY_PLACEHOLDER },
+    { header: 'Emp Code',     render: (record) => record?.employeeCode || PDF_EMPTY_PLACEHOLDER },
+    { header: 'Date',         render: (record) => formatDate(record?.date) },
+    { header: 'Check-In',     render: (record) => formatTime(record?.checkInTime) },
+    { header: 'Check-Out',    render: (record) => formatTime(record?.checkOutTime) },
+    { header: 'Break',        render: (record) => formatDurationFromMilliseconds(record?.totalRecessDuration) },
+    { header: 'Duration',     render: (record) => formatHoursDecimal(record?.actualHours) },
+    { header: 'Punch Status', render: (record) => (record?.checkInTime && record?.checkOutTime ? 'Complete' : 'Pending') },
+  ];
+
+  const REPORT_PDF_COLUMNS = [
+    { header: 'Employee',      render: (record) => record?.employee?.name || record?.employeeName || PDF_EMPTY_PLACEHOLDER },
+    { header: 'Date',          render: (record) => formatDate(record?.reportDate || record?.date) },
+    { header: 'Report',        render: renderReportText },
+    { header: 'Admin Comment', render: (record) => (record?.adminComment ? String(record.adminComment) : PDF_EMPTY_PLACEHOLDER) },
+    { header: 'Status',        render: (record) => (record?.reportText && record.reportText !== 'N/A' ? 'Submitted' : 'Pending') },
+  ];
+
+  const HOURLY_PDF_COLUMNS = [
+    { header: 'Employee',      render: (record) => record?.employeeName || PDF_EMPTY_PLACEHOLDER },
+    { header: 'Date',          render: (record) => formatDate(record?.date) },
+    { header: 'Check-In Hour', render: (record) => getCheckInHourBucket(record?.checkInTime) },
+    { header: 'Check-In',      render: (record) => formatTime(record?.checkInTime) },
+    { header: 'Check-Out',     render: (record) => formatTime(record?.checkOutTime) },
+    { header: 'Break',         render: (record) => formatDurationFromMilliseconds(record?.totalRecessDuration) },
+    { header: 'Net Hours',     render: (record) => formatHoursDecimal(record?.actualHours) },
+    { header: 'Status',        render: (record) => (record?.checkInTime && record?.checkOutTime ? 'Complete' : 'Incomplete') },
+  ];
+
+  // ----------------------------------------------------------------------------------
+  // Per-tab summary calculators
+  // Each calculator consumes the already-filtered slice plus the resolved
+  // { startDate, endDate } range and returns { cards: [{ label, value }] }. All
+  // math is in-memory; no fetches are issued. Empty slices still produce the
+  // full card set, falling back to `0` or `'—'` (or `'0h 0m'` for the
+  // attendance Avg Hours card, per the design pseudocode).
+  // ----------------------------------------------------------------------------------
+
+  // Returns a YYYY-MM-DD key from any date-like input, using local (IST) wall
+  // clock so it matches `r.date` strings already produced by the backend.
+  const toPdfDayKey = (value) => {
+    if (!value) return '';
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+      return value.slice(0, 10);
+    }
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const summarizeAttendance = (rows /* , range */) => {
+    const safeRows = Array.isArray(rows) ? rows : [];
+    let present = 0;
+    let absent = 0;
+    let halfDay = 0;
+    let leave = 0;
+    let holiday = 0;
+    safeRows.forEach((record) => {
+      const status = record?.status;
+      if (status === 'present' || status === 'full-day') present += 1;
+      else if (status === 'absent') absent += 1;
+      else if (status === 'half-day') halfDay += 1;
+      else if (status === 'leave') leave += 1;
+      else if (status === 'holiday') holiday += 1;
+    });
+    return {
+      cards: [
+        { label: 'Present', value: present },
+        { label: 'Absent', value: absent },
+        { label: 'Half Day', value: halfDay },
+        { label: 'Leave', value: leave },
+        { label: 'Holiday', value: holiday },
+      ],
+    };
+  };
+
+  const summarizePunch = (rows /* , range */) => {
+    const safeRows = Array.isArray(rows) ? rows : [];
+    const totalPunches = safeRows.length;
+    const uniqueEmployees = new Set(
+      safeRows.map((record) => record?.employeeId).filter(Boolean),
+    ).size;
+    const ON_TIME_HOUR = 10;
+    let onTime = 0;
+    let late = 0;
+    const firstInMinutes = [];
+    safeRows.forEach((record) => {
+      if (!record?.checkInTime) return;
+      const stamp = new Date(record.checkInTime);
+      if (Number.isNaN(stamp.getTime())) return;
+      const hour = stamp.getHours();
+      if (hour < ON_TIME_HOUR) onTime += 1;
+      else late += 1;
+      firstInMinutes.push(hour * 60 + stamp.getMinutes());
+    });
+    let avgFirstIn = '—';
+    if (firstInMinutes.length) {
+      const avg = Math.round(
+        firstInMinutes.reduce((sum, value) => sum + value, 0) / firstInMinutes.length,
+      );
+      const base = new Date();
+      base.setHours(Math.floor(avg / 60), avg % 60, 0, 0);
+      avgFirstIn = formatTime(base);
+    }
+    return {
+      cards: [
+        { label: 'Total Punches', value: totalPunches },
+        { label: 'Unique Employees', value: uniqueEmployees },
+        { label: 'On-time', value: onTime },
+        { label: 'Late', value: late },
+        { label: 'Avg First-In Time', value: avgFirstIn },
+      ],
+    };
+  };
+
+  const summarizeDailyReport = (rows /* , range */) => {
+    const safeRows = Array.isArray(rows) ? rows : [];
+    const total = safeRows.length;
+    let submitted = 0;
+    let pendingComment = 0;
+    safeRows.forEach((record) => {
+      if (record?.reportText && record.reportText !== 'N/A') submitted += 1;
+      const comment = record?.adminComment;
+      if (!comment || String(comment).trim() === '') pendingComment += 1;
+    });
+    return {
+      cards: [
+        { label: 'Total Reports', value: total },
+        { label: 'Submitted', value: submitted },
+        { label: 'Pending Admin Comment', value: pendingComment },
+      ],
+    };
+  };
+
+  const summarizeHourly = (rows, range) => {
+    const safeRows = Array.isArray(rows) ? rows : [];
+    const totalHours = safeRows.reduce(
+      (sum, record) => sum + (Number(record?.actualHours) || 0),
+      0,
+    );
+    const hoursByDay = new Map();
+    const punchDays = new Set();
+    safeRows.forEach((record) => {
+      const key = toPdfDayKey(record?.date);
+      if (!key) return;
+      hoursByDay.set(key, (hoursByDay.get(key) || 0) + (Number(record?.actualHours) || 0));
+      if (record?.checkInTime) punchDays.add(key);
+    });
+    const maxInDay = hoursByDay.size ? Math.max(...hoursByDay.values()) : 0;
+
+    let daysWithNoPunch = 0;
+    if (range?.startDate && range?.endDate) {
+      const start = new Date(`${range.startDate}T00:00:00`);
+      const end = new Date(`${range.endDate}T00:00:00`);
+      if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && start <= end) {
+        const cursor = new Date(start);
+        while (cursor <= end) {
+          const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
+          if (!punchDays.has(key)) daysWithNoPunch += 1;
+          cursor.setDate(cursor.getDate() + 1);
+        }
+      }
+    }
+
+    return {
+      cards: [
+        { label: 'Total Hours', value: formatHoursDecimal(totalHours) },
+        { label: 'Max Hours in a Day', value: formatHoursDecimal(maxInDay) },
+        { label: 'Days With No Punch', value: daysWithNoPunch },
+      ],
+    };
+  };
+
+  // Per-tab knobs consumed by the rebuilt PDF branch. The `summary` slot points
+  // at the matching calculator function (NOT the result of calling it).
+  const TAB_PDF_CONFIG = {
+    'attendance':   { title: 'Attendance Report',  filenameTab: 'attendance',  orientation: 'portrait',  columns: ATTENDANCE_PDF_COLUMNS, summary: summarizeAttendance },
+    'daily-punch':  { title: 'Daily Punch Report', filenameTab: 'daily-punch', orientation: 'landscape', columns: PUNCH_PDF_COLUMNS,      summary: summarizePunch },
+    'daily-report': { title: 'Daily Work Report',  filenameTab: 'daily-work',  orientation: 'portrait',  columns: REPORT_PDF_COLUMNS,     summary: summarizeDailyReport },
+    'hourly':       { title: 'Hourly Report',      filenameTab: 'hourly',      orientation: 'landscape', columns: HOURLY_PDF_COLUMNS,     summary: summarizeHourly },
+  };
+
+  // ----------------------------------------------------------------------------------
+  // resolveFilterContext
+  // Pure helper that turns the active date-filter mode plus any tab-specific
+  // filters into a single human-readable string for the PDF "Filter Context"
+  // line. Per Requirements 3.2–3.6 and the design example, the date portion is
+  // one of:
+  //   - 'Monthly <Mon> <YYYY>'                                  (monthly mode)
+  //   - 'Particular date: <formatDate(particularDate)>'         (particular)
+  //   - 'Custom range: <formatDate(start)> to <formatDate(end)>' (custom)
+  // Any extra keys passed via the rest object are appended as comma-separated
+  // 'Label: Value' pairs, skipping null/undefined/empty/'all' values. Known
+  // keys map to friendly labels via PDF_FILTER_LABELS; unknown keys fall back
+  // to a title-cased rendering of the key. No state mutation, no DOM access,
+  // no fetches — safe to call from anywhere in the component.
+  // ----------------------------------------------------------------------------------
+  const PDF_FILTER_LABELS = {
+    statusFilter: 'Status',
+  };
+
+  const titleCasePdfFilterKey = (key) =>
+    String(key || '')
+      .replace(/[_-]+/g, ' ')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+
+  const resolveFilterContext = ({
+    // `tab` is part of the documented signature so call sites stay stable even
+    // when the helper does not branch on it today; prefixed with `_` to opt
+    // out of unused-vars warnings.
+    tab: _tab,
+    dateFilterType,
+    selectedMonth,
+    selectedYear,
+    particularDate,
+    customStartDate,
+    customEndDate,
+    ...activeFilters
+  }) => {
+    let base;
+    if (dateFilterType === 'particular') {
+      base = `Particular date: ${formatDate(particularDate)}`;
+    } else if (dateFilterType === 'custom') {
+      base = `Custom range: ${formatDate(customStartDate)} to ${formatDate(customEndDate)}`;
+    } else {
+      // Default to monthly. `selectedMonth` is 1-based throughout this file
+      // (initialized as `new Date().getMonth() + 1`).
+      const monthIndex = Number(selectedMonth) - 1;
+      const year = Number(selectedYear);
+      let monthName = '';
+      if (monthIndex >= 0 && monthIndex <= 11 && Number.isFinite(year)) {
+        monthName = new Date(year, monthIndex, 1).toLocaleDateString('en-IN', {
+          month: 'short',
+        });
+      }
+      base = monthName ? `Monthly ${monthName} ${year}` : 'Monthly';
+    }
+
+    const extras = Object.entries(activeFilters)
+      .filter(([, value]) =>
+        value !== null && value !== undefined && value !== '' && value !== 'all'
+      )
+      .map(([key, value]) => {
+        const label = PDF_FILTER_LABELS[key] || titleCasePdfFilterKey(key);
+        return `${label}: ${value}`;
+      });
+
+    return extras.length ? `${base}, ${extras.join(', ')}` : base;
+  };
+
+  // ----------------------------------------------------------------------------------
+  // resolveSubject + formatSubjectLine
+  // Pure helpers that turn the active `filterEmployee` value into the data /
+  // line shown in the PDF "Report Subject" panel. Resolution goes entirely
+  // through the in-memory `getEmployeeMeta` lookup against the `employees`
+  // array — no network calls (Requirement 4.5).
+  //
+  //   resolveSubject('all', meta)    -> { kind: 'all' }
+  //   resolveSubject('<id>', meta)   -> { kind: 'one', name, code, email }   when found
+  //   resolveSubject('<id>', meta)   -> { kind: 'unknown', rawId: '<id>' }   when not found
+  //
+  // Individually missing fields on a found employee fall back to the shared
+  // `PDF_EMPTY_PLACEHOLDER`, so consumers always receive a string.
+  //
+  // formatSubjectLine renders the resolved object into the line shown in the
+  // Subject Panel, using an em-dash (U+2014) per Requirement 4.2:
+  //   { kind: 'all' }                    -> 'All Employees'
+  //   { kind: 'one', name, code, email } -> 'Jane Doe (EMP042) — jane@acme.com'
+  //   { kind: 'unknown', rawId }         -> 'Unknown Employee — <rawId>'
+  // Missing pieces are dropped cleanly so the line never contains an empty
+  // parenthetical or a dangling em-dash.
+  // ----------------------------------------------------------------------------------
+  const resolveSubject = (filterEmployeeId, lookup) => {
+    if (!filterEmployeeId || filterEmployeeId === 'all') {
+      return { kind: 'all' };
+    }
+    const meta = typeof lookup === 'function' ? lookup(filterEmployeeId) : null;
+    if (!meta) {
+      return { kind: 'unknown', rawId: filterEmployeeId };
+    }
+    return {
+      kind: 'one',
+      name: meta.name || PDF_EMPTY_PLACEHOLDER,
+      code: meta.employeeCode || PDF_EMPTY_PLACEHOLDER,
+      email: meta.email || PDF_EMPTY_PLACEHOLDER,
+    };
+  };
+
+  const formatSubjectLine = (subject) => {
+    if (!subject || subject.kind === 'all') {
+      return 'All Employees';
+    }
+    if (subject.kind === 'unknown') {
+      return `Unknown Employee \u2014 ${subject.rawId}`;
+    }
+    // kind === 'one' — drop pieces that are missing or fell back to the placeholder.
+    const hasValue = (value) =>
+      typeof value === 'string' && value.trim() !== '' && value !== PDF_EMPTY_PLACEHOLDER;
+    const namePart = hasValue(subject.name) ? subject.name : '';
+    const codePart = hasValue(subject.code) ? `(${subject.code})` : '';
+    const emailPart = hasValue(subject.email) ? subject.email : '';
+
+    const head = [namePart, codePart].filter(Boolean).join(' ');
+    if (head && emailPart) return `${head} \u2014 ${emailPart}`;
+    if (head) return head;
+    if (emailPart) return emailPart;
+    return PDF_EMPTY_PLACEHOLDER;
+  };
+
+  // ----------------------------------------------------------------------------------
+  // printHtmlTemplate
+  // Routes a fully-rendered print template through the existing popup flow,
+  // falling back to a hidden iframe when the popup is blocked. Mirrors the
+  // pseudocode in design.md → "Pop-up-Blocker Fallback":
+  //   1. window.open('', '_blank') inside try/catch; if non-null, write the
+  //      html, focus, and call popup.print().
+  //   2. Otherwise create a hidden, aria-hidden, zero-size, fixed-position
+  //      iframe, attach to <body>, set srcdoc = html, and on load call
+  //      contentWindow.focus(); contentWindow.print().
+  //   3. Cleanup is idempotent — afterprint, a 60-second setTimeout, and any
+  //      error path all funnel through the same `cleanup()` and double-removal
+  //      is guarded.
+  //   4. If both popup and iframe fail to initialize, surface a toast and
+  //      return without throwing.
+  // Reuses the `toast` helper already imported at the top of this file; no new
+  // imports, no new dependencies.
+  // ----------------------------------------------------------------------------------
+  const printHtmlTemplate = (html) => {
+    // 1. Popup path.
+    let popup = null;
+    try {
+      popup = window.open('', '_blank');
+    } catch {
+      popup = null;
+    }
+    if (popup) {
+      try {
+        popup.document.open();
+        popup.document.write(html);
+        popup.document.close();
+        popup.focus();
+        popup.print();
+      } catch {
+        // Swallow errors from a partially-initialized popup; nothing else to
+        // try at this point and we must not throw from the click handler.
+      }
+      return;
+    }
+
+    // 2. Hidden-iframe fallback.
+    try {
+      const frame = document.createElement('iframe');
+      frame.setAttribute('aria-hidden', 'true');
+      frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+      document.body.appendChild(frame);
+
+      // Idempotent cleanup — guards against double-removal from the trio of
+      // afterprint / setTimeout / error paths below.
+      let removed = false;
+      const cleanup = () => {
+        if (removed) return;
+        removed = true;
+        try {
+          if (frame.parentNode) {
+            frame.parentNode.removeChild(frame);
+          }
+        } catch {
+          // Ignore — the node may already be detached.
+        }
+      };
+
+      frame.srcdoc = html;
+      frame.onload = () => {
+        const cw = frame.contentWindow;
+        if (!cw) {
+          cleanup();
+          toast.error('Unable to open print surface for PDF export');
+          return;
+        }
+        try {
+          cw.focus();
+          cw.print();
+          const onAfter = () => {
+            cleanup();
+            try {
+              cw.removeEventListener('afterprint', onAfter);
+            } catch {
+              // Ignore — contentWindow may already be torn down.
+            }
+          };
+          try {
+            cw.addEventListener('afterprint', onAfter);
+          } catch {
+            // Ignore — fall back to the timeout safety net.
+          }
+          setTimeout(cleanup, 60000);
+        } catch {
+          cleanup();
+          toast.error('Unable to open print surface for PDF export');
+        }
+      };
+    } catch {
+      toast.error('Unable to open print surface for PDF export');
+    }
+  };
+
+  // ----------------------------------------------------------------------------------
+  // buildPdfFilename
+  // ----------------------------------------------------------------------------------
+  // Pure helper that constructs the suggested PDF filename for the print
+  // template and download surface. Implements the construction described in
+  // `design.md` -> "Filename Construction":
+  //
+  //   <tabName>[-<empCode>]-<suffix>.pdf
+  //
+  // Where:
+  //   - tabName  = TAB_PDF_CONFIG[tab].filenameTab
+  //                ('attendance' | 'daily-punch' | 'daily-work' | 'hourly').
+  //   - empCode  = getEmployeeMeta(filterEmployee)?.employeeCode when
+  //                filterEmployee !== 'all' AND the lookup returns a record
+  //                with a non-empty employeeCode. Otherwise empty so the
+  //                segment is dropped (Requirement 9.4 + the design's
+  //                null-meta rule).
+  //   - suffix   = startDate when startDate === endDate, else
+  //                `${startDate}_to_${endDate}` (mirrors the existing
+  //                date-range suffix logic at the top of downloadReport).
+  //
+  // Empty segments are dropped via `filter(Boolean)` so the `'all'` case and
+  // unknown-employee case (lookup returns null) both cleanly omit the
+  // employee-code segment.
+  //
+  // Pure function: no fetches, no state mutation, no DOM access. Output
+  // matches the regex
+  //   ^(attendance|daily-punch|daily-work|hourly)(-[A-Za-z0-9_]+)?-\d{4}-\d{2}-\d{2}(_to_\d{4}-\d{2}-\d{2})?\.pdf$
+  // (Property 8) provided the input dates are ISO `YYYY-MM-DD` strings, which
+  // is the format produced by `getDateRangeForQuery`.
+  //
+  // Examples:
+  //   attendance-2024-10-15.pdf
+  //   daily-punch-EMP042-2024-10-01_to_2024-10-31.pdf
+  // ----------------------------------------------------------------------------------
+  const buildPdfFilename = ({ tab, filterEmployee, getEmployeeMeta, startDate, endDate }) => {
+    const tabName = TAB_PDF_CONFIG[tab]?.filenameTab || '';
+    let empCode = '';
+    if (filterEmployee && filterEmployee !== 'all' && typeof getEmployeeMeta === 'function') {
+      const meta = getEmployeeMeta(filterEmployee);
+      if (meta && meta.employeeCode) {
+        empCode = meta.employeeCode;
+      }
+    }
+    const suffix = startDate === endDate ? startDate : `${startDate}_to_${endDate}`;
+    const parts = [tabName, empCode, suffix].filter(Boolean);
+    return `${parts.join('-')}.pdf`;
+  };
+
+  // ----------------------------------------------------------------------------------
+  // buildPdfTemplate
+  // ----------------------------------------------------------------------------------
+  // Pure helper that assembles the full PDF print template as a string. Mirrors
+  // the structure documented in `design.md` -> "Print Template Structure":
+  //
+  //   <html>
+  //     <head> charset, <title>, inline <style> with @page + print resets </head>
+  //     <body>
+  //       .title-block (title + meta line: dateRangeText / generatedAt / generatedBy)
+  //       .filter-line
+  //       .subject (rendered via formatSubjectLine)
+  //       .cards   (one .card per summary.cards entry)
+  //       <table>  (columns.map(c => c.render(row)) per row, or a single
+  //                "No data" row spanning all columns when rows is empty)
+  //       .footer  (title on the left, generatedAt on the right)
+  //     </body>
+  //   </html>
+  //
+  // Every interpolated value passes through `escapeHtml` so payloads like
+  // `Q&A` or `<script>` cannot break the markup. Numeric values used as
+  // structural attributes (e.g. `colspan`) are not user-derived and so are
+  // emitted directly.
+  //
+  // The `<style>` block contains the orientation rule that makes Property 6
+  // (orientation match) hold:
+  //
+  //   @page { size: ${orientation}; margin: 14mm; }
+  //
+  // and the print-only resets that keep table headers repeating per page and
+  // prevent rows from splitting (Requirements 7.1-7.4 + the design's print
+  // resets).
+  //
+  // Pure: returns a string. No DOM access, no window access, no fetches. The
+  // caller (downloadReport, Task 9) is responsible for routing the result
+  // through `printHtmlTemplate`.
+  //
+  // Defensive defaults: missing `summary.cards` becomes an empty array (no
+  // cards rendered, no throw); missing `columns` becomes an empty array which
+  // produces an empty header row and a "No data" body — consumers always pass
+  // `TAB_PDF_CONFIG[tab].columns`, so this is just a safety net.
+  // ----------------------------------------------------------------------------------
+  const buildPdfTemplate = ({
+    tab: _tab,
+    rows,
+    summary,
+    subject,
+    filterContext,
+    generatedBy,
+    generatedAt,
+    orientation,
+    title,
+    dateRangeText,
+    filename,
+    columns,
+  }) => {
+    const safeColumns = Array.isArray(columns) ? columns : [];
+    const safeRows = Array.isArray(rows) ? rows : [];
+    const safeCards =
+      summary && Array.isArray(summary.cards) ? summary.cards : [];
+
+    const headerCells = safeColumns
+      .map((column) => `<th>${escapeHtml(column?.header)}</th>`)
+      .join('');
+
+    let bodyRows;
+    if (safeRows.length === 0) {
+      const colspan = safeColumns.length || 1;
+      bodyRows = `<tr><td colspan="${colspan}" style="text-align:center;color:#6b7280;">No data</td></tr>`;
+    } else {
+      bodyRows = safeRows
+        .map((row) => {
+          const cells = safeColumns
+            .map((column) => {
+              const value =
+                typeof column?.render === 'function' ? column.render(row) : '';
+              return `<td>${escapeHtml(value)}</td>`;
+            })
+            .join('');
+          return `<tr>${cells}</tr>`;
+        })
+        .join('');
+    }
+
+    const cardsMarkup = safeCards
+      .map(
+        (card) =>
+          `<div class="card"><div class="label">${escapeHtml(
+            card?.label
+          )}</div><div class="value">${escapeHtml(card?.value)}</div></div>`
+      )
+      .join('');
+
+    const subjectLine = formatSubjectLine(subject);
+
+    return `<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${escapeHtml(filename)}</title>
+    <style>
+      @page { size: ${escapeHtml(orientation)}; margin: 14mm; }
+      * { box-sizing: border-box; }
+      body { font-family: Sora, 'Plus Jakarta Sans', Poppins, sans-serif; color: #111827; margin: 0; padding: 16px; }
+      .title-block h1 { margin: 0 0 4px; font-size: 18px; }
+      .title-block .meta { font-size: 11px; color: #4b5563; }
+      .filter-line { font-size: 11px; color: #374151; margin: 8px 0 12px; }
+      .subject { border: 1px solid #d1d5db; border-radius: 6px; padding: 8px 10px; font-size: 12px; margin-bottom: 12px; }
+      .cards { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+      .card { flex: 1 1 140px; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px 10px; }
+      .card .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; }
+      .card .value { font-size: 16px; font-weight: 600; color: #111827; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #d1d5db; padding: 6px; font-size: 11px; text-align: left; vertical-align: top; }
+      th { background: #f3f4f6; }
+      .footer { margin-top: 12px; font-size: 10px; color: #6b7280; display: flex; justify-content: space-between; }
+      thead { display: table-header-group; }
+      tr, td, th { page-break-inside: avoid; }
+    </style>
+  </head>
+  <body>
+    <div class="title-block">
+      <h1>${escapeHtml(title)}</h1>
+      <div class="meta">${escapeHtml(dateRangeText)} &middot; Generated ${escapeHtml(generatedAt)} &middot; Generated by: ${escapeHtml(generatedBy)}</div>
+    </div>
+    <div class="filter-line">${escapeHtml(filterContext)}</div>
+    <div class="subject">${escapeHtml(subjectLine)}</div>
+    <div class="cards">${cardsMarkup}</div>
+    <table>
+      <thead><tr>${headerCells}</tr></thead>
+      <tbody>${bodyRows}</tbody>
+    </table>
+    <div class="footer">
+      <span>${escapeHtml(title)}</span>
+      <span>${escapeHtml(generatedAt)}</span>
+    </div>
+  </body>
+</html>`;
   };
 
   const downloadReport = (format, data, filename) => {
@@ -843,63 +1553,83 @@ const AdminReports = () => {
     }
 
     if (format === 'pdf') {
-      if (!exportRows || exportRows.length === 0) {
-        toast.error('No data to export');
+      // Out-of-scope tabs (e.g. attendance-master) have no PDF button, but
+      // guard the entry point anyway so an unknown tab does not crash the
+      // print template (Requirements 1.3, 10.2).
+      const tabConfig = TAB_PDF_CONFIG[tab];
+      if (!tabConfig) {
+        toast.error('PDF export is not available for this tab.');
         return;
       }
 
-      const headers = Object.keys(exportRows[0] || {});
-      const rows = exportRows
-        .map((row) =>
-          `<tr>${headers
-            .map((header) => {
-              const value = row[header];
-              const text =
-                value === null || value === undefined
-                  ? ''
-                  : typeof value === 'object'
-                    ? JSON.stringify(value)
-                    : String(value);
-              return `<td style="border:1px solid #d1d5db;padding:6px;font-size:11px;">${text}</td>`;
-            })
-            .join('')}</tr>`
-        )
-        .join('');
+      // An empty filtered slice is a valid export per Requirement 5.6 and
+      // design.md "Error Handling": cards still render with 0/em-dash
+      // placeholders and the table emits a single `No data` row. Normalize
+      // a missing/non-array `data` to [] so the helpers stay defensive.
+      const safeRows = Array.isArray(data) ? data : [];
 
-      const html = `
-        <html>
-          <head>
-            <title>${filename}-${suffix}</title>
-          </head>
-          <body style="font-family:Sora, 'Plus Jakarta Sans', Poppins, sans-serif;padding:16px;">
-            <h2 style="margin:0 0 8px 0;">${filename.replace(/-/g, ' ').toUpperCase()}</h2>
-            <p style="margin:0 0 12px 0;font-size:12px;">Range: ${startDate} to ${endDate}</p>
-            <table style="border-collapse:collapse;width:100%;">
-              <thead>
-                <tr>
-                  ${headers
-                    .map(
-                      (header) =>
-                        `<th style="border:1px solid #9ca3af;padding:6px;background:#f3f4f6;font-size:11px;text-align:left;">${header}</th>`
-                    )
-                    .join('')}
-                </tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </body>
-        </html>
-      `;
+      const subject = resolveSubject(filterEmployee, getEmployeeMeta);
+      const filterContext = resolveFilterContext({
+        tab,
+        dateFilterType,
+        selectedMonth,
+        selectedYear,
+        particularDate,
+        customStartDate,
+        customEndDate,
+        // Tab-specific active filters: only Attendance currently exposes a
+        // status filter beyond the date filter. Daily Punch, Daily Work, and
+        // Hourly do not surface extra filter state, so nothing is appended
+        // for those tabs.
+        ...(tab === 'attendance'
+          ? {
+              statusFilter: Object.entries(statusFilters || {})
+                .filter(([, on]) => on)
+                .map(([key]) => formatStatusLabel(key))
+                .join('/'),
+            }
+          : {}),
+      });
 
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) {
-        toast.error('Unable to open print window for PDF export');
-        return;
+      // Reuse the auth value resolved at the component top (Requirement 2.5);
+      // fall back to 'Unknown' when the email is missing (Requirement 2.6).
+      const generatedBy = adminEmail || 'Unknown';
+      const now = new Date();
+      const generatedAt = `${formatDate(now)} ${formatTime(now)}`;
+      const dateRangeText =
+        startDate === endDate
+          ? formatDate(startDate)
+          : `${formatDate(startDate)} - ${formatDate(endDate)}`;
+
+      const pdfFilename = buildPdfFilename({
+        tab,
+        filterEmployee,
+        getEmployeeMeta,
+        startDate,
+        endDate,
+      });
+
+      const summary = tabConfig.summary(safeRows, { startDate, endDate });
+      const html = buildPdfTemplate({
+        tab,
+        rows: safeRows,
+        summary,
+        subject,
+        filterContext,
+        generatedBy,
+        generatedAt,
+        orientation: tabConfig.orientation,
+        title: tabConfig.title,
+        dateRangeText,
+        filename: pdfFilename,
+        columns: tabConfig.columns,
+      });
+
+      try {
+        printHtmlTemplate(html);
+      } catch {
+        toast.error('Failed to export PDF. Please try again.');
       }
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.focus();
-      printWindow.print();
     }
   };
 
@@ -936,6 +1666,18 @@ const AdminReports = () => {
       : 0;
 
     return { presentDays, absentDays, halfDays, avgHours };
+  };
+
+  // Escapes HTML-sensitive characters for safe interpolation into the PDF print template.
+  // Coerces any value to a string (null/undefined become ''); '&' is replaced first to avoid double-escaping.
+  const escapeHtml = (value) => {
+    if (value === null || value === undefined) return '';
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   };
 
   const formatDate = (value) => {
@@ -989,6 +1731,7 @@ const AdminReports = () => {
     if (status === 'absent-early-checkout') return 'bg-orange-100 text-orange-700';
     if (status === 'absent') return 'bg-red-100 text-red-700';
     if (status === 'leave') return 'bg-purple-100 text-purple-700';
+    if (status === 'holiday') return 'bg-purple-100 text-purple-700';
     return 'bg-red-100 text-red-700';
   };
 
@@ -2179,7 +2922,11 @@ const AdminReports = () => {
                 </button>
               </div>
               </div>
-              <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
+              <div className="relative group/table">
+                <div
+                  ref={attendanceMasterTableScrollRef}
+                  className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border"
+                >
               <table className="min-w-full text-sm">
                 <thead className="bg-light-bg/70 dark:bg-dark-bg/70">
                   <tr>
@@ -2206,7 +2953,7 @@ const AdminReports = () => {
                       </span>
                       {statusFilterOpen ? (
                         <div className="absolute right-2 top-10 z-20 w-44 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card shadow-lg p-3 space-y-2">
-                          {['full-day', 'half-day', 'leave', 'absent'].map((statusKey) => (
+                          {['full-day', 'half-day', 'leave', 'absent', 'holiday'].map((statusKey) => (
                             <label key={statusKey} className="flex items-center gap-2 text-xs">
                               <input
                                 type="checkbox"
@@ -2270,6 +3017,19 @@ const AdminReports = () => {
                 </tbody>
               </table>
               {!loading && filteredAttendanceMasterRows.length === 0 ? <div className="p-6 text-center text-sm text-light-text/60 dark:text-dark-text/60">No attendance records found.</div> : null}
+                </div>
+                <div
+                  className="absolute left-0 top-0 bottom-0 z-10 w-12 cursor-w-resize"
+                  onMouseEnter={() => startAttendanceMasterAutoScroll('left')}
+                  onMouseLeave={stopAttendanceMasterAutoScroll}
+                  aria-hidden="true"
+                />
+                <div
+                  className="absolute right-0 top-0 bottom-0 z-10 w-12 cursor-e-resize"
+                  onMouseEnter={() => startAttendanceMasterAutoScroll('right')}
+                  onMouseLeave={stopAttendanceMasterAutoScroll}
+                  aria-hidden="true"
+                />
               </div>
               <div className="mt-6 px-1 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-light-text/70 dark:text-dark-text/70">
                 <div>

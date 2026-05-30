@@ -19,12 +19,12 @@ const EmployeeHolidayAlerts = () => {
         const nextYear = currentMonth === 12 ? year + 1 : year;
 
         const [currentResponse, nextResponse] = await Promise.all([
-          fetch(`${BASE_URL}/holidays/employee-on-holiday?month=${currentMonth}&year=${year}`, {
+          fetch(`${BASE_URL}/holidays/employees-on-holiday?month=${currentMonth}&year=${year}`, {
             headers: {
               Authorization: `Bearer ${localStorage.getItem('token')}`,
             },
           }),
-          fetch(`${BASE_URL}/holidays/employee-on-holiday?month=${nextMonth}&year=${nextYear}`, {
+          fetch(`${BASE_URL}/holidays/employees-on-holiday?month=${nextMonth}&year=${nextYear}`, {
             headers: {
               Authorization: `Bearer ${localStorage.getItem('token')}`,
             },
@@ -67,22 +67,27 @@ const EmployeeHolidayAlerts = () => {
     });
   };
 
-  const HolidayItem = ({ employee }) => (
+  const HolidayItem = ({ entry }) => (
     <div className="bg-light-card dark:bg-dark-card rounded-lg p-3 mb-3 last:mb-0 border border-light-border dark:border-dark-border  hover:border-primary/50 transition-colors">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
             <User size={14} className="text-primary" />
           </div>
-          <span className="text-light-text dark:text-dark-text font-medium">{employee.name}</span>
+          <span className="text-light-text dark:text-dark-text font-medium">
+            {entry.employee?.name}
+          </span>
         </div>
         <span className="text-light-text dark:text-dark-text text-xs px-2 py-1 rounded-full bg-light-bg dark:bg-dark-bg">
-          {employee.email}
+          {entry.employee?.email}
         </span>
       </div>
       <div className="pl-8 space-y-2">
-        {employee.holiday.map(h => (
-          <div key={h._id} className="flex items-center gap-2 text-sm">
+        {(entry.holidays || []).map((h, idx) => (
+          <div
+            key={`${entry.employee?._id}-${h.date}-${idx}`}
+            className="flex items-center gap-2 text-sm"
+          >
             <div className="w-2 h-2 rounded-full bg-primary"></div>
             <span className="text-primary font-medium">{h.name}</span>
             <span className="text-light-text dark:text-dark-text">•</span>
@@ -176,8 +181,8 @@ const EmployeeHolidayAlerts = () => {
           <EmptyState />
         ) : (
           <div className="space-y-3">
-            {activeHolidays.map(employee => (
-              <HolidayItem key={employee.employeeId} employee={employee} />
+            {activeHolidays.map(entry => (
+              <HolidayItem key={entry.employee?._id} entry={entry} />
             ))}
           </div>
         )}

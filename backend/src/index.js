@@ -15,6 +15,7 @@ import attendanceSummaryRoute from './routes/attendanceSummaryRoute.js';
 import holidayRoute from './routes/holidayRoute.js';
 import adminRoute from './routes/adminRoute.js';
 import leaveRoute from './routes/leaveRoute.js';
+import leaveTemplateRoute from './routes/leaveTemplateRoute.js';
 import lateCheckInRoute from './routes/lateCheckInRoute.js';
 import salaryRoute from './routes/salaryRoute.js';
 import dailyReportRoute from './routes/dailyReportRoute.js';
@@ -25,6 +26,7 @@ import roleRoute from './routes/roleRoute.js';
 import loanAdvanceRoute from './routes/loanAdvanceRoute.js';
 import extraAllowanceRoute from './routes/extraAllowanceRoute.js';
 import { corsOptions, globalApiLimiter } from './middleware/security.js';
+import { registerScheduledJobs, yearBoundaryGuard } from './services/scheduledJobs.js';
 
 dotenv();
 const app = express();
@@ -48,8 +50,16 @@ app.use(cors(corsOptions));
 app.options('/api/*', cors(corsOptions));
 app.use('/api', globalApiLimiter);
 
-// Connect to MongoDB
-connectDB();
+// Year-boundary guard: lazily fires the year-end floating-credit expiry on
+// the first request observed in a new IST calendar year. Must run on every
+// request, before route handlers, so it cannot be skipped by route-specific
+// middleware.
+app.use(yearBoundaryGuard);
+
+// Connect to MongoDB and register the year-end expiry cron once the DB is up
+connectDB().then(() => {
+  registerScheduledJobs();
+});
 
 // Home Route
 app.get('/', (req, res) => {
@@ -64,6 +74,7 @@ app.use('/api/v1/attendance-summary', attendanceSummaryRoute);
 app.use('/api/v1/holidays', holidayRoute);
 app.use('/api/v1/admin', adminRoute);
 app.use('/api/v1/leaves', leaveRoute);
+app.use('/api/v1/leave-templates', leaveTemplateRoute);
 app.use('/api/v1/late-checkins', lateCheckInRoute);
 app.use('/api/v1/salary', salaryRoute);
 app.use('/api/v1/daily-reports', dailyReportRoute);

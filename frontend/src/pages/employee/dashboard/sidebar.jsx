@@ -53,14 +53,14 @@ const EmployeeSidebar = () => {
       path: '/employee/dashboard/holidays',
     },
     {
-      name: 'Settings',
-      icon: <Settings className="w-5 h-5" />,
-      path: '/employee/dashboard/settings',
-    },
-    {
       name: 'Tasks',
       icon: <ListChecks className="w-5 h-5" />,
       path: '/employee/dashboard/tasks',
+    },
+    {
+      name: 'Settings',
+      icon: <Settings className="w-5 h-5" />,
+      path: '/employee/dashboard/settings',
     },
   ];
 

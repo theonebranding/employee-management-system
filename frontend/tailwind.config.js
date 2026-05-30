@@ -41,9 +41,9 @@ export default {
       },
 
       fontFamily: {
-        sans: ['var(--font-primary)', 'var(--font-secondary)', 'var(--font-tertiary)', 'ui-sans-serif', 'system-ui'],
-        secondary: ['var(--font-secondary)', 'var(--font-tertiary)', 'ui-sans-serif', 'system-ui'],
-        tertiary: ['var(--font-tertiary)', 'ui-sans-serif', 'system-ui'],
+        sans: ['var(--font-primary)', 'ui-sans-serif', 'system-ui'],
+        secondary: ['var(--font-primary)', 'ui-sans-serif', 'system-ui'],
+        tertiary: ['var(--font-primary)', 'ui-sans-serif', 'system-ui'],
         mono: ['Fira Code', 'ui-monospace', 'monospace'],
       },
 

@@ -48,8 +48,13 @@ const CheckedInEmployees = ({ selectedDate }) => {
       // Filter for checked-in employees:
       // - hasCheckInPunch=true (original checkInTime exists before masking)
       // - hasCheckOutPunch=false (no checkout yet, still in office)
+      // - resolvedStatus is NOT leave/holiday/absent (a leave-marked
+      //   employee should never appear here even if they punched earlier).
       const checkedIn = summary.filter(
-        (emp) => emp.hasCheckInPunch && !emp.hasCheckOutPunch
+        (emp) =>
+          emp.hasCheckInPunch &&
+          !emp.hasCheckOutPunch &&
+          !['leave', 'holiday', 'absent'].includes(emp.resolvedStatus)
       );
 
       setCheckedInList(checkedIn);
@@ -142,7 +147,7 @@ const CheckedInEmployees = ({ selectedDate }) => {
         </div>
       ) : checkedInList.length > 0 ? (
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-light-text dark:text-dark-text">
+          <table className="min-w-full text-left text-light-text dark:text-dark-text">
             <thead className="bg-light-bg/50 dark:bg-dark-bg/50">
               <tr>
                 <th className="px-4 py-2 font-medium">Employee ID</th>

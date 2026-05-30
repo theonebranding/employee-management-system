@@ -39,6 +39,12 @@ const attendanceSchema = new mongoose.Schema(
       enum: ['full-day', 'half-day', 'leave', 'absent'],
       default: null,
     },
+    leaveId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Leave',
+      default: null,
+    },
+    generatedForLeave: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

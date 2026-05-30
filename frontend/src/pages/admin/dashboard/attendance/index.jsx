@@ -10,7 +10,7 @@ import {
   Loader2,
   Timer,
 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 
@@ -33,6 +33,8 @@ const AdminAttendance = () => {
   const [showMapModal, setShowMapModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [locationType, setLocationType] = useState('');
+  const attendanceTableScrollRef = useRef(null);
+  const attendanceScrollIntervalRef = useRef(null);
 
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -61,6 +63,14 @@ const AdminAttendance = () => {
       // Helper: compute realtime resolved status for a record
       const computeRealtimeStatus = (rec) => {
         if (!rec) return 'Unknown';
+        // Holiday wins regardless of check-in. The backend now stamps
+        // resolvedStatus='holiday' (and a "Holiday (Name)" currentStatus
+        // when a holiday name is available); preserve that label here so
+        // the live badge matches the per-employee history view.
+        if (rec.resolvedStatus === 'holiday' || rec.isHoliday) {
+          return rec.currentStatus || 'Holiday';
+        }
+
         // Respect explicit leave first
         if (rec.manualPayrollStatus === 'leave') return 'Leave';
 
@@ -92,10 +102,9 @@ const AdminAttendance = () => {
         return 'Half Day';
       };
 
-      // Filter: show checked-in, half-day and present employees; exclude 'Leave'
+      // Filter: show the live attendance view, including explicit leave rows
       const filteredData = uniqueData.filter((item) => {
         const status = computeRealtimeStatus(item);
-        if (status === 'Leave') return false;
         // show if checked-in now or evaluated as not Absent
         if (item.hasCheckInPunch && !item.hasCheckOutPunch) return true;
         return status !== 'Absent';
@@ -129,7 +138,11 @@ const AdminAttendance = () => {
   }, [selectedDate]);
 
   const getStatusColor = status => {
-    switch (status?.toLowerCase()) {
+    const lower = status?.toLowerCase() || '';
+    if (lower.startsWith('holiday')) return 'text-purple-600 bg-purple-100';
+    switch (lower) {
+      case 'leave':
+        return 'text-blue-600 bg-blue-100';
       case 'present':
         return 'text-success bg-success/10';
       case 'checked in':
@@ -171,6 +184,24 @@ const AdminAttendance = () => {
       setShowMapModal(true);
     }
   };
+
+  const stopAttendanceTableAutoScroll = () => {
+    if (attendanceScrollIntervalRef.current) {
+      clearInterval(attendanceScrollIntervalRef.current);
+      attendanceScrollIntervalRef.current = null;
+    }
+  };
+
+  const startAttendanceTableAutoScroll = direction => {
+    if (!attendanceTableScrollRef.current) return;
+    stopAttendanceTableAutoScroll();
+    const step = direction === 'left' ? -18 : 18;
+    attendanceScrollIntervalRef.current = setInterval(() => {
+      attendanceTableScrollRef.current?.scrollBy({ left: step, behavior: 'auto' });
+    }, 16);
+  };
+
+  useEffect(() => () => stopAttendanceTableAutoScroll(), []);
 
 
   return (
@@ -272,9 +303,9 @@ const AdminAttendance = () => {
                 </span>
               </div>
             ) : attendanceData.length > 0 ? (
-              <div className="rounded-lg border border-light-border dark:border-dark-border overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
+              <div className="relative group/table rounded-lg border border-light-border dark:border-dark-border overflow-hidden">
+                <div ref={attendanceTableScrollRef} className="overflow-x-auto">
+                  <table className="min-w-full text-sm text-left">
                     <thead className="bg-light-bg/50 dark:bg-dark-bg/50 text-light-text dark:text-dark-text">
                       <tr>
                         <th className="px-6 py-4 font-medium">Employee ID</th>
@@ -429,6 +460,18 @@ const AdminAttendance = () => {
                     </tbody>
                   </table>
                 </div>
+                <div
+                  className="absolute left-0 top-0 bottom-0 z-10 w-12 cursor-w-resize"
+                  onMouseEnter={() => startAttendanceTableAutoScroll('left')}
+                  onMouseLeave={stopAttendanceTableAutoScroll}
+                  aria-hidden="true"
+                />
+                <div
+                  className="absolute right-0 top-0 bottom-0 z-10 w-12 cursor-e-resize"
+                  onMouseEnter={() => startAttendanceTableAutoScroll('right')}
+                  onMouseLeave={stopAttendanceTableAutoScroll}
+                  aria-hidden="true"
+                />
               </div>
             ) : (
               <div className="text-center py-12 text-light-text dark:text-dark-text opacity-70">

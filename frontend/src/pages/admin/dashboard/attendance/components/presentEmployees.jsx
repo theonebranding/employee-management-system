@@ -66,7 +66,7 @@ const PresentEmployees = ({ startDate, endDate }) => {
         </div>
       ) : presentList.length > 0 ? (
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-light-text dark:text-dark-text">
+          <table className="min-w-full text-left text-light-text dark:text-dark-text">
             <thead className="bg-light-bg/50 dark:bg-dark-bg/50">
               <tr>
                 <th className="px-4 py-2 font-medium">Employee ID</th>

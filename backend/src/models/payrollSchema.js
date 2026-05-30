@@ -46,6 +46,10 @@ const payrollSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    leaveEncashmentAmount: {
+      type: Number,
+      default: 0,
+    },
     totalSalary: Number,
     status: {
       type: String,
@@ -67,6 +71,24 @@ const payrollSchema = new mongoose.Schema(
     },
     computedLoanAmount: Number,
     computedNetPay: Number,
+    holidayBreakdown: {
+      fixedDates: [
+        {
+          date: Date,
+          name: String,
+        },
+      ],
+      floatingDates: [
+        {
+          date: Date,
+          creditId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'HolidayCredit',
+          },
+        },
+      ],
+      totalAmount: { type: Number, default: 0 },
+    },
   },
   { timestamps: true }
 );

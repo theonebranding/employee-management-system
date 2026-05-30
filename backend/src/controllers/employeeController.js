@@ -1,7 +1,29 @@
 import Employee from '../models/employeeSchema.js';
 import EmployeeSequence from '../models/employeeSequenceSchema.js';
 import bcrypt from 'bcrypt';
+import { forfeitEmployeeCredits } from '../services/holidayCreditService.js';
 // import { sendInvitationRequestEmail } from '../services/emailService.js';
+
+// Statuses that represent an employee leaving the company. When an employee
+// transitions into one of these states (or is hard-deleted), all of their
+// `available` floating holiday credits must be forfeited (Requirement 12).
+const TERMINATED_STATUSES = ['terminated', 'inactive'];
+const isTerminatedStatus = status => TERMINATED_STATUSES.includes(status);
+
+// Wrap forfeitEmployeeCredits so a forfeit failure never rolls back the
+// underlying employee mutation. The service is idempotent (safe to call again
+// later), so logging-and-continuing is the correct behaviour here.
+const safeForfeitEmployeeCredits = async employeeId => {
+  try {
+    await forfeitEmployeeCredits(employeeId);
+  } catch (err) {
+    console.error(
+      'Failed to forfeit holiday credits for employee',
+      employeeId?.toString?.() ?? employeeId,
+      err
+    );
+  }
+};
 
 const PHONE_REGEX = /^[0-9]{10,15}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -342,6 +364,15 @@ export const updateEmployee = async (req, res) => {
       }
     }
 
+    // Capture previous onboardingStatus so we can detect a transition into
+    // `terminated` / `inactive` and trigger the holiday-credit forfeit hook
+    // exactly once per transition (Requirement 12.1).
+    const previousEmployee = await Employee.findById(req.params.id).select('onboardingStatus');
+    if (!previousEmployee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+    const previousStatus = previousEmployee.onboardingStatus;
+
     const updatedEmployee = await Employee.findByIdAndUpdate(
       req.params.id, // Use the employee ID from params
       { $set: normalized },
@@ -350,6 +381,16 @@ export const updateEmployee = async (req, res) => {
 
     if (!updatedEmployee) {
       return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Forfeit available holiday credits only on the boundary transition
+    // (non-terminated -> terminated/inactive). Re-saving an already-terminated
+    // employee must not re-fire the hook.
+    if (
+      isTerminatedStatus(updatedEmployee.onboardingStatus) &&
+      !isTerminatedStatus(previousStatus)
+    ) {
+      await safeForfeitEmployeeCredits(updatedEmployee._id);
     }
 
     res.status(200).json({
@@ -378,6 +419,11 @@ export const deleteEmployee = async (req, res) => {
       return res.status(404).json({ message: 'Employee not found' });
     }
 
+    // Hard-delete is the effective termination path in this system; forfeit
+    // any remaining `available` holiday credits so they cannot be redeemed
+    // post-departure (Requirement 12.1).
+    await safeForfeitEmployeeCredits(deletedEmployee._id);
+
     return res.status(200).json({ message: 'Employee deleted successfully' });
   } catch (error) {
     return res.status(500).json({ message: 'Error deleting employee', error: error.message });
@@ -399,6 +445,11 @@ export const deleteEmployeeByCode = async (req, res) => {
     if (!deletedEmployee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
+
+    // Same forfeit semantics as deleteEmployee: hard-delete acts as the
+    // termination event, so any `available` floating credits are forfeited
+    // (Requirement 12.1).
+    await safeForfeitEmployeeCredits(deletedEmployee._id);
 
     return res.status(200).json({ message: 'Employee deleted successfully', employee: deletedEmployee });
   } catch (error) {

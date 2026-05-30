@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle,
@@ -30,6 +30,8 @@ const AdminTasks = () => {
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState('');
+  const tasksTableScrollRef = useRef(null);
+  const tasksScrollIntervalRef = useRef(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -294,6 +296,24 @@ const AdminTasks = () => {
     return `${dept} / ${desig}`;
   };
 
+  const stopTasksAutoScroll = () => {
+    if (tasksScrollIntervalRef.current) {
+      clearInterval(tasksScrollIntervalRef.current);
+      tasksScrollIntervalRef.current = null;
+    }
+  };
+
+  const startTasksAutoScroll = direction => {
+    if (!tasksTableScrollRef.current) return;
+    stopTasksAutoScroll();
+    const step = direction === 'left' ? -18 : 18;
+    tasksScrollIntervalRef.current = setInterval(() => {
+      tasksTableScrollRef.current?.scrollBy({ left: step, behavior: 'auto' });
+    }, 16);
+  };
+
+  useEffect(() => () => stopTasksAutoScroll(), []);
+
   return (
     <div className="min-h-screen px-6 py-6 lg:ml-16 bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -381,8 +401,9 @@ const AdminTasks = () => {
           {loading ? (
             <div className="p-8 text-center text-light-text/60 dark:text-dark-text/60">Loading tasks...</div>
           ) : filteredTasks.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="relative group/table">
+              <div ref={tasksTableScrollRef} className="overflow-x-auto">
+                <table className="min-w-full">
                 <thead className="bg-light-bg/70 dark:bg-dark-bg/70 border-b border-light-border dark:border-dark-border text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
                   <tr>
                     <th className="px-6 py-3 text-left font-semibold">Title</th>
@@ -427,7 +448,20 @@ const AdminTasks = () => {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
+              <div
+                className="absolute left-0 top-0 bottom-0 z-10 w-12 cursor-w-resize"
+                onMouseEnter={() => startTasksAutoScroll('left')}
+                onMouseLeave={stopTasksAutoScroll}
+                aria-hidden="true"
+              />
+              <div
+                className="absolute right-0 top-0 bottom-0 z-10 w-12 cursor-e-resize"
+                onMouseEnter={() => startTasksAutoScroll('right')}
+                onMouseLeave={stopTasksAutoScroll}
+                aria-hidden="true"
+              />
             </div>
           ) : (
             <div className="p-8 text-center text-light-text/60 dark:text-dark-text/60">No tasks found. Create your first task!</div>

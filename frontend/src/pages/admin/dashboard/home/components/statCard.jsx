@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { format } from 'date-fns';
-import { Clock, LogOut, UserCheck, Users, UserX } from 'lucide-react';
+import { CalendarDays, Clock, LogOut, Plane, UserCheck, Users, UserX } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -11,6 +11,8 @@ const StatCard = () => {
     absentToday: 0,
     checkedInToday: 0,
     checkedOutToday: 0,
+    onLeaveToday: 0,
+    onHolidayToday: 0,
     lateArrivals: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -36,16 +38,37 @@ const StatCard = () => {
         if (!response.ok) throw new Error('Failed to fetch attendance stats');
 
         const data = await response.json();
-        const checkedOut = (data.summary || []).filter(
-          (emp) => emp.hasCheckInPunch && emp.hasCheckOutPunch
+        // Prefer the backend-computed counters (they apply the same
+        // resolvedStatus rule the lists below use, so leave/holiday rows are
+        // excluded). Fall back to a client-side recompute against the summary
+        // for backward compat with older backends.
+        const summary = Array.isArray(data.summary) ? data.summary : [];
+        const NON_WORKING = ['leave', 'holiday', 'absent'];
+        const fallbackCheckedOut = summary.filter(
+          (emp) =>
+            emp.hasCheckInPunch &&
+            emp.hasCheckOutPunch &&
+            !NON_WORKING.includes(emp.resolvedStatus)
         ).length;
-        
+        const fallbackCheckedIn = summary.filter(
+          (emp) =>
+            emp.hasCheckInPunch &&
+            !emp.hasCheckOutPunch &&
+            !NON_WORKING.includes(emp.resolvedStatus)
+        ).length;
+        const fallbackOnLeave = summary.filter((emp) => emp.resolvedStatus === 'leave').length;
+
         setStats({
           totalEmployees: data.totalEmployees || 0,
           presentToday: data.present || 0,
           absentToday: data.absent || 0,
-          checkedInToday: data.checkedIn || 0,
-          checkedOutToday: checkedOut || 0,
+          checkedInToday:
+            typeof data.checkedIn === 'number' ? data.checkedIn : fallbackCheckedIn,
+          checkedOutToday:
+            typeof data.checkedOut === 'number' ? data.checkedOut : fallbackCheckedOut,
+          onLeaveToday:
+            typeof data.onLeave === 'number' ? data.onLeave : fallbackOnLeave,
+          onHolidayToday: data.onHoliday || 0,
           lateArrivals: data.late || 0,
         });
       } catch (err) {
@@ -88,6 +111,18 @@ const StatCard = () => {
       label: 'Absent Today',
       key: 'absentToday',
       color: 'bg-danger/10 text-danger',
+    },
+    {
+      icon: Plane,
+      label: 'On Leave',
+      key: 'onLeaveToday',
+      color: 'bg-purple-500/10 text-purple-500',
+    },
+    {
+      icon: CalendarDays,
+      label: 'On Holiday',
+      key: 'onHolidayToday',
+      color: 'bg-amber-500/10 text-amber-500',
     },
     {
       icon: Clock,

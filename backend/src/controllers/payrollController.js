@@ -5,7 +5,7 @@ import Salary from '../models/salarySchema.js';
 import Employee from '../models/employeeSchema.js';
 import Attendance from '../models/attendanceSchema.js';
 import Leave from '../models/leaveSchema.js';
-import SelectedHoliday from '../models/selectedHolidaySchema.js';
+import LeaveTemplateAssignment from '../models/leaveTemplateAssignmentSchema.js';
 import PayslipSettings from '../models/payslipSettingsSchema.js';
 import PayrollSettings from '../models/payrollSettingsSchema.js';
 import AdminAttendanceSettings from '../models/adminAttendanceSettingsSchema.js';
@@ -20,6 +20,8 @@ import {
   getIstMonthRange,
   toIstDate,
 } from '../utils/timezoneUtils.js';
+import { getPayrollLeaveDaysForRange, getTemplateBalance } from '../utils/leaveTemplateUtils.js';
+import { getEmployeeHolidayDateSet } from '../services/holidayPayrollService.js';
 
 const HOURS_PER_DAY = 8;
 
@@ -177,6 +179,10 @@ const getExtraAllowanceTotal = async (employeeId, month, year) => {
   const targetIndex = toMonthIndex(year, month);
 
   return records.reduce((total, record) => {
+    if (record.reference === 'Leave Encashment' || record.breakdown?.kind === 'leave-encashment') {
+      return total;
+    }
+
     const transactionDate = record.transactionDate ? toIstDate(record.transactionDate) : null;
     if (!transactionDate) return total;
 
@@ -276,6 +282,147 @@ const syncSundayCompensationExtras = async ({ employeeId, month, year, entries, 
   }
 };
 
+const shouldApplyLeaveEncashmentForPayroll = (month, carryForwardPeriod) => {
+  if (carryForwardPeriod === 'monthly') {
+    return true;
+  }
+
+  if (carryForwardPeriod === 'yearly') {
+    return Number(month) === 1;
+  }
+
+  return false;
+};
+
+const buildLeaveEncashmentEntries = ({ balance, dailyWage, month, year, templateName }) => {
+  const encashmentDays = Number(balance?.encashmentDays || 0);
+  if (!encashmentDays) return [];
+
+  const amount = Number((Number(dailyWage || 0) * encashmentDays).toFixed(2));
+  const dateKey = `${year}-${String(month).padStart(2, '0')}-01`;
+
+  return [
+    {
+      dateKey,
+      amount,
+      statusLabel: 'leave encashment',
+      remark: `Leave encashment for ${templateName || 'assigned template'} (${encashmentDays} day(s))`,
+      breakdown: {
+        kind: 'leave-encashment',
+        encashmentDays,
+        ratePerDay: Number(dailyWage || 0),
+        totalAmount: amount,
+        carryForwardDays: Number(balance?.carryForwardDays || 0),
+        carryForwardLimit: Number(balance?.previousPeriodRemaining || 0),
+        previousPeriodRemaining: Number(balance?.previousPeriodRemaining || 0),
+        allocationPeriodStart: balance?.periodStart || null,
+        allocationPeriodEnd: balance?.periodEnd || null,
+        templateName: templateName || null,
+      },
+    },
+  ];
+};
+
+const syncLeaveEncashmentExtras = async ({ employeeId, month, year, entries, processedBy }) => {
+  const { start, end } = getIstMonthRange(month, year);
+  const existing = await ExtraAllowance.find({
+    employee: employeeId,
+    status: 'active',
+    reference: 'Leave Encashment',
+    transactionDate: { $gte: start, $lte: end },
+  });
+
+  const existingByDate = new Map();
+  existing.forEach((item) => {
+    existingByDate.set(toDateKey(new Date(item.transactionDate)), item);
+  });
+
+  const desiredDates = new Set(entries.map((entry) => entry.dateKey));
+
+  for (const entry of entries) {
+    const [yearPart, monthPart, dayPart] = entry.dateKey.split('-').map(Number);
+    const transactionDate = getIstDayStartFromParts(yearPart, monthPart, dayPart);
+    const current = existingByDate.get(entry.dateKey);
+
+    if (!current) {
+      await ExtraAllowance.create({
+        employee: employeeId,
+        amount: entry.amount,
+        transactionDate,
+        reference: 'Leave Encashment',
+        comment: entry.remark,
+        breakdown: entry.breakdown || null,
+        approvedBy: processedBy || undefined,
+        approvedAt: new Date(),
+      });
+      continue;
+    }
+
+    const needsUpdate =
+      Number(current.amount || 0) !== Number(entry.amount || 0) ||
+      (current.comment || '') !== entry.remark;
+
+    if (needsUpdate) {
+      current.amount = entry.amount;
+      current.comment = entry.remark;
+      current.reference = 'Leave Encashment';
+      current.breakdown = entry.breakdown || null;
+      current.approvedBy = processedBy || current.approvedBy;
+      current.approvedAt = new Date();
+      await current.save();
+    }
+  }
+
+  for (const current of existing) {
+    const dateKey = toDateKey(new Date(current.transactionDate));
+    if (!desiredDates.has(dateKey)) {
+      current.status = 'cancelled';
+      await current.save();
+    }
+  }
+};
+
+export const syncSundayCompensationForAttendanceChange = async ({
+  employeeId,
+  month,
+  year,
+  processedBy,
+}) => {
+  const employee = await Employee.findById(employeeId);
+  if (!employee) {
+    return null;
+  }
+
+  const { start, end } = getMonthRange(Number(month), Number(year));
+  const attendanceRecords = await Attendance.find({
+    employee: employee._id,
+    date: { $gte: start, $lte: end },
+  });
+
+  const workingDays = countWorkingDays(Number(month), Number(year));
+  const salaryRecord = await Salary.findOne({ employee: employee._id })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const baseSalary = Number(salaryRecord?.baseSalary || 0);
+  const dailyWage = workingDays ? baseSalary / workingDays : 0;
+
+  const sundayCompensationEntries = buildSundayCompensationEntries({
+    attendanceRecords,
+    dailyWage,
+  });
+
+  await syncSundayCompensationExtras({
+    employeeId: employee._id,
+    month: Number(month),
+    year: Number(year),
+    entries: sundayCompensationEntries,
+    processedBy,
+  });
+
+  return sundayCompensationEntries;
+};
+
 const getComputedNetPay = (payroll, loanAmountOverride) => {
   const dailyWage = Number(payroll.dailyWage || 0);
   const fullDays = Number(payroll.fullDays || 0);
@@ -342,13 +489,20 @@ const computePayroll = async ({
     ? Number(loanAmount || 0)
     : Number(autoLoanAmount || 0);
   const { start, end } = getMonthRange(month, year);
-  const workingDays = countWorkingDays(month, year);
+  const nonSundayDays = countWorkingDays(month, year);
+
+  const { fixedDates, floatingDates, all: holidayDays } = await getEmployeeHolidayDateSet({
+    employeeId: employee._id,
+    month,
+    year,
+  });
+
+  const workingDays = Math.max(0, nonSundayDays - holidayDays.size);
 
   const attendanceRecords = await Attendance.find({
     employee: employee._id,
     date: { $gte: start, $lte: end },
   });
-
   const adminAttendanceSettings = await AdminAttendanceSettings.findOne().lean();
   const requiredWorkingMinutes = Number(
     adminAttendanceSettings?.totalWorkingHours || HOURS_PER_DAY * 60
@@ -376,12 +530,50 @@ const computePayroll = async ({
     0
   );
 
+  const leaveTemplateAssignment = await LeaveTemplateAssignment.findOne({ employee: employee._id }).populate(
+    'template'
+  );
+  const leaveEncashmentEnabled = Boolean(
+    leaveTemplateAssignment?.template?.encashmentAllowed &&
+      shouldApplyLeaveEncashmentForPayroll(month, leaveTemplateAssignment?.template?.carryForwardPeriod)
+  );
+  const leaveBalance = leaveEncashmentEnabled
+    ? await getTemplateBalance({
+        employeeId: employee._id,
+        template: leaveTemplateAssignment.template,
+        referenceDate: start,
+      })
+    : null;
+  const leaveEncashmentEntries = leaveBalance
+    ? buildLeaveEncashmentEntries({
+        balance: leaveBalance,
+        dailyWage,
+        month,
+        year,
+        templateName: leaveTemplateAssignment?.template?.name,
+      })
+    : [];
+  const leaveEncashmentTotal = leaveEncashmentEntries.reduce(
+    (sum, entry) => sum + Number(entry.amount || 0),
+    0
+  );
+
   if (persistSundayCompensation) {
     await syncSundayCompensationExtras({
       employeeId: employee._id,
       month,
       year,
       entries: sundayCompensationEntries,
+      processedBy,
+    });
+  }
+
+  if (leaveEncashmentEntries.length) {
+    await syncLeaveEncashmentExtras({
+      employeeId: employee._id,
+      month,
+      year,
+      entries: leaveEncashmentEntries,
       processedBy,
     });
   }
@@ -404,7 +596,9 @@ const computePayroll = async ({
     const resolvedStatus = resolveAttendanceStatus(record, adminAttendanceSettings);
 
     if (resolvedStatus === 'leave') {
-      manualLeaveDays += 1;
+      if (!record.leaveId) {
+        manualLeaveDays += 1;
+      }
       return;
     }
     if (resolvedStatus === 'absent') {
@@ -430,12 +624,22 @@ const computePayroll = async ({
       .map((record) => toDateKey(new Date(record.date)))
   );
 
-  const selectedHoliday = await SelectedHoliday.findOne({ employee: employee._id });
-  const holidayDays = new Set(
-    selectedHoliday?.selectedHolidays?.map((holiday) => toDateKey(new Date(holiday.date))) || []
-  );
+  const approvedPaidLeaves = await Promise.all(
+    approvedLeaves.map(async (leave) => {
+      if (Number.isFinite(leave.paidDays) && leave.paidDays > 0) {
+        return leave.paidDays;
+      }
 
-  const approvedPaidLeaves = countApprovedLeaves(approvedLeaves, month, year, attendanceDays, holidayDays);
+      const fallbackDays = await getPayrollLeaveDaysForRange({
+        employeeId: employee._id,
+        startDate: leave.startDate,
+        endDate: leave.endDate,
+      });
+
+      return leave.isPaidLeave ? fallbackDays : 0;
+    })
+  ).then((values) => values.reduce((sum, value) => sum + Number(value || 0), 0));
+
   const paidLeaves = approvedPaidLeaves + manualLeaveDays;
   const unpaidDays = Math.max(0, workingDays - fullDays - halfDays - paidLeaves);
   const dailyWageOvertimeMultiplier = Number(payrollSettings?.overtime?.dailyWageMultiplier || 1);
@@ -484,6 +688,7 @@ const computePayroll = async ({
       ? Number(extraAmount || 0)
       : defaultExtra;
   const totalExtraAmount = normalizedExtraAmount + Number(autoExtraAmount || 0);
+  const leaveEncashmentAmount = Number(leaveEncashmentTotal || 0);
 
   const totalSalary =
     fullDays * dailyWage +
@@ -492,7 +697,20 @@ const computePayroll = async ({
     overtimeAmount +
     totalExtraAmount -
     Number(penalties || 0) -
-    totalLoanAmount;
+    totalLoanAmount +
+    leaveEncashmentAmount;
+
+  const holidayBreakdown = {
+    fixedDates: Array.from(fixedDates.values()).map((entry) => ({
+      date: entry.date,
+      name: entry.name,
+    })),
+    floatingDates: Array.from(floatingDates.values()).map((entry) => ({
+      date: entry.date,
+      creditId: entry.creditId,
+    })),
+    totalAmount: Number((holidayDays.size * dailyWage).toFixed(2)),
+  };
 
   return {
     workingDays,
@@ -505,13 +723,24 @@ const computePayroll = async ({
     overtimeHours: resolvedOvertimeHours,
     overtimeAmount,
     extraAmount: totalExtraAmount,
+    leaveEncashmentAmount,
     halfDayDeduction,
     totalSalary,
     loanAmount: totalLoanAmount,
+    holidayBreakdown,
     sundayCompensation: {
       count: sundayCompensationEntries.length,
       total: Number(sundayCompensationTotal.toFixed(2)),
       dates: sundayCompensationEntries.map((entry) => ({
+        date: entry.dateKey,
+        amount: entry.amount,
+        status: entry.statusLabel,
+      })),
+    },
+    leaveEncashment: {
+      count: leaveEncashmentEntries.length,
+      total: Number(leaveEncashmentTotal.toFixed(2)),
+      dates: leaveEncashmentEntries.map((entry) => ({
         date: entry.dateKey,
         amount: entry.amount,
         status: entry.statusLabel,
@@ -550,7 +779,10 @@ const upsertPayroll = async ({
     Number(payrollValues.loanAmount || 0) +
     payrollValues.unpaidDays * payrollValues.dailyWage +
     payrollValues.halfDayDeduction;
-  const salaryBonuses = Number(payrollValues.extraAmount || 0) + payrollValues.overtimeAmount;
+  const salaryBonuses =
+    Number(payrollValues.extraAmount || 0) +
+    Number(payrollValues.leaveEncashmentAmount || 0) +
+    payrollValues.overtimeAmount;
 
   const settings = await resolvePayslipSettings();
   const template = pickTemplate(settings);
@@ -617,6 +849,7 @@ const upsertPayroll = async ({
       employeeEmail: employee.email,
       month,
       year,
+      workingDays: payrollValues.workingDays,
       fullDays: payrollValues.fullDays,
       halfDays: payrollValues.halfDays,
       paidLeaves: payrollValues.paidLeaves,
@@ -626,6 +859,7 @@ const upsertPayroll = async ({
       penalties: Number(penalties || 0),
       loanAmount: Number(payrollValues.loanAmount || 0),
       extraAmount: Number(payrollValues.extraAmount || 0),
+      leaveEncashmentAmount: Number(payrollValues.leaveEncashmentAmount || 0),
       baseSalary: payrollValues.baseSalary,
       dailyWage: payrollValues.dailyWage,
       totalSalary: payrollValues.totalSalary,
@@ -633,16 +867,27 @@ const upsertPayroll = async ({
       salaryRecord: salary._id,
       processedAt: new Date(),
       processedBy,
+      holidayBreakdown: payrollValues.holidayBreakdown,
     },
     { new: true, upsert: true }
   );
 
   const sundayCompensationCount = Number(payrollValues?.sundayCompensation?.count || 0);
   const sundayCompensationTotal = Number(payrollValues?.sundayCompensation?.total || 0);
+  const leaveEncashmentCount = Number(payrollValues?.leaveEncashment?.count || 0);
+  const leaveEncashmentTotal = Number(payrollValues?.leaveEncashment?.total || 0);
   const historyNote =
-    sundayCompensationCount > 0
-      ? `Payroll processed. Sunday compensation added: ${sundayCompensationCount} entries (₹${sundayCompensationTotal.toFixed(2)}).`
-      : 'Payroll processed';
+    [
+      sundayCompensationCount > 0
+        ? `Sunday compensation added: ${sundayCompensationCount} entries (₹${sundayCompensationTotal.toFixed(2)}).`
+        : '',
+      leaveEncashmentCount > 0
+        ? `Leave encashment added: ${leaveEncashmentCount} entry (₹${leaveEncashmentTotal.toFixed(2)}).`
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .trim() || 'Payroll processed';
 
   await PayrollHistory.create({
     payroll: payroll._id,
@@ -652,6 +897,11 @@ const upsertPayroll = async ({
     notes: historyNote,
     changes: {
       sundayCompensation: payrollValues?.sundayCompensation || {
+        count: 0,
+        total: 0,
+        dates: [],
+      },
+      leaveEncashment: payrollValues?.leaveEncashment || {
         count: 0,
         total: 0,
         dates: [],
@@ -667,6 +917,7 @@ export const recomputePayrollForAttendanceChange = async ({
   month,
   year,
   processedBy,
+  persistSundayCompensation = false,
 }) => {
   const existingPayroll = await Payroll.findOne({
     employee: employeeId,
@@ -674,7 +925,7 @@ export const recomputePayrollForAttendanceChange = async ({
     year: Number(year),
   });
 
-  if (!existingPayroll || existingPayroll.status === 'paid') {
+  if (existingPayroll?.status === 'paid') {
     return null;
   }
 
@@ -687,12 +938,12 @@ export const recomputePayrollForAttendanceChange = async ({
     employee,
     month: Number(month),
     year: Number(year),
-    overtimeHours: existingPayroll.overtimeHours,
-    penalties: existingPayroll.penalties ?? 0,
-    loanAmount: existingPayroll.loanAmount,
-    extraAmount: existingPayroll.extraAmount,
-    status: existingPayroll.status || 'unpaid',
+    overtimeHours: existingPayroll?.overtimeHours,
+    penalties: existingPayroll?.penalties ?? 0,
+    loanAmount: existingPayroll?.loanAmount,
+    status: existingPayroll?.status || 'unpaid',
     processedBy,
+    persistSundayCompensation,
   });
 };
 
@@ -770,7 +1021,6 @@ export const processPayrollForEmployee = async (req, res) => {
       overtimeHours: req.body.overtimeHours,
       penalties: req.body.penalties ?? 0,
       loanAmount: req.body.loanAmount,
-      extraAmount: req.body.extraAmount,
       status: req.body.status || 'unpaid',
       processedBy: req.user?._id,
     });
@@ -918,6 +1168,7 @@ export const getPayrollPreview = async (req, res) => {
           penalties: 0,
           loanAmount: payrollValues.loanAmount,
           extraAmount: payrollValues.extraAmount,
+          leaveEncashmentAmount: payrollValues.leaveEncashmentAmount,
           baseSalary: payrollValues.baseSalary,
           dailyWage: payrollValues.dailyWage,
           totalSalary: payrollValues.totalSalary,

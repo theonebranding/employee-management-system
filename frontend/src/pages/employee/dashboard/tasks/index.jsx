@@ -1,5 +1,5 @@
 import { AlertCircle, Calendar, CheckCircle, Clock, ListChecks, MessageSquare, Send } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 
 import Modal from '../../../../components/Modal';
@@ -14,6 +14,8 @@ const EmployeeTasks = () => {
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState('');
+  const tasksTableScrollRef = useRef(null);
+  const tasksScrollIntervalRef = useRef(null);
 
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -111,6 +113,24 @@ const EmployeeTasks = () => {
       });
   }, [tasks, statusFilter, searchQuery]);
 
+  const stopTasksAutoScroll = () => {
+    if (tasksScrollIntervalRef.current) {
+      clearInterval(tasksScrollIntervalRef.current);
+      tasksScrollIntervalRef.current = null;
+    }
+  };
+
+  const startTasksAutoScroll = direction => {
+    if (!tasksTableScrollRef.current) return;
+    stopTasksAutoScroll();
+    const step = direction === 'left' ? -18 : 18;
+    tasksScrollIntervalRef.current = setInterval(() => {
+      tasksTableScrollRef.current?.scrollBy({ left: step, behavior: 'auto' });
+    }, 16);
+  };
+
+  useEffect(() => () => stopTasksAutoScroll(), []);
+
   const getStatusColor = status => {
     switch (status) {
       case 'completed':
@@ -169,8 +189,9 @@ const EmployeeTasks = () => {
           ) : filteredTasks.length === 0 ? (
             <div className="p-8 text-center text-light-text/70 dark:text-dark-text/70">No tasks available.</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="relative group/table">
+              <div ref={tasksTableScrollRef} className="overflow-x-auto">
+                <table className="min-w-full">
                 <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold">Title</th>
@@ -215,7 +236,20 @@ const EmployeeTasks = () => {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
+              <div
+                className="absolute left-0 top-0 bottom-0 z-10 w-12 cursor-w-resize"
+                onMouseEnter={() => startTasksAutoScroll('left')}
+                onMouseLeave={stopTasksAutoScroll}
+                aria-hidden="true"
+              />
+              <div
+                className="absolute right-0 top-0 bottom-0 z-10 w-12 cursor-e-resize"
+                onMouseEnter={() => startTasksAutoScroll('right')}
+                onMouseLeave={stopTasksAutoScroll}
+                aria-hidden="true"
+              />
             </div>
           )}
         </div>
