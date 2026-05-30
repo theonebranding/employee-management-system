@@ -18,8 +18,10 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/authContext';
 
 const AdminSidebar = () => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [openSections, setOpenSections] = useState({ reports: true });
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [openSections, setOpenSections] = useState({ reports: false });
+  const [hoveredSection, setHoveredSection] = useState(null);
+  const [hoverSuppressedSection, setHoverSuppressedSection] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
@@ -64,11 +66,6 @@ const AdminSidebar = () => {
       path: '/admin/dashboard/holidays',
     },
     {
-      name: 'Settings',
-      icon: <Settings className="w-5 h-5" />,
-      path: '/admin/dashboard/settings',
-    },
-    {
       name: 'Reports',
       icon: <FileText className="w-5 h-5" />,
       path: '/admin/dashboard/reports?tab=attendance',
@@ -78,7 +75,13 @@ const AdminSidebar = () => {
         { name: 'Daily Punch', path: '/admin/dashboard/reports?tab=daily-punch' },
         { name: 'Daily Work', path: '/admin/dashboard/reports?tab=daily-report' },
         { name: 'Hourly', path: '/admin/dashboard/reports?tab=hourly' },
+        { name: 'Attendance Master', path: '/admin/dashboard/reports?tab=attendance-master' },
       ],
+    },
+    {
+      name: 'Settings',
+      icon: <Settings className="w-5 h-5" />,
+      path: '/admin/dashboard/settings',
     },
   ];
 
@@ -88,11 +91,20 @@ const AdminSidebar = () => {
   };
 
   const toggleSidebar = () => {
-    setIsSidebarOpen((prev) => !prev);
+    setIsSidebarOpen(prev => !prev);
   };
 
-  const toggleSection = (key) => {
-    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggleSection = (key, isVisible) => {
+    setOpenSections(prev => {
+      const nextOpen = !isVisible;
+      if (!nextOpen) {
+        setHoverSuppressedSection(key);
+        setHoveredSection(null);
+      } else if (hoverSuppressedSection === key) {
+        setHoverSuppressedSection(null);
+      }
+      return { ...prev, [key]: nextOpen };
+    });
   };
 
   return (
@@ -135,31 +147,45 @@ const AdminSidebar = () => {
         </div>
 
         {/* Sidebar Navigation */}
-        <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto overflow-x-hidden no-scrollbar lg:px-2">
+        <nav className="flex-1 px-4 pt-4 pb-6 space-y-2 overflow-y-auto overflow-x-hidden no-scrollbar lg:px-2">
           {menuItems.map((item, index) => {
             const hasChildren = Boolean(item.children?.length);
             const isSectionOpen = item.key ? openSections[item.key] : false;
+            const isSectionHovered = item.key ? hoveredSection === item.key : false;
+            const shouldShowSubmenu =
+              isSectionOpen || (isSectionHovered && hoverSuppressedSection !== item.key);
             const isItemActive =
               hasChildren && item.key === 'reports'
                 ? isReportsRoute
                 : location.pathname === item.path;
+            const isLastItem = index === menuItems.length - 1;
 
             return (
-              <div key={`${item.name}-${index}`} className="space-y-2">
+              <div
+                key={`${item.name}-${index}`}
+                className={`space-y-2 ${isLastItem ? 'pb-2' : ''}`}
+                onMouseEnter={() => {
+                  if (item.key && hoverSuppressedSection !== item.key) {
+                    setHoveredSection(item.key);
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (item.key) {
+                    if (hoverSuppressedSection === item.key) {
+                      setHoverSuppressedSection(null);
+                    }
+                    setHoveredSection(null);
+                  }
+                }}
+              >
                 <div className="relative">
                   <NavLink
                     to={item.path}
                     onClick={() => {
-                      if (item.key) {
-                        setOpenSections((prev) => ({
-                          ...prev,
-                          [item.key]: true,
-                        }));
-                      }
                       setIsSidebarOpen(false);
                     }}
                     className={() =>
-                      `relative flex items-center w-full px-4 py-3 rounded-2xl transition-all duration-200 group
+                      `relative flex items-center w-full px-4 py-3 rounded-2xl transition-all duration-200
                       lg:w-12 lg:h-12 lg:justify-center lg:px-0 lg:mx-auto lg:self-center
                       lg:group-hover:w-full lg:group-hover:justify-start lg:group-hover:px-4 lg:group-hover:mx-0
                       ${
@@ -179,7 +205,7 @@ const AdminSidebar = () => {
                   {hasChildren && (
                     <button
                       type="button"
-                      onClick={() => toggleSection(item.key)}
+                      onClick={() => toggleSection(item.key, shouldShowSubmenu)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md text-light-text/70 dark:text-dark-text/70 hover:text-primary lg:opacity-0 lg:group-hover:opacity-100"
                       aria-label={`Toggle ${item.name}`}
                     >
@@ -190,17 +216,17 @@ const AdminSidebar = () => {
                       />
                     </button>
                   )}
+
+                  {/* Desktop inline submenu removed (will render inline below) */}
                 </div>
-                {hasChildren && isSectionOpen && (
-                  <div
-                    className={`pl-10 pr-3 space-y-1 ${
-                      isSidebarOpen ? 'block' : 'hidden'
-                    } lg:hidden`}
-                  >
-                    {item.children.map((child) => {
+                {/* Mobile Dropdown */}
+                {hasChildren && (
+                  <div className={`pl-10 pr-3 space-y-1 ${shouldShowSubmenu ? 'block' : 'hidden'}`}>
+                    {item.children.map(child => {
                       const isChildActive =
                         item.key === 'reports'
-                          ? isReportsRoute && reportsTab === new URLSearchParams(child.path.split('?')[1]).get('tab')
+                          ? isReportsRoute &&
+                            reportsTab === new URLSearchParams(child.path.split('?')[1]).get('tab')
                           : location.pathname === child.path;
 
                       return (

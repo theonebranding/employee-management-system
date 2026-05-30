@@ -1,19 +1,15 @@
-/* eslint-disable unused-imports/no-unused-vars */
-/* eslint-disable no-unused-vars */
-import { AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, FileBarChart2, Loader2 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 
-import AttendanceTab from './components/attendanceTab/index';
-import HolidaysTab from './components/holidaysTab';
 import InformationTab from './components/informationTab';
 import LeaveRequestsTab from './components/leaveRequestsTab';
 
 const AdminEmployeeProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('attendance');
+  const [activeTab, setActiveTab] = useState('information');
   const [employeeDetails, setEmployeeDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -52,13 +48,10 @@ const AdminEmployeeProfile = () => {
 
     setDeleteLoading(true);
     try {
-      const response = await fetch(
-        `${BASE_URL}/employee/delete-by-code/${employeeCode}`,
-        {
+      const response = await fetch(`${BASE_URL}/employee/delete-by-code/${employeeCode}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        }
-      );
+      });
 
       if (!response.ok) throw new Error('Failed to delete employee');
 
@@ -102,20 +95,28 @@ const AdminEmployeeProfile = () => {
               Employee Profile
             </h1>
           </div>
-          <button
-            onClick={() => setShowDeleteModal(true)}
-            className="px-4 py-2 rounded-lg bg-danger hover:bg-danger/80 transition-all duration-200 text-white font-medium"
-            aria-label="Delete employee"
-          >
-            Delete Employee
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate(`/admin/dashboard/reports?tab=attendance&employee=${id}`)}
+              className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all duration-200 text-white font-medium flex items-center gap-2"
+              aria-label="View attendance reports for this employee"
+            >
+              <FileBarChart2 className="w-4 h-4" />
+              View Attendance Reports
+            </button>
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="px-4 py-2 rounded-lg bg-danger hover:bg-danger/80 transition-all duration-200 text-white font-medium"
+              aria-label="Delete employee"
+            >
+              Delete Employee
+            </button>
+          </div>
         </div>
 
         <div className="flex gap-2 mb-6 border-b border-light-border/50 dark:border-dark-border/50">
           <TabButton label="Information" tab="information" />
-          <TabButton label="Holidays" tab="holidays" />
           <TabButton label="Leave Requests" tab="leaves" />
-          <TabButton label="Attendance" tab="attendance" />
         </div>
 
         {loading ? (
@@ -125,9 +126,7 @@ const AdminEmployeeProfile = () => {
         ) : (
           <>
             {activeTab === 'information' && <InformationTab employeeId={id} />}
-            {activeTab === 'holidays' && <HolidaysTab employeeId={id} />}
             {activeTab === 'leaves' && <LeaveRequestsTab employeeId={id} />}
-            {activeTab === 'attendance' && <AttendanceTab employeeId={id} />}
           </>
         )}
 

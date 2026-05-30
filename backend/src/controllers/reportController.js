@@ -1,13 +1,15 @@
-import mongoose from 'mongoose';
 import Attendance from '../models/attendanceSchema.js';
 import Employee from '../models/employeeSchema.js';
 import Payroll from '../models/payrollSchema.js';
 import AdminAttendanceSettings from '../models/adminAttendanceSettingsSchema.js';
 import { recomputePayrollForAttendanceChange } from './payrollController.js';
 import { getIstDayKey, getIstDayOfWeek, getIstDayStartFromParts } from '../utils/timezoneUtils.js';
+import { getEmployeesOnHoliday } from '../services/holidayPayrollService.js';
 
 const parseYmd = (value) => {
-  const [year, month, day] = String(value || '').split('-').map(Number);
+  const [year, month, day] = String(value || '')
+    .split('-')
+    .map(Number);
   if (!year || !month || !day) return null;
   return getIstDayStartFromParts(year, month, day);
 };
@@ -30,7 +32,6 @@ const calculateStatusFromWorkingHours = (attendance, settings) => {
 
   const workingMinutes = attendance.totalWorkingTime || 0;
   const minAbsentHours = settings?.minAbsentHours || 180;
-  const halfDayHours = settings?.halfDayHours || 240;
   const fullDayHours = settings?.fullDayHours || 470;
 
   if (workingMinutes < minAbsentHours) {
@@ -51,7 +52,8 @@ export const getAttendanceMaster = async (req, res) => {
 
     const start = parseYmd(startDate);
     const end = parseYmd(endDate);
-    if (!start || !end) return res.status(400).json({ message: 'Invalid date format (YYYY-MM-DD)' });
+    if (!start || !end)
+      return res.status(400).json({ message: 'Invalid date format (YYYY-MM-DD)' });
 
     // Fetch attendance settings to apply them to status calculation
     const settings = await AdminAttendanceSettings.findOne().lean();
@@ -67,7 +69,9 @@ export const getAttendanceMaster = async (req, res) => {
     const payrollMonthKeys = new Set();
     const monthCursor = new Date(rangeStart);
     while (monthCursor <= rangeEnd) {
-      payrollMonthKeys.add(`${monthCursor.getUTCFullYear()}-${String(monthCursor.getUTCMonth() + 1).padStart(2, '0')}`);
+      payrollMonthKeys.add(
+        `${monthCursor.getUTCFullYear()}-${String(monthCursor.getUTCMonth() + 1).padStart(2, '0')}`
+      );
       monthCursor.setUTCMonth(monthCursor.getUTCMonth() + 1, 1);
     }
 
@@ -101,6 +105,31 @@ export const getAttendanceMaster = async (req, res) => {
       byKey.set(`${String(record.employee)}_${toYmd(record.date)}`, record);
     });
 
+    // Fetch holiday assignments (fixed templates + redeemed floating credits) for
+    // every employee in scope across the requested range. We build two lookup
+    // structures so the per-day render loop can override status to `holiday` in
+    // O(1) without re-querying the holiday service per cell. Sundays are
+    // already stripped by getEmployeesOnHoliday, so any hit here is guaranteed
+    // to be a real working-day holiday.
+    const holidayRows = await getEmployeesOnHoliday({
+      startDate: rangeStart,
+      endDate: rangeEnd,
+      ...(employeeId ? { employeeId } : {}),
+    });
+    const holidaySetByEmployee = new Map(); // empId -> Set<dateKey>
+    const holidayInfoByKey = new Map(); // `${empId}_${dateKey}` -> { name, source }
+    holidayRows.forEach((row) => {
+      const empKey = String(row.employee._id);
+      if (!holidaySetByEmployee.has(empKey)) holidaySetByEmployee.set(empKey, new Set());
+      row.holidays.forEach((h) => {
+        const dateKey = toYmd(new Date(h.date));
+        holidaySetByEmployee.get(empKey).add(dateKey);
+        // Last write wins on duplicate (fixed + floating on same day) - matches
+        // holidayPayrollService union semantics.
+        holidayInfoByKey.set(`${empKey}_${dateKey}`, { name: h.name, source: h.source });
+      });
+    });
+
     const rows = [];
     employees.forEach((emp) => {
       const joinedDate = emp.joinedDate ? new Date(emp.joinedDate) : null;
@@ -128,35 +157,53 @@ export const getAttendanceMaster = async (req, res) => {
         const payrollMonthKey = `${dayStr.slice(0, 4)}-${dayStr.slice(5, 7)}`;
         const payrollStatus =
           payrollByEmployeeMonth.get(`${String(emp._id)}_${payrollMonthKey}`) || 'unpaid';
-        
+
+        // Holiday check runs before the working-hours-based resolver.
+        // Per the holiday-template spec, a holiday for an assigned employee
+        // wins regardless of whether they punched in (employees who want to
+        // work a floating-credit day must cancel the redemption first - see
+        // POST /holidays/me/credits/:creditId/cancel-redemption).
+        const holidaySet = holidaySetByEmployee.get(String(emp._id));
+        const isHoliday = holidaySet ? holidaySet.has(dayStr) : false;
+        const holidayInfo = isHoliday ? holidayInfoByKey.get(`${String(emp._id)}_${dayStr}`) : null;
+
         // Apply attendance settings: if manual status is set, use it; otherwise calculate from working hours
         let resolvedStatus;
-        if (attendance?.manualPayrollStatus) {
+        if (isHoliday) {
+          resolvedStatus = 'holiday';
+        } else if (attendance?.manualPayrollStatus) {
           resolvedStatus = attendance.manualPayrollStatus;
         } else {
           resolvedStatus = calculateStatusFromWorkingHours(attendance, settings);
         }
-        
-        const isSundayAbsentOrLeave = isSunday && (resolvedStatus === 'absent' || resolvedStatus === 'leave');
+
+        const isSundayAbsentOrLeave =
+          isSunday && (resolvedStatus === 'absent' || resolvedStatus === 'leave');
 
         if (isSundayAbsentOrLeave) {
           cursor.setUTCDate(cursor.getUTCDate() + 1);
           continue;
         }
 
-        const hidePunchTimes = ['absent', 'leave'].includes(attendance?.manualPayrollStatus);
-        const statusLabel =
-          attendance?.checkInTime && !attendance?.checkOutTime && !attendance?.manualPayrollStatus
+        const hidePunchTimes =
+          ['absent', 'leave'].includes(attendance?.manualPayrollStatus) || isHoliday;
+        const statusLabel = isHoliday
+          ? holidayInfo?.name
+            ? `Holiday (${holidayInfo.name})`
+            : 'Holiday'
+          : attendance?.checkInTime && !attendance?.checkOutTime && !attendance?.manualPayrollStatus
             ? 'Checkout Pending'
-            : resolvedStatus === 'absent' && !attendance?.manualPayrollStatus && attendance?.checkInTime
-            ? 'Absent (Early Checkout)'
-            : resolvedStatus === 'full-day'
-              ? 'Full Day'
-              : resolvedStatus === 'half-day'
-                ? 'Half Day'
-                : resolvedStatus === 'leave'
-                  ? 'Leave'
-                  : 'Absent';
+            : resolvedStatus === 'absent' &&
+                !attendance?.manualPayrollStatus &&
+                attendance?.checkInTime
+              ? 'Absent (Early Checkout)'
+              : resolvedStatus === 'full-day'
+                ? 'Full Day'
+                : resolvedStatus === 'half-day'
+                  ? 'Half Day'
+                  : resolvedStatus === 'leave'
+                    ? 'Leave'
+                    : 'Absent';
         rows.push({
           employeeId: emp._id,
           employeeCode: emp.employeeCode || '',
@@ -173,7 +220,13 @@ export const getAttendanceMaster = async (req, res) => {
           status: resolvedStatus,
           statusLabel,
           payrollStatus,
-          canEdit: payrollStatus !== 'paid',
+          // Holiday rows are derived from template assignments / floating-credit
+          // redemptions, not from the Attendance Master dropdown. Disable inline
+          // edit so admins manage holidays through the holidays page instead.
+          canEdit: payrollStatus !== 'paid' && !isHoliday,
+          isHoliday,
+          holidayName: holidayInfo?.name || null,
+          holidaySource: holidayInfo?.source || null,
         });
         cursor.setUTCDate(cursor.getUTCDate() + 1);
       }
@@ -197,9 +250,15 @@ export const updateAttendanceMasterStatus = async (req, res) => {
       return res.status(400).json({ message: 'Invalid status' });
     }
 
-    const payroll = await Payroll.findOne({ employee: employeeId, month: Number(date.slice(5, 7)), year: Number(date.slice(0, 4)) });
+    const payroll = await Payroll.findOne({
+      employee: employeeId,
+      month: Number(date.slice(5, 7)),
+      year: Number(date.slice(0, 4)),
+    });
     if (payroll?.status === 'paid') {
-      return res.status(409).json({ message: 'Cannot update attendance master for paid payroll month' });
+      return res
+        .status(409)
+        .json({ message: 'Cannot update attendance master for paid payroll month' });
     }
 
     const dayStart = parseYmd(date);
@@ -208,7 +267,10 @@ export const updateAttendanceMasterStatus = async (req, res) => {
     const employee = await Employee.findById(employeeId);
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
 
-    let attendance = await Attendance.findOne({ employee: employeeId, date: { $gte: dayStart, $lte: dayEnd } });
+    let attendance = await Attendance.findOne({
+      employee: employeeId,
+      date: { $gte: dayStart, $lte: dayEnd },
+    });
 
     if (!attendance) {
       attendance = new Attendance({
@@ -259,7 +321,9 @@ export const updateAttendanceMasterStatus = async (req, res) => {
 
     res.status(200).json({ message: 'Attendance master status updated', attendance });
   } catch (error) {
-    res.status(500).json({ message: 'Error updating attendance master status', error: error.message });
+    res
+      .status(500)
+      .json({ message: 'Error updating attendance master status', error: error.message });
   }
 };
 
@@ -270,9 +334,15 @@ export const updateAttendanceMasterCheckout = async (req, res) => {
       return res.status(400).json({ message: 'employeeId, date and checkoutHour are required' });
     }
 
-    const payroll = await Payroll.findOne({ employee: employeeId, month: Number(date.slice(5, 7)), year: Number(date.slice(0, 4)) });
+    const payroll = await Payroll.findOne({
+      employee: employeeId,
+      month: Number(date.slice(5, 7)),
+      year: Number(date.slice(0, 4)),
+    });
     if (payroll?.status === 'paid') {
-      return res.status(409).json({ message: 'Cannot update attendance master for paid payroll month' });
+      return res
+        .status(409)
+        .json({ message: 'Cannot update attendance master for paid payroll month' });
     }
 
     const dayStart = parseYmd(date);
@@ -281,10 +351,16 @@ export const updateAttendanceMasterCheckout = async (req, res) => {
     const employee = await Employee.findById(employeeId);
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
 
-    let attendance = await Attendance.findOne({ employee: employeeId, date: { $gte: dayStart, $lte: dayEnd } });
+    let attendance = await Attendance.findOne({
+      employee: employeeId,
+      date: { $gte: dayStart, $lte: dayEnd },
+    });
 
     if (!attendance) {
-      const predefinedCheckIn = getPredefinedCheckInForDay(dayStart, employee.predefinedCheckInTime);
+      const predefinedCheckIn = getPredefinedCheckInForDay(
+        dayStart,
+        employee.predefinedCheckInTime
+      );
       attendance = new Attendance({
         employee: employeeId,
         employeeEmail: employee.email,

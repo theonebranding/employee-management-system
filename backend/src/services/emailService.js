@@ -11,23 +11,7 @@ const injectData = (template, data) => {
   return template.replace(/{{(.*?)}}/g, (_, key) => data[key.trim()] || '');
 };
 
-const adminEmail = 'info@theonebranding.com';
-
-const sendOtpEmail = async (email, name, otp) => {
-  const templatePath = path.join(__dirname, 'templates', 'otpRegistration.html');
-  const template = fs.readFileSync(templatePath, 'utf-8');
-  const htmlContent = injectData(template, { name, otp });
-
-  await sendEmail(email, 'Confirm Your Registration', htmlContent);
-};
-
-const sendRegistrationSuccessEmail = async (email, name) => {
-  const templatePath = path.join(__dirname, 'templates', 'successRegistration.html');
-  const template = fs.readFileSync(templatePath, 'utf-8');
-  const htmlContent = injectData(template, { name });
-
-  await sendEmail(email, 'Registration Confirmed', htmlContent);
-};
+const adminEmail = 'man842289@gmail.com';
 
 const sendResetPasswordEmail = async (email, name, otp) => {
   const templatePath = path.join(__dirname, 'templates', 'resetPassword.html');
@@ -69,7 +53,13 @@ const sendInvitationRequestEmail = async (email) => {
   await sendEmail(email, 'Invitation Request', htmlContent);
 };
 
-const sendDailyReportSubmittedEmail = async ({ name, email, employeeCode, reportDate, reportText }) => {
+const sendDailyReportSubmittedEmail = async ({
+  name,
+  email,
+  employeeCode,
+  reportDate,
+  reportText,
+}) => {
   const templatePath = path.join(__dirname, 'templates', 'dailyReportSubmitted.html');
   const template = fs.readFileSync(templatePath, 'utf-8');
 
@@ -96,8 +86,6 @@ const sendDailyReportSubmittedEmail = async ({ name, email, employeeCode, report
 };
 
 export {
-  sendOtpEmail,
-  sendRegistrationSuccessEmail,
   sendResetPasswordEmail,
   sendResetPasswordSuccessEmail,
   sendLeaveRequestEmail,

@@ -30,7 +30,12 @@ router.patch('/add-checkin-time/:id?', verifyToken, checkRole(['admin']), addPre
 
 router.post('/:id/documents', verifyToken, checkRole(['admin']), addEmployeeDocument);
 
-router.delete('/:id/documents/:documentId', verifyToken, checkRole(['admin']), deleteEmployeeDocument);
+router.delete(
+  '/:id/documents/:documentId',
+  verifyToken,
+  checkRole(['admin']),
+  deleteEmployeeDocument
+);
 
 router.delete('/delete/:id?', verifyToken, checkRole(['admin']), deleteEmployee);
 

@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 
 import Header from '../../../../components/pageHeader';
+import AbsentTable from './components/absentTable';
 import AttendanceTable from './components/attendanceTable';
 import EmptyState from './components/emptyState';
 import LateCheckInsTable from './components/lateCheckInsTable';
@@ -14,6 +15,7 @@ import Tabs from './components/tabs';
 const MonthlyAttendance = () => {
   const [records, setRecords] = useState([]);
   const [lateCheckIns, setLateCheckIns] = useState([]);
+  const [absentDays, setAbsentDays] = useState([]);
   const [totalWorkHours, setTotalWorkHours] = useState(0);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
@@ -26,6 +28,7 @@ const MonthlyAttendance = () => {
   const [searchDate, setSearchDate] = useState('');
   const [filteredRecords, setFilteredRecords] = useState([]);
   const [filteredLateCheckIns, setFilteredLateCheckIns] = useState([]);
+  const [filteredAbsentDays, setFilteredAbsentDays] = useState([]);
   const [showMapModal, setShowMapModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [locationType, setLocationType] = useState('');
@@ -157,21 +160,21 @@ const MonthlyAttendance = () => {
     setLoading(true);
     try {
       const response = await fetch(
-        `${BASE_URL}/attendance/absent-days?employeeId=${employeeId}&month=${month}&year=${year}`,
+        `${BASE_URL}/attendance-summary/my-absent-days?month=${month}&year=${year}`,
         {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         }
       );
 
-      if (!response.ok) throw new Error('Failed to fetch absent days'); // Add this line
-
-      const data = await response.json();
-      toast.success(data.message || 'Absent days fetched successfully');
-      return data.absentDays || [];
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch absent days');
+      }
+      setAbsentDays(data.absentDays || []);
     } catch (error) {
       console.error('Error fetching absent days:', error);
       toast.error(error.message || 'Failed to fetch absent days');
-      return [];
+      setAbsentDays([]);
     } finally {
       setLoading(false);
     }
@@ -193,7 +196,10 @@ const MonthlyAttendance = () => {
     const filteredSortedLateCheckIns = filterByDate(sortedLateCheckIns, searchDate);
     setFilteredLateCheckIns(filteredSortedLateCheckIns);
 
-  }, [records, lateCheckIns, sortConfig, searchDate]);
+    const sortedAbsentDays = sortData(absentDays, sortConfig);
+    const filteredSortedAbsentDays = filterByDate(sortedAbsentDays, searchDate);
+    setFilteredAbsentDays(filteredSortedAbsentDays);
+  }, [records, lateCheckIns, absentDays, sortConfig, searchDate]);
 
   const handleSort = key => {
     setSortConfig(prevConfig => {
@@ -244,14 +250,15 @@ const MonthlyAttendance = () => {
           onFetch={() => {
             fetchMonthlyAttendance();
             fetchLateCheckIns();
+            fetchAbsentDays();
           }}
           loading={loading}
         />
         <div className="bg-light-card dark:bg-dark-card rounded-2xl p-6 shadow-card ring-1 ring-light-border dark:ring-dark-border">
           <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
           <div className="overflow-x-auto">
-            {activeTab === 'attendance' ? (
-              filteredRecords.length > 0 ? (
+            {activeTab === 'attendance' &&
+              (filteredRecords.length > 0 ? (
                 <AttendanceTable
                   filteredRecords={filteredRecords}
                   sortConfig={sortConfig}
@@ -260,20 +267,29 @@ const MonthlyAttendance = () => {
                   formatTime={formatTime}
                 />
               ) : (
-                <EmptyState isLateTab={false} searchDate={searchDate} />
-              )
-            ) : (
-              filteredLateCheckIns.length > 0 ? (
-              <LateCheckInsTable
-                filteredLateCheckIns={filteredLateCheckIns}
-                sortConfig={sortConfig}
-                handleSort={handleSort}
-                formatLateBy={formatLateBy}
-              />
+                <EmptyState tab="attendance" searchDate={searchDate} />
+              ))}
+            {activeTab === 'late' &&
+              (filteredLateCheckIns.length > 0 ? (
+                <LateCheckInsTable
+                  filteredLateCheckIns={filteredLateCheckIns}
+                  sortConfig={sortConfig}
+                  handleSort={handleSort}
+                  formatLateBy={formatLateBy}
+                />
               ) : (
-                <EmptyState isLateTab={true} searchDate={searchDate} />
-              )
-            )}
+                <EmptyState tab="late" searchDate={searchDate} />
+              ))}
+            {activeTab === 'absent' &&
+              (filteredAbsentDays.length > 0 ? (
+                <AbsentTable
+                  filteredAbsentDays={filteredAbsentDays}
+                  sortConfig={sortConfig}
+                  handleSort={handleSort}
+                />
+              ) : (
+                <EmptyState tab="absent" searchDate={searchDate} />
+              ))}
           </div>
         </div>
         <MapModal

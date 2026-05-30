@@ -21,7 +21,7 @@ const EmployeeLeaveAlerts = () => {
         const endDate = `${year}-${String(currentMonth + 1).padStart(2, '0')}-31`;
 
         const response = await fetch(
-          `${BASE_URL}/leaves/?startDate=${startDate}&endDate=${endDate}&limit=100`,
+          `${BASE_URL}/leaves/?startDate=${startDate}&endDate=${endDate}&status=approved&limit=100`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem('token')}`,

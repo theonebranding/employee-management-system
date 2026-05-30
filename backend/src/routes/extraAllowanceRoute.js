@@ -6,6 +6,7 @@ import {
   createExtraAllowance,
   updateExtraAllowance,
   deleteExtraAllowance,
+  syncExtraAllowancesFromAttendance,
 } from '../controllers/extraAllowanceController.js';
 
 const router = express.Router();
@@ -15,6 +16,14 @@ router.get('/', verifyToken, getExtraAllowances);
 
 // Create extra allowance
 router.post('/', verifyToken, checkRole(['admin']), createExtraAllowance);
+
+// Sync extra allowances from attendance
+router.post(
+  '/sync-from-attendance',
+  verifyToken,
+  checkRole(['admin']),
+  syncExtraAllowancesFromAttendance
+);
 
 // Update extra allowance
 router.put('/:allowanceId', verifyToken, checkRole(['admin']), updateExtraAllowance);

@@ -10,7 +10,7 @@ const isPayrollPaidForTransactionMonth = async (employeeId, transactionDate) => 
   const payroll = await Payroll.findOne({ employee: employeeId, month, year }).lean();
   return payroll?.status === 'paid';
 };
-  
+
 // Get loan advances
 export const getLoanAdvances = async (req, res) => {
   try {
@@ -37,7 +37,17 @@ export const getLoanAdvances = async (req, res) => {
 // Create loan advance
 export const createLoanAdvance = async (req, res) => {
   try {
-    const { employeeId, type, amount, transactionDate, reference, installmentType, monthlyInstallment, tenureMonths, comment } = req.body;
+    const {
+      employeeId,
+      type,
+      amount,
+      transactionDate,
+      reference,
+      installmentType,
+      monthlyInstallment,
+      tenureMonths,
+      comment,
+    } = req.body;
 
     if (!employeeId || !type || !amount || !transactionDate) {
       return res.status(400).json({ message: 'Missing required fields' });

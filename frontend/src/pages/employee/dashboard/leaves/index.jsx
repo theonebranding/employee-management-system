@@ -20,16 +20,52 @@ import Header from '../../../../components/pageHeader';
 
 const Leaves = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [assignedTemplate, setAssignedTemplate] = useState(null);
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [requestMode, setRequestMode] = useState('template');
+  const [documentUploading, setDocumentUploading] = useState(false);
   const [newRequest, setNewRequest] = useState({
     startDate: '',
     endDate: '',
     reason: '',
+    leaveCategory: 'sick_leave',
+    templateId: '',
+    documentName: '',
+    documentType: '',
+    documentData: '',
   });
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sortOption, setSortOption] = useState('latest'); // Sorting option
 
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
+
+  const fetchAssignedTemplate = async () => {
+    setTemplateLoading(true);
+    try {
+      const response = await fetch(`${BASE_URL}/leave-templates/my-template`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setAssignedTemplate(null);
+        return;
+      }
+
+      setAssignedTemplate({
+        template: data.template,
+        balance: data.balance,
+      });
+      setNewRequest(prev => ({ ...prev, templateId: data.template?._id || '' }));
+    } catch (error) {
+      console.error('Error fetching assigned template:', error);
+      setAssignedTemplate(null);
+    } finally {
+      setTemplateLoading(false);
+    }
+  };
 
   const fetchUserLeaves = async () => {
     setLoading(true);
@@ -59,13 +95,30 @@ const Leaves = () => {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newRequest),
+        body: JSON.stringify({
+          ...newRequest,
+          leaveMode: requestMode,
+          templateId: requestMode === 'template' ? newRequest.templateId : '',
+          documentName: requestMode === 'special' ? newRequest.documentName : '',
+          documentType: requestMode === 'special' ? newRequest.documentType : '',
+          documentData: requestMode === 'special' ? newRequest.documentData : '',
+        }),
       });
       if (!response.ok) throw new Error('Failed to create leave request.');
       const { message } = await response.json();
       toast.success(message || 'Leave request created successfully.');
       setIsModalOpen(false);
-      setNewRequest({ startDate: '', endDate: '', reason: '' });
+      setNewRequest({
+        startDate: '',
+        endDate: '',
+        reason: '',
+        leaveCategory: 'sick_leave',
+        templateId: assignedTemplate?.template?._id || '',
+        documentName: '',
+        documentType: '',
+        documentData: '',
+      });
+      setRequestMode(assignedTemplate?.template ? 'template' : 'special');
       fetchUserLeaves();
     } catch (error) {
       console.error('Error creating leave request:', error);
@@ -125,7 +178,43 @@ const Leaves = () => {
 
   useEffect(() => {
     fetchUserLeaves();
+    fetchAssignedTemplate();
   }, []);
+
+  useEffect(() => {
+    if (assignedTemplate?.template && requestMode === 'template') {
+      setNewRequest(prev => ({ ...prev, templateId: assignedTemplate.template._id }));
+    }
+    if (!assignedTemplate?.template) {
+      setRequestMode('special');
+    }
+  }, [assignedTemplate, requestMode]);
+
+  const handleDocumentChange = async event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setDocumentUploading(true);
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
+
+      setNewRequest(prev => ({
+        ...prev,
+        documentName: file.name,
+        documentType: file.type,
+        documentData: String(dataUrl || ''),
+      }));
+    } catch (error) {
+      toast.error(error.message || 'Failed to upload document.');
+    } finally {
+      setDocumentUploading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen px-6 py-6 lg:ml-16 bg-light-bg dark:bg-dark-bg transition-colors duration-300">
@@ -135,6 +224,83 @@ const Leaves = () => {
           description="Manage your leave requests and track their status."
           icon={<NotebookTabsIcon className="w-8 h-8 text-light-text dark:text-dark-text" />}
         />
+
+        <div className="bg-light-card dark:bg-dark-card rounded-2xl p-6 shadow-card ring-1 ring-light-border dark:ring-dark-border">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <p className="text-sm text-light-text dark:text-dark-text opacity-70">
+                Assigned leave template
+              </p>
+              <h3 className="text-xl font-semibold text-light-text dark:text-dark-text mt-1">
+                {templateLoading
+                  ? 'Loading template...'
+                  : assignedTemplate?.template?.name || 'No leave template assigned yet'}
+              </h3>
+              <p className="text-sm text-light-text dark:text-dark-text opacity-70 mt-2">
+                {assignedTemplate?.template?.description ||
+                  'Available leave balance will appear here when a template is assigned.'}
+              </p>
+            </div>
+            {assignedTemplate?.balance && (
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
+                <div className="px-4 py-3 rounded-xl bg-light-bg dark:bg-dark-bg">
+                  <p className="text-xs opacity-70 text-light-text dark:text-dark-text">Total</p>
+                  <p className="text-lg font-semibold text-light-text dark:text-dark-text">
+                    {assignedTemplate.balance.total}
+                  </p>
+                </div>
+                <div className="px-4 py-3 rounded-xl bg-light-bg dark:bg-dark-bg">
+                  <p className="text-xs opacity-70 text-light-text dark:text-dark-text">Used</p>
+                  <p className="text-lg font-semibold text-light-text dark:text-dark-text">
+                    {assignedTemplate.balance.used}
+                  </p>
+                </div>
+                <div className="px-4 py-3 rounded-xl bg-success/10">
+                  <p className="text-xs opacity-70 text-success">Remaining</p>
+                  <p className="text-lg font-semibold text-success">
+                    {assignedTemplate.balance.remaining}
+                  </p>
+                </div>
+                <div className="px-4 py-3 rounded-xl bg-info/10">
+                  <p className="text-xs opacity-70 text-info">Carry Forward</p>
+                  <p className="text-lg font-semibold text-info">
+                    {assignedTemplate.balance.carryForwardDays || 0}
+                  </p>
+                </div>
+                <div className="px-4 py-3 rounded-xl bg-warning/10">
+                  <p className="text-xs opacity-70 text-warning">Encashable</p>
+                  <p className="text-lg font-semibold text-warning">
+                    {assignedTemplate.balance.encashmentDays || 0}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card p-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setRequestMode('template')}
+              disabled={!assignedTemplate?.template}
+              className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${requestMode === 'template' ? 'bg-primary text-white border-primary' : 'bg-white/90 dark:bg-dark-bg border-light-border dark:border-dark-border text-light-text dark:text-dark-text'} ${!assignedTemplate?.template ? 'opacity-40 cursor-not-allowed' : ''}`}
+            >
+              Template Leave
+            </button>
+            <button
+              type="button"
+              onClick={() => setRequestMode('special')}
+              className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${requestMode === 'special' ? 'bg-primary text-white border-primary' : 'bg-white/90 dark:bg-dark-bg border-light-border dark:border-dark-border text-light-text dark:text-dark-text'}`}
+            >
+              Special Document Leave
+            </button>
+          </div>
+          <p className="text-sm text-light-text dark:text-dark-text opacity-70 mt-3">
+            Template leave auto-uses your assigned quota. Special leave requires a document and will
+            wait for admin review.
+          </p>
+        </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -239,9 +405,9 @@ const Leaves = () => {
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-light-card dark:bg-dark-card rounded-2xl p-8 w-full max-w-md mx-4 ring-1 ring-light-border dark:ring-dark-border shadow-card">
-            <div className="flex items-center gap-3 mb-6">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-light-card dark:bg-dark-card rounded-2xl w-full max-w-md ring-1 ring-light-border dark:ring-dark-border shadow-card flex flex-col max-h-[90vh]">
+            <div className="flex items-center gap-3 px-8 pt-8 pb-4 shrink-0">
               <div className="bg-primary/10 p-2 rounded-lg">
                 <CalendarDays className="w-6 h-6 text-primary" />
               </div>
@@ -249,44 +415,108 @@ const Leaves = () => {
                 New Leave Request
               </h2>
             </div>
-            <form onSubmit={handleNewRequest} className="space-y-6">
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-light-text dark:text-dark-text">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  value={newRequest.startDate}
-                  onChange={e => setNewRequest({ ...newRequest, startDate: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-light-bg dark:bg-dark-bg rounded-lg ring-1 ring-light-border dark:ring-dark-border focus:ring-2 focus:ring-primary text-light-text dark:text-dark-text"
-                  required
-                />
+            <form onSubmit={handleNewRequest} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto px-8 pb-2 space-y-6">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-light-text dark:text-dark-text">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={newRequest.startDate}
+                    onChange={e => setNewRequest({ ...newRequest, startDate: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-light-bg dark:bg-dark-bg rounded-lg ring-1 ring-light-border dark:ring-dark-border focus:ring-2 focus:ring-primary text-light-text dark:text-dark-text"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-light-text dark:text-dark-text">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={newRequest.endDate}
+                    onChange={e => setNewRequest({ ...newRequest, endDate: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-light-bg dark:bg-dark-bg rounded-lg ring-1 ring-light-border dark:ring-dark-border focus:ring-2 focus:ring-primary text-light-text dark:text-dark-text"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-light-text dark:text-dark-text">
+                    Reason
+                  </label>
+                  <textarea
+                    value={newRequest.reason}
+                    onChange={e => setNewRequest({ ...newRequest, reason: e.target.value })}
+                    className="w-full px-4 py-3 bg-light-bg dark:bg-dark-bg rounded-lg ring-1 ring-light-border dark:ring-dark-border focus:ring-2 focus:ring-primary text-light-text dark:text-dark-text h-32 resize-none"
+                    placeholder="Please provide a detailed reason for your leave request..."
+                    required
+                  />
+                </div>
+                {requestMode === 'special' && (
+                  <>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-light-text dark:text-dark-text">
+                        Special Leave Type
+                      </label>
+                      <select
+                        value={newRequest.leaveCategory}
+                        onChange={e =>
+                          setNewRequest({ ...newRequest, leaveCategory: e.target.value })
+                        }
+                        className="w-full px-4 py-2.5 bg-light-bg dark:bg-dark-bg rounded-lg ring-1 ring-light-border dark:ring-dark-border focus:ring-2 focus:ring-primary text-light-text dark:text-dark-text"
+                        required
+                      >
+                        <option value="sick_leave">Sick Leave</option>
+                        <option value="medical_leave">Medical Leave</option>
+                        <option value="bed_rest">Bed Rest</option>
+                        <option value="paternity_leave">Paternity Leave</option>
+                        <option value="maternity_leave">Maternity Leave</option>
+                        <option value="emergency_leave">Emergency Leave</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-light-text dark:text-dark-text">
+                        Supporting Document
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={handleDocumentChange}
+                        className="w-full px-4 py-2.5 bg-light-bg dark:bg-dark-bg rounded-lg ring-1 ring-light-border dark:ring-dark-border text-light-text dark:text-dark-text"
+                        required
+                      />
+                      <p className="text-xs text-light-text dark:text-dark-text opacity-70">
+                        Accepted: image or PDF. The file is attached to the request for admin
+                        review.
+                      </p>
+                      {documentUploading && (
+                        <p className="text-xs text-primary">Reading document...</p>
+                      )}
+                      {newRequest.documentName && (
+                        <p className="text-xs text-success">Uploaded: {newRequest.documentName}</p>
+                      )}
+                    </div>
+                  </>
+                )}
+                {requestMode === 'template' && assignedTemplate?.template && (
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-light-text dark:text-dark-text">
+                    This request will use your assigned template{' '}
+                    <span className="font-semibold">{assignedTemplate.template.name}</span> and will
+                    auto-approve when the template policy allows it and the request stays within the
+                    available balance.
+                    {assignedTemplate?.balance?.carryForwardDays !== undefined ? (
+                      <span className="block mt-2 text-xs opacity-80">
+                        Carry-forward available this period:{' '}
+                        {assignedTemplate.balance.carryForwardDays || 0}. Extra unused leaves beyond
+                        the limit: {assignedTemplate.balance.encashmentDays || 0}.
+                      </span>
+                    ) : null}
+                  </div>
+                )}
               </div>
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-light-text dark:text-dark-text">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  value={newRequest.endDate}
-                  onChange={e => setNewRequest({ ...newRequest, endDate: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-light-bg dark:bg-dark-bg rounded-lg ring-1 ring-light-border dark:ring-dark-border focus:ring-2 focus:ring-primary text-light-text dark:text-dark-text"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-light-text dark:text-dark-text">
-                  Reason
-                </label>
-                <textarea
-                  value={newRequest.reason}
-                  onChange={e => setNewRequest({ ...newRequest, reason: e.target.value })}
-                  className="w-full px-4 py-3 bg-light-bg dark:bg-dark-bg rounded-lg ring-1 ring-light-border dark:ring-dark-border focus:ring-2 focus:ring-primary text-light-text dark:text-dark-text h-32 resize-none"
-                  placeholder="Please provide a detailed reason for your leave request..."
-                  required
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-3 px-8 py-4 border-t border-light-border dark:border-dark-border shrink-0">
                 <button
                   type="submit"
                   disabled={loading}

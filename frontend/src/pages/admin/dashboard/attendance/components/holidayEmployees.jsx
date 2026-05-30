@@ -25,7 +25,7 @@ const HolidayEmployees = ({ selectedDate }) => {
       const formattedDate = formatDate(selectedDate || new Date()); // Default to today
 
       const response = await fetch(
-        `${BASE_URL}/holidays/employee-on-holiday?date=${formattedDate}`,
+        `${BASE_URL}/holidays/employees-on-holiday?date=${formattedDate}`,
         {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         }
@@ -42,7 +42,30 @@ const HolidayEmployees = ({ selectedDate }) => {
 
       const { holidays } = await response.json(); // Access the correct key
 
-      setHolidayList(holidays || []);
+      // New shape: holidays = [{ employee: { _id, name, email, employeeCode },
+      //                          holidays: [{ name, date, source }] }, ...]
+      // Flatten into one row per (employee, holiday) pair so the table can render
+      // multiple holidays for the same employee on the queried date.
+      const flattened = (holidays || []).flatMap(entry => {
+        const employee = entry?.employee || {};
+        const entryHolidays = Array.isArray(entry?.holidays) ? entry.holidays : [];
+        if (entryHolidays.length === 0) {
+          return [];
+        }
+        return entryHolidays.map(holiday => ({
+          employeeId: employee._id,
+          name: employee.name,
+          email: employee.email,
+          employeeCode: employee.employeeCode,
+          holiday: {
+            name: holiday?.name,
+            date: holiday?.date,
+            source: holiday?.source,
+          },
+        }));
+      });
+
+      setHolidayList(flattened);
     } catch (error) {
       console.error('Error fetching holiday list:', error);
       toast.error(error.message || 'Failed to fetch holiday list.');
@@ -70,27 +93,53 @@ const HolidayEmployees = ({ selectedDate }) => {
         </div>
       ) : holidayList.length > 0 ? (
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-light-text dark:text-dark-text">
+          <table className="min-w-full text-left text-light-text dark:text-dark-text">
             <thead className="bg-light-bg/50 dark:bg-dark-bg/50">
               <tr>
                 <th className="px-4 py-2 font-medium">Employee ID</th>
                 <th className="px-4 py-2 font-medium">Employee Name</th>
                 <th className="px-4 py-2 font-medium">Employee Email</th>
                 <th className="px-4 py-2 font-medium">Holiday</th>
+                <th className="px-4 py-2 font-medium">Source</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-light-border dark:divide-dark-border">
-              {holidayList.map(employee => (
-                <tr
-                  key={employee.employeeId}
-                  className="hover:bg-light-bg/50 dark:hover:bg-dark-bg/50 transition-colors"
-                >
-                  <td className="px-4 py-2">{employee.employeeCode || 'ID Pending'}</td>
-                  <td className="px-4 py-2">{employee.name || 'N/A'}</td>
-                  <td className="px-4 py-2">{employee.email || 'N/A'}</td>
-                  <td className="px-4 py-2">{employee.holiday.name || 'N/A'}</td>
-                </tr>
-              ))}
+              {holidayList.map((employee, index) => {
+                const source = employee.holiday?.source;
+                const sourceLabel =
+                  source === 'fixed' ? 'Fixed' : source === 'floating' ? 'Floating' : null;
+                const sourceBadgeClass =
+                  source === 'fixed'
+                    ? 'bg-primary/10 text-primary'
+                    : source === 'floating'
+                      ? 'bg-success/10 text-success'
+                      : 'bg-light-bg dark:bg-dark-bg opacity-70';
+                const rowKey = `${employee.employeeId || 'unknown'}-${
+                  employee.holiday?.name || ''
+                }-${employee.holiday?.date || ''}-${index}`;
+                return (
+                  <tr
+                    key={rowKey}
+                    className="hover:bg-light-bg/50 dark:hover:bg-dark-bg/50 transition-colors"
+                  >
+                    <td className="px-4 py-2">{employee.employeeCode || 'ID Pending'}</td>
+                    <td className="px-4 py-2">{employee.name || 'N/A'}</td>
+                    <td className="px-4 py-2">{employee.email || 'N/A'}</td>
+                    <td className="px-4 py-2">{employee.holiday?.name || 'N/A'}</td>
+                    <td className="px-4 py-2">
+                      {sourceLabel ? (
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${sourceBadgeClass}`}
+                        >
+                          {sourceLabel}
+                        </span>
+                      ) : (
+                        <span className="opacity-70 text-xs">N/A</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

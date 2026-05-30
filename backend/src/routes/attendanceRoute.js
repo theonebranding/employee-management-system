@@ -19,8 +19,20 @@ import {
 
 const router = express.Router();
 
-router.post('/checkin', verifyToken, checkRole(['employee']), validateZod(attendanceCheckInSchema), checkIn); // Check-In Route
-router.post('/checkout', verifyToken, checkRole(['employee']), validateZod(attendanceCheckOutSchema), checkOut); // Check-Out Route
+router.post(
+  '/checkin',
+  verifyToken,
+  checkRole(['employee']),
+  validateZod(attendanceCheckInSchema),
+  checkIn
+); // Check-In Route
+router.post(
+  '/checkout',
+  verifyToken,
+  checkRole(['employee']),
+  validateZod(attendanceCheckOutSchema),
+  checkOut
+); // Check-Out Route
 router.post('/start-recess', verifyToken, checkRole(['employee']), startRecess); // Start Recess Route
 router.post('/end-recess', verifyToken, checkRole(['employee']), endRecess); // End Recess Route
 router.put(

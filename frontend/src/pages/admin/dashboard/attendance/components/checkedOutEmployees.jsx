@@ -1,4 +1,4 @@
-import { LogOut, Loader2 } from 'lucide-react';
+import { Loader2, LogOut } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 
@@ -8,14 +8,14 @@ const CheckedOutEmployees = ({ selectedDate }) => {
 
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
-  const formatDate = (date) => {
+  const formatDate = date => {
     if (date instanceof Date) {
       return date.toISOString().split('T')[0];
     }
     return date;
   };
 
-  const formatTime = (timeString) => {
+  const formatTime = timeString => {
     if (!timeString || timeString === 'N/A') return 'N/A';
     try {
       return new Date(timeString).toLocaleTimeString('en-IN', {
@@ -49,12 +49,9 @@ const CheckedOutEmployees = ({ selectedDate }) => {
     setLoading(true);
     try {
       const formattedDate = formatDate(selectedDate);
-      const response = await fetch(
-        `${BASE_URL}/attendance-summary/date?date=${formattedDate}`,
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        }
-      );
+      const response = await fetch(`${BASE_URL}/attendance-summary/date?date=${formattedDate}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
 
       if (!response.ok) throw new Error('Failed to fetch attendance data.');
 
@@ -64,8 +61,14 @@ const CheckedOutEmployees = ({ selectedDate }) => {
       // Filter for checked-out employees:
       // - hasCheckInPunch=true (checked in)
       // - hasCheckOutPunch=true (already checked out)
+      // - resolvedStatus is NOT leave/holiday/absent (an employee marked on
+      //   leave should never surface their punch times in the checked-out
+      //   list, even if they punched earlier before the leave was applied).
       const checkedOut = summary.filter(
-        (emp) => emp.hasCheckInPunch && emp.hasCheckOutPunch
+        emp =>
+          emp.hasCheckInPunch &&
+          emp.hasCheckOutPunch &&
+          !['leave', 'holiday', 'absent'].includes(emp.resolvedStatus)
       );
 
       setCheckedOutList(checkedOut);
@@ -99,7 +102,7 @@ const CheckedOutEmployees = ({ selectedDate }) => {
         </div>
       ) : checkedOutList.length > 0 ? (
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-light-text dark:text-dark-text">
+          <table className="min-w-full text-left text-light-text dark:text-dark-text">
             <thead className="bg-light-bg/50 dark:bg-dark-bg/50">
               <tr>
                 <th className="px-4 py-2 font-medium">Employee ID</th>
@@ -110,7 +113,7 @@ const CheckedOutEmployees = ({ selectedDate }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-light-border dark:divide-dark-border">
-              {checkedOutList.map((employee) => (
+              {checkedOutList.map(employee => (
                 <tr
                   key={`${employee.employeeId}_${employee.date}`}
                   className="hover:bg-light-bg/50 dark:hover:bg-dark-bg/50 transition-colors"
@@ -120,7 +123,10 @@ const CheckedOutEmployees = ({ selectedDate }) => {
                   <td className="px-4 py-2">{formatTime(employee.originalCheckInTime)}</td>
                   <td className="px-4 py-2">{formatTime(employee.originalCheckOutTime)}</td>
                   <td className="px-4 py-2 font-medium text-success">
-                    {calculateWorkingTime(employee.originalCheckInTime, employee.originalCheckOutTime)}
+                    {calculateWorkingTime(
+                      employee.originalCheckInTime,
+                      employee.originalCheckOutTime
+                    )}
                   </td>
                 </tr>
               ))}

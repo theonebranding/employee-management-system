@@ -1,258 +1,346 @@
-import mongoose from 'mongoose';
-import { getEndOfIstDay, getIstMonthRange, getStartOfIstDay } from '../utils/timezoneUtils.js';
-import SelectedHoliday from '../models/selectedHolidaySchema.js';
-import PredefinedHoliday from '../models/predefinedHolidaySchema.js';
+import * as holidayTemplateService from '../services/holidayTemplateService.js';
+import * as holidayAssignmentService from '../services/holidayAssignmentService.js';
+import * as holidayCreditService from '../services/holidayCreditService.js';
+import * as holidayPayrollService from '../services/holidayPayrollService.js';
 
-// Add Predefined Holidays
-export const addPredefinedHoliday = async (req, res) => {
+/**
+ * Translate a caught error into the project-wide JSON error response shape.
+ * Service errors carry `{ status, code, message }`; anything else is treated
+ * as an internal server error and logged.
+ */
+const sendError = (res, err, contextLabel) => {
+  if (err && err.status && err.code) {
+    return res.status(err.status).json({
+      message: err.message,
+      code: err.code,
+    });
+  }
+
+  // Unexpected error - log full details server-side, surface a generic 500.
+  console.error(`[holidayController] ${contextLabel} failed:`, err);
+  return res.status(500).json({
+    message: 'Internal server error',
+    code: 'INTERNAL_ERROR',
+  });
+};
+
+// ---------------------------------------------------------------------------
+// Admin handlers
+// ---------------------------------------------------------------------------
+
+/**
+ * POST /holidays/templates
+ * Create a new Holiday_Template owned by the calling admin.
+ *
+ * Validates: Requirements 1.1
+ */
+export const createTemplate = async (req, res) => {
   try {
-    const { holidays } = req.body;
-
-    if (!holidays || !Array.isArray(holidays)) {
-      return res.status(400).json({ message: 'Invalid input. Expected an array of holidays.' });
-    }
-
-    const addedHolidays = [];
-
-    for (const holiday of holidays) {
-      const { name, date } = holiday;
-
-      if (!name || !date) {
-        return res.status(400).json({ message: 'Holiday name and date are required.' });
-      }
-
-      // Check if the holiday already exists
-      const existingHoliday = await PredefinedHoliday.findOne({ name, date });
-
-      if (existingHoliday) {
-        continue; // Skip adding duplicate holidays
-      }
-
-      // Save the new holiday
-      const newHoliday = new PredefinedHoliday({ name, date });
-      await newHoliday.save();
-      addedHolidays.push(newHoliday);
-    }
-
-    res.status(201).json({
-      message: 'Predefined holidays added successfully',
-      holidays: addedHolidays,
+    const template = await holidayTemplateService.createTemplate({
+      ...req.body,
+      adminId: req.user._id,
+    });
+    return res.status(201).json({
+      message: 'Holiday template created successfully',
+      template,
     });
   } catch (err) {
-    res.status(500).json({ message: 'Error adding predefined holidays', error: err.message });
+    return sendError(res, err, 'createTemplate');
   }
 };
 
-// Fetch Predefined Holidays
-export const getPredefinedHolidays = async (req, res) => {
+/**
+ * GET /holidays/templates
+ * List all Holiday_Templates with optional `year` and `type` filters.
+ *
+ * Validates: Requirements 1.5
+ */
+export const listTemplates = async (req, res) => {
   try {
-    const holidays = await PredefinedHoliday.find().sort({ date: 1 });
-    res.status(200).json({ message: 'Predefined holidays fetched successfully', holidays });
-  } catch (err) {
-    res.status(500).json({ message: 'Error fetching predefined holidays', error: err.message });
-  }
-};
-
-// delete predefined holiday
-export const deletePredefinedHoliday = async (req, res) => {
-  try {
-    const { holidayId } = req.params;
-
-    if (!holidayId) {
-      return res.status(400).json({ message: 'Holiday ID is required' });
-    }
-
-    const deletedHoliday = await PredefinedHoliday.findByIdAndDelete(holidayId);
-
-    if (!deletedHoliday) {
-      return res.status(404).json({ message: 'Predefined holiday not found' });
-    }
-
-    res.status(200).json({
-      message: 'Predefined holiday deleted successfully',
-      holiday: deletedHoliday,
+    const templates = await holidayTemplateService.listTemplates({
+      year: req.query.year,
+      type: req.query.type,
+    });
+    return res.status(200).json({
+      message: 'Holiday templates fetched successfully',
+      templates,
     });
   } catch (err) {
-    res.status(500).json({ message: 'Error deleting predefined holiday', error: err.message });
+    return sendError(res, err, 'listTemplates');
   }
 };
 
-// select employee holidays
-export const selectHolidays = async (req, res) => {
+/**
+ * GET /holidays/templates/:templateId
+ *
+ * Validates: Requirements 1.5
+ */
+export const getTemplate = async (req, res) => {
   try {
-    const { selectedHolidays } = req.body;
-    const { _id: employeeId } = req.user; // Employee ID from token
+    const template = await holidayTemplateService.getTemplate(req.params.templateId);
+    return res.status(200).json({
+      message: 'Holiday template fetched successfully',
+      template,
+    });
+  } catch (err) {
+    return sendError(res, err, 'getTemplate');
+  }
+};
 
-    if (!selectedHolidays || !Array.isArray(selectedHolidays)) {
-      return res.status(400).json({ message: 'Invalid data. Expected an array of holidays.' });
-    }
+/**
+ * PUT /holidays/templates/:templateId
+ *
+ * Validates: Requirements 1.4, 1.2, 1.3
+ */
+export const updateTemplate = async (req, res) => {
+  try {
+    const template = await holidayTemplateService.updateTemplate(req.params.templateId, {
+      ...req.body,
+      adminId: req.user._id,
+    });
+    return res.status(200).json({
+      message: 'Holiday template updated successfully',
+      template,
+    });
+  } catch (err) {
+    return sendError(res, err, 'updateTemplate');
+  }
+};
 
-    if (selectedHolidays.length > 10) {
-      return res.status(400).json({ message: 'You can select a maximum of 10 holidays.' });
-    }
+/**
+ * DELETE /holidays/templates/:templateId
+ * Rejects when any TemplateAssignment exists for the template.
+ *
+ * Validates: Requirements 1.6, 1.7
+ */
+export const deleteTemplate = async (req, res) => {
+  try {
+    const result = await holidayTemplateService.deleteTemplate(req.params.templateId);
+    return res.status(200).json({
+      message: 'Holiday template deleted successfully',
+      ...result,
+    });
+  } catch (err) {
+    return sendError(res, err, 'deleteTemplate');
+  }
+};
 
-    // Save selected holidays
-    const updatedHolidays = await SelectedHoliday.findOneAndUpdate(
-      { employee: employeeId },
-      { selectedHolidays },
-      { new: true, upsert: true } // Create new record if not existing
+/**
+ * POST /holidays/templates/:templateId/assign
+ * Bulk-assign a template to a list of employee ids. Idempotent on duplicates.
+ *
+ * Validates: Requirements 2.1, 2.2, 2.4
+ */
+export const assignTemplate = async (req, res) => {
+  try {
+    const { created, skipped } = await holidayAssignmentService.bulkAssign(
+      req.params.templateId,
+      req.body.employeeIds,
+      req.user._id
     );
-
-    res.status(201).json({
-      message: 'Holidays selected successfully',
-      selectedHolidays: updatedHolidays.selectedHolidays,
+    return res.status(200).json({
+      message: 'Template assignment processed',
+      created,
+      skipped,
     });
   } catch (err) {
-    res.status(500).json({ message: 'Error selecting holidays', error: err.message });
+    return sendError(res, err, 'assignTemplate');
   }
 };
 
-// fetch employee selected holidays
-export const getSelectedHolidays = async (req, res) => {
+/**
+ * DELETE /holidays/templates/:templateId/assignments/:employeeId
+ * Unassign a single employee. For floating templates, available credits flip
+ * to forfeited (Requirement 2.5).
+ *
+ * Validates: Requirements 2.3, 2.5
+ */
+export const unassignTemplate = async (req, res) => {
   try {
-    const employeeId = req.params.id || req.user._id;
-
-    // Validate if employeeId is a valid ObjectId
-    if (!mongoose.Types.ObjectId.isValid(employeeId)) {
-      return res.status(400).json({ message: 'Invalid employee ID format' });
-    }
-
-    const holidays = await SelectedHoliday.findOne({ employee: employeeId });
-
-    if (!holidays) {
-      return res.status(404).json({ message: 'No selected holidays found for this employee' });
-    }
-
-    res.status(200).json({
-      message: 'Selected holidays fetched successfully',
-      holidays: holidays.selectedHolidays,
-    });
-  } catch (err) {
-    res.status(500).json({ message: 'Error fetching selected holidays', error: err.message });
-  }
-};
-
-// delete custom holiday
-export const deleteCustomHoliday = async (req, res) => {
-  try {
-    const { holidayId } = req.params;
-    const { _id: employeeId } = req.user; // Employee ID from token
-
-    if (!holidayId) {
-      return res.status(400).json({ message: 'Holiday ID is required' });
-    }
-
-    const employeeHolidays = await SelectedHoliday.findOne({ employee: employeeId });
-
-    if (!employeeHolidays) {
-      return res.status(404).json({ message: 'No selected holidays found for this employee' });
-    }
-
-    // Filter out the holiday to delete
-    const updatedHolidays = employeeHolidays.selectedHolidays.filter(
-      (holiday) => holiday._id.toString() !== holidayId
+    const result = await holidayAssignmentService.unassign(
+      req.params.templateId,
+      req.params.employeeId,
+      req.user._id
     );
-
-    // Save the updated holidays
-    employeeHolidays.selectedHolidays = updatedHolidays;
-    await employeeHolidays.save();
-
-    res.status(200).json({
-      message: 'Custom holiday deleted successfully',
-      holidays: employeeHolidays.selectedHolidays,
+    return res.status(200).json({
+      message: 'Template assignment removed successfully',
+      ...result,
     });
   } catch (err) {
-    res.status(500).json({ message: 'Error deleting custom holiday', error: err.message });
+    return sendError(res, err, 'unassignTemplate');
   }
 };
 
-// find employee who are on holiday wih various filters
-export const getEmployeeOnHoliday = async (req, res) => {
+/**
+ * GET /holidays/templates/:templateId/assignments
+ * Admin view of which employees a template is currently assigned to. Drives
+ * the click-through from the assignment count column on the templates list.
+ */
+export const listTemplateAssignments = async (req, res) => {
+  try {
+    const assignments = await holidayAssignmentService.listAssignmentsForTemplate(
+      req.params.templateId
+    );
+    return res.status(200).json({
+      message: 'Template assignments fetched successfully',
+      assignments,
+    });
+  } catch (err) {
+    return sendError(res, err, 'listTemplateAssignments');
+  }
+};
+
+/**
+ * GET /holidays/employees/:employeeId/credits
+ * Admin-side view of an employee's holiday credits grouped by template.
+ *
+ * Validates: Requirements 9.3
+ */
+export const listEmployeeCredits = async (req, res) => {
+  try {
+    const creditGroups = await holidayCreditService.listCreditsForEmployee(req.params.employeeId);
+    return res.status(200).json({
+      message: 'Employee holiday credits fetched successfully',
+      creditGroups,
+    });
+  } catch (err) {
+    return sendError(res, err, 'listEmployeeCredits');
+  }
+};
+
+/**
+ * POST /holidays/credits/:creditId/cancel-redemption
+ * Admin-initiated cancellation of a redeemed credit.
+ *
+ * Validates: Requirements 5.1, 5.2
+ */
+export const cancelRedemptionAdmin = async (req, res) => {
+  try {
+    const credit = await holidayCreditService.cancelRedemption({
+      creditId: req.params.creditId,
+      actorId: req.user._id,
+      actorRole: 'admin',
+    });
+    return res.status(200).json({
+      message: 'Holiday credit redemption cancelled successfully',
+      credit,
+    });
+  } catch (err) {
+    return sendError(res, err, 'cancelRedemptionAdmin');
+  }
+};
+
+/**
+ * GET /holidays/employees-on-holiday
+ * List employees on holiday for a single date, a date range, or a month/year.
+ * Optional `employeeId` query narrows to a single employee.
+ *
+ * Validates: Requirements 9.1, 9.3
+ */
+export const getEmployeesOnHolidayHandler = async (req, res) => {
   try {
     const { date, startDate, endDate, month, year, employeeId } = req.query;
-    let start, end;
-
-    if (date) {
-      start = getStartOfIstDay(date);
-      end = getEndOfIstDay(date);
-    } else if (startDate && endDate) {
-      start = getStartOfIstDay(startDate);
-      end = getEndOfIstDay(endDate);
-    } else if (month && year) {
-      const range = getIstMonthRange(Number(month), Number(year));
-      start = range.start;
-      end = range.end;
-    } else {
-      return res.status(400).json({
-        message:
-          "Invalid parameters. Provide either 'date', 'month & year', or 'startDate & endDate'.",
-      });
-    }
-
-    // Start/end already normalized to IST day boundaries
-
-    let matchCondition = {
-      'selectedHolidays.date': { $gte: start, $lte: end },
-    };
-
-    if (employeeId) {
-      matchCondition['employee'] = new mongoose.Types.ObjectId(employeeId);
-    }
-
-    const holidays = await SelectedHoliday.aggregate([
-      { $match: matchCondition },
-      {
-        $lookup: {
-          from: 'employees',
-          localField: 'employee',
-          foreignField: '_id',
-          as: 'employeeDetails',
-        },
-      },
-      { $unwind: '$employeeDetails' },
-      {
-        $addFields: {
-          filteredHolidays: {
-            $filter: {
-              input: '$selectedHolidays',
-              as: 'holiday',
-              cond: {
-                $and: [{ $gte: ['$$holiday.date', start] }, { $lte: ['$$holiday.date', end] }],
-              },
-            },
-          },
-        },
-      },
-      {
-        $match: {
-          'filteredHolidays.0': { $exists: true }, // Ensures only employees with holidays are returned
-        },
-      },
-      {
-        $project: {
-          _id: 0, // Remove default MongoDB ID from output
-          employeeId: '$employeeDetails._id',
-          name: '$employeeDetails.name',
-          email: '$employeeDetails.email',
-          employeeCode: '$employeeDetails.employeeCode',
-          holiday: '$filteredHolidays',
-        },
-      },
-    ]);
-
-    if (!holidays.length) {
-      return res.status(204).json({
-        message: 'No employees on holiday for the selected date(s)',
-        range: { start, end },
-        employeeId: employeeId || null,
-      });
-    }
-
-    res.status(200).json({
+    const holidays = await holidayPayrollService.getEmployeesOnHoliday({
+      date,
+      startDate,
+      endDate,
+      month,
+      year,
+      employeeId,
+    });
+    return res.status(200).json({
       message: 'Employees on holiday fetched successfully',
       holidays,
     });
   } catch (err) {
-    res.status(500).json({ message: 'Error fetching employees on holiday', error: err.message });
+    return sendError(res, err, 'getEmployeesOnHolidayHandler');
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Employee handlers
+// ---------------------------------------------------------------------------
+
+/**
+ * GET /holidays/me/templates
+ * Returns the assigned templates and credit groups for the calling employee
+ * in a single round-trip so the UI can render fixed/floating sections and
+ * per-template credit counts together.
+ *
+ * Validates: Requirements 9.1, 9.3
+ */
+export const getMyTemplates = async (req, res) => {
+  try {
+    const [assignments, creditGroups] = await Promise.all([
+      holidayAssignmentService.listAssignmentsForEmployee(req.user._id),
+      holidayCreditService.listCreditsForEmployee(req.user._id),
+    ]);
+
+    const templates = assignments
+      .map((assignment) => assignment.template)
+      .filter((template) => template !== null && template !== undefined);
+
+    return res.status(200).json({
+      message: 'Assigned holiday templates fetched successfully',
+      templates,
+      creditGroups,
+    });
+  } catch (err) {
+    return sendError(res, err, 'getMyTemplates');
+  }
+};
+
+/**
+ * POST /holidays/me/credits/:creditId/redeem
+ * Employee-only endpoint to redeem an `available` credit on `targetDate`.
+ *
+ * Requirement 5.3 — no actor may redeem on behalf of an employee. The role
+ * gate here rejects admins (and any future non-employee role) before the
+ * service is even called; ownership is then enforced inside `redeemCredit`.
+ *
+ * Validates: Requirements 4.1, 5.3
+ */
+export const redeemMyCredit = async (req, res) => {
+  try {
+    if (req.user.role !== 'employee') {
+      return res.status(403).json({
+        message: 'Only employees can redeem holiday credits',
+        code: 'CREDIT_NOT_OWNED',
+      });
+    }
+
+    const credit = await holidayCreditService.redeemCredit({
+      creditId: req.params.creditId,
+      employeeId: req.user._id,
+      targetDate: req.body.targetDate,
+    });
+    return res.status(200).json({
+      message: 'Holiday credit redeemed successfully',
+      credit,
+    });
+  } catch (err) {
+    return sendError(res, err, 'redeemMyCredit');
+  }
+};
+
+/**
+ * POST /holidays/me/credits/:creditId/cancel-redemption
+ * Employee self-cancel; the service enforces ownership via `actorRole`.
+ *
+ * Validates: Requirements 5.1, 5.2, 9.5
+ */
+export const cancelMyRedemption = async (req, res) => {
+  try {
+    const credit = await holidayCreditService.cancelRedemption({
+      creditId: req.params.creditId,
+      actorId: req.user._id,
+      actorRole: 'employee',
+    });
+    return res.status(200).json({
+      message: 'Holiday credit redemption cancelled successfully',
+      credit,
+    });
+  } catch (err) {
+    return sendError(res, err, 'cancelMyRedemption');
   }
 };

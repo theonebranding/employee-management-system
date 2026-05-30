@@ -235,7 +235,9 @@ const EmployeeCard = ({ employee }) => (
           <User className="w-6 h-6 text-primary" />
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-light-text dark:text-dark-text">{employee.name}</h3>
+          <h3 className="text-lg font-semibold text-light-text dark:text-dark-text">
+            {employee.name}
+          </h3>
           <span className="text-sm text-primary-light">{employee.designation || 'N/A'}</span>
         </div>
       </div>

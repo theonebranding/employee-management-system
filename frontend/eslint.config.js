@@ -37,15 +37,24 @@ export default [
         window: 'readonly',
         document: 'readonly',
         localStorage: 'readonly',
+        sessionStorage: 'readonly',
         fetch: 'readonly',
         console: 'readonly',
+        navigator: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
         setInterval: 'readonly',
         clearInterval: 'readonly',
+        requestAnimationFrame: 'readonly',
+        cancelAnimationFrame: 'readonly',
+        Blob: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        FileReader: 'readonly',
+        Image: 'readonly',
+        CustomEvent: 'readonly',
         // React
         React: 'readonly',
-        URLSearchParams: 'readonly',
       },
     },
     settings: {
@@ -117,6 +126,9 @@ export default [
       'jsx-a11y/aria-props': 'error',
 
       // Unused imports and vars cleanup
+      // The base rule is disabled in favor of unused-imports plugin which
+      // supports the underscore ignore pattern and reports as warnings only.
+      'no-unused-vars': 'off',
       'unused-imports/no-unused-imports': 'error',
       'unused-imports/no-unused-vars': [
         'warn',

@@ -9,6 +9,7 @@ import AdminEmployeeProfile from '../pages/admin/dashboard/employees/employeePro
 import AdminHolidays from '../pages/admin/dashboard/holidays';
 import AdminDashboardHome from '../pages/admin/dashboard/home';
 import AdminLeaveManagement from '../pages/admin/dashboard/leaves';
+import AdminAssignLeaveTemplate from '../pages/admin/dashboard/leaves/assign';
 import AdminPayroll from '../pages/admin/dashboard/payroll';
 import AdminReports from '../pages/admin/dashboard/reports';
 import AdminSalaryManagement from '../pages/admin/dashboard/salaries';
@@ -16,21 +17,19 @@ import AdminEmployeeSalaryProfile from '../pages/admin/dashboard/salaries/employ
 import AdminSettings from '../pages/admin/dashboard/settings';
 import AdminSidebar from '../pages/admin/dashboard/sidebar';
 import AdminTasks from '../pages/admin/dashboard/tasks';
-import ConfirmRegistration from '../pages/auth/confirmRegistration';
 import ForgotPassword from '../pages/auth/forgotPassword';
 import Login from '../pages/auth/login';
 import ResetPassword from '../pages/auth/resetPassword';
-import Signup from '../pages/auth/signup';
 import VerifyOtp from '../pages/auth/verifyOtp';
 import Attendance from '../pages/employee/dashboard/attendance';
+import EmployeeDailyWork from '../pages/employee/dashboard/dailyWork';
 import History from '../pages/employee/dashboard/history';
 import Holidays from '../pages/employee/dashboard/holidays';
 import DashboardHome from '../pages/employee/dashboard/home';
 import Leaves from '../pages/employee/dashboard/leaves';
 import Settings from '../pages/employee/dashboard/settings';
-import EmployeeTasks from '../pages/employee/dashboard/tasks';
 import EmployeeSidebar from '../pages/employee/dashboard/sidebar';
-import EmployeeDailyWork from '../pages/employee/dashboard/dailyWork';
+import EmployeeTasks from '../pages/employee/dashboard/tasks';
 import Home from '../pages/home';
 import ProtectedRoute from '../routes/protectedRoute';
 
@@ -41,8 +40,6 @@ const AppRouter = () => {
       <Route path="/" element={<Login />} />
       <Route path="/home" element={<Home />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Signup />} />
-      <Route path="/confirm-registration" element={<ConfirmRegistration />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/verify-otp" element={<VerifyOtp />} />
       <Route path="/reset-password" element={<ResetPassword />} />
@@ -201,6 +198,15 @@ const AppRouter = () => {
           <ProtectedRoute allowedRoles={['admin']}>
             <AdminSidebar isActive="Leaves" />
             <AdminLeaveManagement />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/dashboard/leaves/assign"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminSidebar isActive="Leaves" />
+            <AdminAssignLeaveTemplate />
           </ProtectedRoute>
         }
       />

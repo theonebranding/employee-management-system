@@ -1,7 +1,7 @@
 import 'react-toastify/dist/ReactToastify.css';
 
 import { Moon, Sun } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 
@@ -157,13 +157,6 @@ const Login = () => {
         >
           {isLoading ? 'Logging in...' : 'Log In'}
         </button>
-
-        <p className="mt-6 text-center text-sm text-light-text dark:text-dark-text opacity-70">
-          Don't have an account?{' '}
-          <a href="/signup" className="text-primary hover:underline font-medium">
-            Sign Up
-          </a>
-        </p>
       </form>
 
       <ToastContainer

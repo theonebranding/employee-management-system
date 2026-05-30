@@ -8,7 +8,7 @@ import Header from '../../../../components/pageHeader';
 
 const Settings = () => {
   const IST_OFFSET_MINUTES = 330;
-  const toIstInputDate = (dateValue) => {
+  const toIstInputDate = dateValue => {
     const date = new Date(dateValue);
     if (Number.isNaN(date.getTime())) return '';
     const shifted = new Date(date.getTime() + IST_OFFSET_MINUTES * 60 * 1000);
@@ -64,9 +64,7 @@ const Settings = () => {
           name: employee.name || '',
           email: employee.email || '',
           phoneNumber: employee.phoneNumber || '',
-          dateofBirth: employee.dateofBirth
-            ? toIstInputDate(employee.dateofBirth)
-            : '',
+          dateofBirth: employee.dateofBirth ? toIstInputDate(employee.dateofBirth) : '',
           address: employee.address || '',
           state: employee.state || '',
           city: employee.city || '',
@@ -75,9 +73,7 @@ const Settings = () => {
         },
         professionalInfo: {
           jobRole: employee.jobRole || '',
-          joinedDate: employee.joinedDate
-            ? toIstInputDate(employee.joinedDate)
-            : '',
+          joinedDate: employee.joinedDate ? toIstInputDate(employee.joinedDate) : '',
           serviceTime: employee.serviceTime || '',
         },
         bankAccountInfo: {

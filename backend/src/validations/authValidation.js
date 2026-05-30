@@ -12,24 +12,10 @@ const passwordSchema = z
   .min(6, 'Password must be at least 6 characters')
   .max(128, 'Password must be at most 128 characters');
 
-const otpSchema = z.string().trim().regex(/^\d{6}$/, 'OTP must be a 6-digit number');
-
-export const registerSchema = z
-  .object({
-    name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
-    phoneNumber: z.string().trim().min(7, 'Phone number is too short').max(20),
-    email: emailSchema,
-    password: passwordSchema,
-    role: z.enum(['admin', 'employee']).optional(),
-  })
-  .strict();
-
-export const confirmRegistrationSchema = z
-  .object({
-    email: emailSchema,
-    otp: otpSchema,
-  })
-  .strict();
+const otpSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{6}$/, 'OTP must be a 6-digit number');
 
 export const loginSchema = z
   .object({

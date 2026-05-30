@@ -80,7 +80,9 @@ const AdminEmployeeSalaryProfile = () => {
       baseSalary: salary.baseSalary ?? '',
       bonuses: salary.bonuses ?? 0,
       deductions: salary.deductions ?? 0,
-      effectiveFrom: salary.effectiveFrom ? new Date(salary.effectiveFrom).toISOString().slice(0, 10) : '',
+      effectiveFrom: salary.effectiveFrom
+        ? new Date(salary.effectiveFrom).toISOString().slice(0, 10)
+        : '',
       revisionReason: salary.revisionReason || '',
     });
     setIsEditing(true);
@@ -202,10 +204,19 @@ const AdminEmployeeSalaryProfile = () => {
           <div className="bg-light-card dark:bg-dark-card rounded-xl p-6 shadow-lg space-y-6">
             <h2 className="text-2xl font-bold">Salary Details</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Stat label="Base Salary" value={`₹${Number(latestSalary.baseSalary || 0).toFixed(2)}`} />
+              <Stat
+                label="Base Salary"
+                value={`₹${Number(latestSalary.baseSalary || 0).toFixed(2)}`}
+              />
               <Stat label="Bonuses" value={`₹${Number(latestSalary.bonuses || 0).toFixed(2)}`} />
-              <Stat label="Deductions" value={`₹${Number(latestSalary.deductions || 0).toFixed(2)}`} />
-              <Stat label="Total Salary" value={`₹${Number(latestSalary.totalSalary || 0).toFixed(2)}`} />
+              <Stat
+                label="Deductions"
+                value={`₹${Number(latestSalary.deductions || 0).toFixed(2)}`}
+              />
+              <Stat
+                label="Total Salary"
+                value={`₹${Number(latestSalary.totalSalary || 0).toFixed(2)}`}
+              />
               <Stat
                 label="Effective From"
                 value={
@@ -262,7 +273,13 @@ const AdminEmployeeSalaryProfile = () => {
         />
       )}
 
-      <ToastContainer theme={theme} position="top-right" pauseOnHover={false} limit={1} autoClose={2000} />
+      <ToastContainer
+        theme={theme}
+        position="top-right"
+        pauseOnHover={false}
+        limit={1}
+        autoClose={2000}
+      />
     </div>
   );
 };

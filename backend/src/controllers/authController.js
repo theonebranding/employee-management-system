@@ -3,12 +3,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import Admin from '../models/adminSchema.js';
 import Employee from '../models/employeeSchema.js';
-import {
-  sendOtpEmail,
-  sendRegistrationSuccessEmail,
-  sendResetPasswordEmail,
-  sendResetPasswordSuccessEmail,
-} from '../services/emailService.js';
+import { sendResetPasswordEmail, sendResetPasswordSuccessEmail } from '../services/emailService.js';
 import { generateTokens } from '../utils/tokenutils.js';
 
 const isProduction = process.env.NODE_ENV === 'production';
@@ -17,114 +12,6 @@ const refreshTokenCookieOptions = {
   secure: isProduction,
   sameSite: isProduction ? 'strict' : 'lax',
   maxAge: 7 * 24 * 60 * 60 * 1000,
-};
-
-// Register User with OTP
-export const register = async (req, res) => {
-  let { name, phoneNumber, email, password, role } = req.body;
-
-  // Validate request
-  if (!name || !phoneNumber || !email || !password) {
-    return res.status(400).json({ message: 'All fields are required' });
-  }
-
-  // Set default role to 'employee'
-  if (!role) {
-    role = 'employee';
-  }
-
-  if (!['admin', 'employee'].includes(role)) {
-    return res.status(400).json({ message: 'Invalid role' });
-  }
-
-  try {
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Generate OTP
-    const otp = crypto.randomInt(100000, 999999).toString();
-    // console.log('Generated OTP:', otp);
-    const hashedOtp = await bcrypt.hash(otp, salt);
-    const otpExpires = Date.now() + 15 * 60 * 1000; // OTP expires in 15 minutes
-
-    let newUser;
-
-    if (role === 'admin') {
-      newUser = new Admin({
-        email,
-        password: hashedPassword,
-        name,
-        phoneNumber,
-        otp: hashedOtp,
-        otpExpires,
-      });
-    } else {
-      newUser = new Employee({
-        email,
-        password: hashedPassword,
-        name,
-        phoneNumber,
-        otp: hashedOtp,
-        otpExpires,
-      });
-    }
-
-    await newUser.save();
-
-    // Send OTP via email
-    await sendOtpEmail(email, 'Confirm Your Registration for The One Branding', `${otp}`);
-
-    return res.status(201).json({ message: 'Email sent. Please verify your OTP.' });
-  } catch (err) {
-    console.error('Error details:', err); // Log full error
-    res.status(500).json({ message: 'Error registering user!', error: err.message || err });
-  }
-};
-
-// Confirm Registration with OTP
-export const confirmRegistration = async (req, res) => {
-  const { email, otp } = req.body;
-
-  if (!email || !otp) {
-    return res.status(400).json({ message: 'Email and OTP are required' });
-  }
-
-  try {
-    const user = (await Admin.findOne({ email })) || (await Employee.findOne({ email }));
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    // Check if OTP is expired
-    if (user.otpExpires < Date.now()) {
-      // Delete user if OTP expires
-      await (user.role === 'admin' ? Admin : Employee).deleteOne({ email });
-      return res.status(400).json({ message: 'OTP has expired. Registration failed.' });
-    }
-
-    // Validate the entered OTP
-    const isOtpValid = await bcrypt.compare(otp, user.otp);
-    if (!isOtpValid) {
-      // Delete user if OTP is invalid
-      await (user.role === 'admin' ? Admin : Employee).deleteOne({ email });
-      return res.status(400).json({ message: 'Invalid OTP. Registration failed.' });
-    }
-
-    // Clear OTP after successful verification
-    user.otp = null;
-    user.otpExpires = null;
-    user.isVerified = true;
-    await user.save();
-
-    // Send confirmation email
-    await sendRegistrationSuccessEmail(
-      email,
-      'Registration Confirmed for The One Branding',
-      'Your registration has been confirmed. You can now log in.'
-    );
-
-    return res.status(200).json({ message: 'Registration confirmed successfully' });
-  } catch (err) {
-    res.status(500).json({ message: 'Error verifying OTP', error: err });
-  }
 };
 
 // Login User

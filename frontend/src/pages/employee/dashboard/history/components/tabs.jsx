@@ -1,35 +1,33 @@
-/* eslint-disable sonarjs/no-duplicate-string */
-import { AlertTriangle, CheckSquare } from 'lucide-react';
+import { AlertTriangle, CheckSquare, UserX } from 'lucide-react';
 import React from 'react';
 
 const Tabs = ({ activeTab, setActiveTab }) => {
+  const baseClass = 'pb-4 px-4 font-semibold transition-all flex items-center gap-2';
+  const activeClass = 'text-warning border-b-2 border-warning';
+  const inactiveClass = 'text-light-text dark:text-dark-text hover:text-warning';
+
   return (
     <div className="flex gap-4 mb-6 border-b border-light-border dark:border-dark-border">
       <button
         onClick={() => setActiveTab('attendance')}
-        className={`pb-4 px-4 font-semibold transition-all ${
-          activeTab === 'attendance'
-            ? 'text-warning border-b-2 border-warning'
-            : 'text-light-text dark:text-dark-text hover:text-warning'
-        }`}
+        className={`${baseClass} ${activeTab === 'attendance' ? activeClass : inactiveClass}`}
       >
-        <div className="flex items-center gap-2">
-          <CheckSquare className="w-5 h-5" />
-          Attendance Records
-        </div>
+        <CheckSquare className="w-5 h-5" />
+        Attendance Records
       </button>
       <button
         onClick={() => setActiveTab('late')}
-        className={`pb-4 px-4 font-semibold transition-all ${
-          activeTab === 'late'
-            ? 'text-warning border-b-2 border-warning'
-            : 'text-light-text dark:text-dark-text hover:text-warning'
-        }`}
+        className={`${baseClass} ${activeTab === 'late' ? activeClass : inactiveClass}`}
       >
-        <div className="flex items-center gap-2">
-          <AlertTriangle className="w-5 h-5" />
-          Late Check-ins
-        </div>
+        <AlertTriangle className="w-5 h-5" />
+        Late Check-ins
+      </button>
+      <button
+        onClick={() => setActiveTab('absent')}
+        className={`${baseClass} ${activeTab === 'absent' ? activeClass : inactiveClass}`}
+      >
+        <UserX className="w-5 h-5" />
+        Absent Days
       </button>
     </div>
   );
