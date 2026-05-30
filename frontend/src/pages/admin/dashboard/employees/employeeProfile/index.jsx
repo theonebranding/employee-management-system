@@ -1,5 +1,3 @@
-/* eslint-disable unused-imports/no-unused-vars */
-/* eslint-disable no-unused-vars */
 import { AlertTriangle, ArrowLeft, FileBarChart2, Loader2 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -50,13 +48,10 @@ const AdminEmployeeProfile = () => {
 
     setDeleteLoading(true);
     try {
-      const response = await fetch(
-        `${BASE_URL}/employee/delete-by-code/${employeeCode}`,
-        {
+      const response = await fetch(`${BASE_URL}/employee/delete-by-code/${employeeCode}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        }
-      );
+      });
 
       if (!response.ok) throw new Error('Failed to delete employee');
 
@@ -102,9 +97,7 @@ const AdminEmployeeProfile = () => {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() =>
-                navigate(`/admin/dashboard/reports?tab=attendance&employee=${id}`)
-              }
+              onClick={() => navigate(`/admin/dashboard/reports?tab=attendance&employee=${id}`)}
               className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all duration-200 text-white font-medium flex items-center gap-2"
               aria-label="View attendance reports for this employee"
             >

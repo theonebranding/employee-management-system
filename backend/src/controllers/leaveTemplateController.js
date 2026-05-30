@@ -66,7 +66,9 @@ export const getLeaveTemplates = async (req, res) => {
     const templates = await LeaveTemplate.find().sort({ createdAt: -1 });
     return res.status(200).json({ message: 'Leave templates fetched', templates });
   } catch (error) {
-    return res.status(500).json({ message: 'Error fetching leave templates', error: error.message });
+    return res
+      .status(500)
+      .json({ message: 'Error fetching leave templates', error: error.message });
   }
 };
 

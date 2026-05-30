@@ -21,7 +21,12 @@ router.delete('/templates/:templateId', verifyToken, checkRole(['admin']), delet
 
 router.get('/employees', verifyToken, checkRole(['admin']), getEmployeesWithTemplate);
 router.post('/assign', verifyToken, checkRole(['admin']), assignLeaveTemplate);
-router.get('/employee-template/:employeeId', verifyToken, checkRole(['admin']), getEmployeeLeaveTemplate);
+router.get(
+  '/employee-template/:employeeId',
+  verifyToken,
+  checkRole(['admin']),
+  getEmployeeLeaveTemplate
+);
 router.get('/my-template', verifyToken, checkRole(['employee']), getMyLeaveTemplate);
 
 export default router;

@@ -1,4 +1,3 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle,
@@ -11,10 +10,11 @@ import {
   Trash2,
   User,
 } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 
-import Header from '../../../../components/pageHeader';
 import Modal from '../../../../components/Modal';
+import Header from '../../../../components/pageHeader';
 
 const AdminTasks = () => {
   const [tasks, setTasks] = useState([]);
@@ -109,7 +109,8 @@ const AdminTasks = () => {
   const availableEmployees = useMemo(() => {
     return employees.filter(emp => {
       if (formData.targetDepartment && emp.department !== formData.targetDepartment) return false;
-      if (formData.targetDesignation && emp.designation !== formData.targetDesignation) return false;
+      if (formData.targetDesignation && emp.designation !== formData.targetDesignation)
+        return false;
       return true;
     });
   }, [employees, formData.targetDepartment, formData.targetDesignation]);
@@ -226,7 +227,9 @@ const AdminTasks = () => {
     setComments([]);
     setCommentText('');
     try {
-      const response = await fetch(`${BASE_URL}/tasks/${task._id}/comments`, { headers: authHeaders });
+      const response = await fetch(`${BASE_URL}/tasks/${task._id}/comments`, {
+        headers: authHeaders,
+      });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.message || 'Failed to fetch comments');
       setComments(data.comments || []);
@@ -317,12 +320,17 @@ const AdminTasks = () => {
   return (
     <div className="min-h-screen px-6 py-6 lg:ml-16 bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text">
       <div className="max-w-7xl mx-auto space-y-6">
-        <Header title="Tasks" description="Manage and assign tasks by employee, department and designation." />
+        <Header
+          title="Tasks"
+          description="Manage and assign tasks by employee, department and designation."
+        />
 
         <div className="flex items-center justify-between gap-4 flex-wrap bg-light-card dark:bg-dark-card rounded-xl border border-light-border dark:border-dark-border p-4">
           <div>
             <h2 className="text-2xl font-bold">Task Management</h2>
-            <p className="text-sm text-light-text/60 dark:text-dark-text/60">{filteredTasks.length} tasks found</p>
+            <p className="text-sm text-light-text/60 dark:text-dark-text/60">
+              {filteredTasks.length} tasks found
+            </p>
           </div>
           <button
             onClick={handleAddTask}
@@ -336,7 +344,9 @@ const AdminTasks = () => {
           <h3 className="font-semibold">Filters & Search</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">Search</label>
+              <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">
+                Search
+              </label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-light-text/40" />
                 <input
@@ -349,7 +359,9 @@ const AdminTasks = () => {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">Status</label>
+              <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">
+                Status
+              </label>
               <select
                 value={filterStatus}
                 onChange={e => setFilterStatus(e.target.value)}
@@ -363,7 +375,9 @@ const AdminTasks = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">Priority</label>
+              <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">
+                Priority
+              </label>
               <select
                 value={filterPriority}
                 onChange={e => setFilterPriority(e.target.value)}
@@ -380,12 +394,35 @@ const AdminTasks = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[
-            { label: 'Completed', value: tasks.filter(t => t.status === 'completed').length, icon: CheckCircle, color: 'text-success' },
-            { label: 'In Progress', value: tasks.filter(t => t.status === 'in-progress').length, icon: Clock, color: 'text-info' },
-            { label: 'Pending', value: tasks.filter(t => t.status === 'pending').length, icon: AlertCircle, color: 'text-warning' },
-            { label: 'High Priority', value: tasks.filter(t => t.priority === 'high').length, icon: AlertCircle, color: 'text-danger' },
+            {
+              label: 'Completed',
+              value: tasks.filter(t => t.status === 'completed').length,
+              icon: CheckCircle,
+              color: 'text-success',
+            },
+            {
+              label: 'In Progress',
+              value: tasks.filter(t => t.status === 'in-progress').length,
+              icon: Clock,
+              color: 'text-info',
+            },
+            {
+              label: 'Pending',
+              value: tasks.filter(t => t.status === 'pending').length,
+              icon: AlertCircle,
+              color: 'text-warning',
+            },
+            {
+              label: 'High Priority',
+              value: tasks.filter(t => t.priority === 'high').length,
+              icon: AlertCircle,
+              color: 'text-danger',
+            },
           ].map((stat, idx) => (
-            <div key={idx} className="bg-light-card dark:bg-dark-card rounded-xl border border-light-border dark:border-dark-border p-4">
+            <div
+              key={idx}
+              className="bg-light-card dark:bg-dark-card rounded-xl border border-light-border dark:border-dark-border p-4"
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-light-text/60 dark:text-dark-text/60">{stat.label}</p>
@@ -399,55 +436,81 @@ const AdminTasks = () => {
 
         <div className="bg-light-card dark:bg-dark-card rounded-xl border border-light-border dark:border-dark-border overflow-hidden">
           {loading ? (
-            <div className="p-8 text-center text-light-text/60 dark:text-dark-text/60">Loading tasks...</div>
+            <div className="p-8 text-center text-light-text/60 dark:text-dark-text/60">
+              Loading tasks...
+            </div>
           ) : filteredTasks.length > 0 ? (
             <div className="relative group/table">
               <div ref={tasksTableScrollRef} className="overflow-x-auto">
                 <table className="min-w-full">
-                <thead className="bg-light-bg/70 dark:bg-dark-bg/70 border-b border-light-border dark:border-dark-border text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
-                  <tr>
-                    <th className="px-6 py-3 text-left font-semibold">Title</th>
-                    <th className="px-6 py-3 text-left font-semibold">Assignment</th>
-                    <th className="px-6 py-3 text-left font-semibold">Priority</th>
-                    <th className="px-6 py-3 text-left font-semibold">Status</th>
-                    <th className="px-6 py-3 text-left font-semibold">Due Date</th>
-                    <th className="px-6 py-3 text-left font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTasks.map(task => (
-                    <tr key={task._id} className="border-b border-light-border dark:border-dark-border hover:bg-light-bg/40 dark:hover:bg-dark-bg/40">
-                      <td className="px-6 py-4">
-                        <p className="font-medium">{task.title}</p>
-                        <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-1">{task.description?.substring(0, 80) || 'No description'}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <User className="w-4 h-4 text-light-text/40" />
-                          <span className="text-sm">{getAssignmentTarget(task)}</span>
-                        </div>
-                      </td>
-                      <td className={`px-6 py-4 text-sm font-medium ${getPriorityColor(task.priority)}`}>{task.priority}</td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>{task.status}</span>
-                      </td>
-                      <td className="px-6 py-4 text-sm">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex gap-2">
-                          <button onClick={() => openComments(task)} className="p-2 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg transition-colors">
-                            <MessageSquare className="w-4 h-4 text-primary" />
-                          </button>
-                          <button onClick={() => handleEditTask(task)} className="p-2 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg transition-colors">
-                            <Edit className="w-4 h-4 text-info" />
-                          </button>
-                          <button onClick={() => handleDeleteTask(task._id)} className="p-2 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg transition-colors">
-                            <Trash2 className="w-4 h-4 text-danger" />
-                          </button>
-                        </div>
-                      </td>
+                  <thead className="bg-light-bg/70 dark:bg-dark-bg/70 border-b border-light-border dark:border-dark-border text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
+                    <tr>
+                      <th className="px-6 py-3 text-left font-semibold">Title</th>
+                      <th className="px-6 py-3 text-left font-semibold">Assignment</th>
+                      <th className="px-6 py-3 text-left font-semibold">Priority</th>
+                      <th className="px-6 py-3 text-left font-semibold">Status</th>
+                      <th className="px-6 py-3 text-left font-semibold">Due Date</th>
+                      <th className="px-6 py-3 text-left font-semibold">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
+                  </thead>
+                  <tbody>
+                    {filteredTasks.map(task => (
+                      <tr
+                        key={task._id}
+                        className="border-b border-light-border dark:border-dark-border hover:bg-light-bg/40 dark:hover:bg-dark-bg/40"
+                      >
+                        <td className="px-6 py-4">
+                          <p className="font-medium">{task.title}</p>
+                          <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-1">
+                            {task.description?.substring(0, 80) || 'No description'}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4 text-light-text/40" />
+                            <span className="text-sm">{getAssignmentTarget(task)}</span>
+                          </div>
+                        </td>
+                        <td
+                          className={`px-6 py-4 text-sm font-medium ${getPriorityColor(task.priority)}`}
+                        >
+                          {task.priority}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}
+                          >
+                            {task.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm">
+                          {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => openComments(task)}
+                              className="p-2 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg transition-colors"
+                            >
+                              <MessageSquare className="w-4 h-4 text-primary" />
+                            </button>
+                            <button
+                              onClick={() => handleEditTask(task)}
+                              className="p-2 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg transition-colors"
+                            >
+                              <Edit className="w-4 h-4 text-info" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTask(task._id)}
+                              className="p-2 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4 text-danger" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
                 </table>
               </div>
               <div
@@ -464,15 +527,24 @@ const AdminTasks = () => {
               />
             </div>
           ) : (
-            <div className="p-8 text-center text-light-text/60 dark:text-dark-text/60">No tasks found. Create your first task!</div>
+            <div className="p-8 text-center text-light-text/60 dark:text-dark-text/60">
+              No tasks found. Create your first task!
+            </div>
           )}
         </div>
       </div>
 
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingTask ? 'Edit Task' : 'Create New Task'} size="xl">
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title={editingTask ? 'Edit Task' : 'Create New Task'}
+        size="xl"
+      >
         <div className="space-y-4">
-            <div>
-            <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">Title *</label>
+          <div>
+            <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">
+              Title *
+            </label>
             <input
               type="text"
               value={formData.title}
@@ -482,7 +554,9 @@ const AdminTasks = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">Description</label>
+            <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">
+              Description
+            </label>
             <textarea
               value={formData.description}
               onChange={e => setFormData({ ...formData, description: e.target.value })}
@@ -490,11 +564,13 @@ const AdminTasks = () => {
               rows="4"
               className="w-full px-4 py-2.5 rounded-lg bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border placeholder:text-light-text/40"
             />
-            </div>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-              <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">Specific Employee (Optional)</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">
+                Specific Employee (Optional)
+              </label>
               <select
                 value={formData.assignedTo}
                 onChange={e => {
@@ -515,12 +591,17 @@ const AdminTasks = () => {
               >
                 <option value="">None</option>
                 {availableEmployees.map(emp => (
-                  <option key={emp._id} value={emp._id}>{`${emp.name} (${emp.employeeCode || emp._id})`}</option>
+                  <option
+                    key={emp._id}
+                    value={emp._id}
+                  >{`${emp.name} (${emp.employeeCode || emp._id})`}</option>
                 ))}
               </select>
-              </div>
-              <div>
-              <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">Department</label>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">
+                Department
+              </label>
               <select
                 value={formData.targetDepartment}
                 onChange={e =>
@@ -535,12 +616,16 @@ const AdminTasks = () => {
               >
                 <option value="">All Departments</option>
                 {masterOptions.departments.map(option => (
-                  <option key={option} value={option}>{option}</option>
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
                 ))}
               </select>
-              </div>
-              <div>
-              <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">Designation</label>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">
+                Designation
+              </label>
               <select
                 value={formData.targetDesignation}
                 onChange={e =>
@@ -554,12 +639,16 @@ const AdminTasks = () => {
               >
                 <option value="">All Designations</option>
                 {availableDesignations.map(option => (
-                  <option key={option} value={option}>{option}</option>
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
                 ))}
               </select>
-              </div>
-              <div>
-              <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">Priority</label>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">
+                Priority
+              </label>
               <select
                 value={formData.priority}
                 onChange={e => setFormData({ ...formData, priority: e.target.value })}
@@ -569,9 +658,11 @@ const AdminTasks = () => {
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
               </select>
-              </div>
-              <div>
-              <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">Status</label>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">
+                Status
+              </label>
               <select
                 value={formData.status}
                 onChange={e => setFormData({ ...formData, status: e.target.value })}
@@ -582,18 +673,20 @@ const AdminTasks = () => {
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
               </select>
-              </div>
-              <div>
-              <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">Due Date</label>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70 mb-2">
+                Due Date
+              </label>
               <input
                 type="date"
                 value={formData.dueDate}
                 onChange={e => setFormData({ ...formData, dueDate: e.target.value })}
                 className="w-full px-4 py-2.5 rounded-lg bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border"
               />
-              </div>
             </div>
-            <div className="flex gap-3 justify-end pt-4 border-t border-light-border/70 dark:border-dark-border">
+          </div>
+          <div className="flex gap-3 justify-end pt-4 border-t border-light-border/70 dark:border-dark-border">
             <button
               onClick={() => setShowModal(false)}
               className="px-4 py-2.5 rounded-lg border border-light-border dark:border-dark-border hover:bg-light-bg dark:hover:bg-dark-bg transition-colors"
@@ -606,18 +699,26 @@ const AdminTasks = () => {
             >
               {editingTask ? 'Update Task' : 'Create Task'}
             </button>
-            </div>
+          </div>
         </div>
       </Modal>
 
-      <Modal isOpen={showCommentsModal} onClose={() => setShowCommentsModal(false)} title={activeTask ? `Comments - ${activeTask.title}` : 'Comments'} size="lg">
+      <Modal
+        isOpen={showCommentsModal}
+        onClose={() => setShowCommentsModal(false)}
+        title={activeTask ? `Comments - ${activeTask.title}` : 'Comments'}
+        size="lg"
+      >
         <div className="space-y-3">
           <div className="max-h-72 overflow-y-auto space-y-2 border border-light-border dark:border-dark-border rounded-lg p-3 bg-light-bg dark:bg-dark-bg">
             {comments.length === 0 ? (
               <p className="text-sm text-light-text/60 dark:text-dark-text/60">No comments yet.</p>
             ) : (
               comments.map(comment => (
-                <div key={comment._id} className="border border-light-border dark:border-dark-border rounded-lg p-2 bg-light-card dark:bg-dark-card">
+                <div
+                  key={comment._id}
+                  className="border border-light-border dark:border-dark-border rounded-lg p-2 bg-light-card dark:bg-dark-card"
+                >
                   <p className="text-xs text-light-text/60 dark:text-dark-text/60 mb-1">
                     {comment.authorModel} - {comment.author?.name || 'Unknown'}
                   </p>
@@ -634,7 +735,10 @@ const AdminTasks = () => {
               placeholder="Write a comment..."
               className="flex-1 px-3 py-2 rounded-lg bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border"
             />
-            <button onClick={addComment} className="px-3 py-2 rounded-lg bg-primary text-white inline-flex items-center gap-1">
+            <button
+              onClick={addComment}
+              className="px-3 py-2 rounded-lg bg-primary text-white inline-flex items-center gap-1"
+            >
               <Send className="w-4 h-4" /> Send
             </button>
           </div>

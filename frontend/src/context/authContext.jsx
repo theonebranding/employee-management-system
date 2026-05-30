@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }) => {
   // };
 
   // Check authentication on mount and update when login/logout happens
-  useEffect(() => {
+  (useEffect(() => {
     const checkAuth = async () => {
       let token = localStorage.getItem('token');
 
@@ -68,7 +68,7 @@ export const AuthProvider = ({ children }) => {
     };
     checkAuth();
   }),
-    [];
+    []);
   const login = (token, role, _id, email) => {
     // Save to localStorage
     localStorage.setItem('token', token);

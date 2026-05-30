@@ -1,19 +1,8 @@
 import 'react-toastify/dist/ReactToastify.css';
 
-import {
-  BadgeDollarSign,
-  Calculator,
-  CheckCircle2,
-  ChevronRight,
-  Download,
-  Loader2,
-  Search,
-  X,
-} from 'lucide-react';
+import { Calculator, CheckCircle2, Download, Loader2, Search, X } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
-
-import Header from '../../../../components/pageHeader';
 
 const AdminPayroll = () => {
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
@@ -57,14 +46,14 @@ const AdminPayroll = () => {
     [month, year]
   );
   const isPayrollPaidLocked = selectedEmployee?.payroll?.status === 'paid';
-  const toIstMonthYear = (date) => {
+  const toIstMonthYear = date => {
     const shifted = new Date(date.getTime() + 330 * 60 * 1000);
     return {
       month: shifted.getUTCMonth() + 1,
       year: shifted.getUTCFullYear(),
     };
   };
-  const getJoinedYearMonth = (employee) => {
+  const getJoinedYearMonth = employee => {
     const joinedValue = employee?.joinedDate || employee?.dateOfJoining || employee?.createdAt;
 
     if (joinedValue instanceof Date) {
@@ -87,7 +76,7 @@ const AdminPayroll = () => {
     if (Number.isNaN(parsed.getTime())) return null;
     return toIstMonthYear(parsed);
   };
-  const isEmployeeEligibleForSelectedMonth = (employee) => {
+  const isEmployeeEligibleForSelectedMonth = employee => {
     const joined = getJoinedYearMonth(employee);
     if (!joined) return true;
 
@@ -137,31 +126,29 @@ const AdminPayroll = () => {
 
   const eligibleEmployees = employees.filter(isEmployeeEligibleForSelectedMonth);
 
-  const filteredEmployees = eligibleEmployees.filter((employee) => {
+  const filteredEmployees = eligibleEmployees.filter(employee => {
     const query = searchQuery.toLowerCase();
     const payrollStatus = payrollMap[employee._id]?.status || 'unpaid';
     const matchesStatus = statusFilter === 'all' || payrollStatus === statusFilter;
     return (
-      employee.name.toLowerCase().includes(query) ||
-      employee.email.toLowerCase().includes(query)
-    ) && matchesStatus;
+      (employee.name.toLowerCase().includes(query) ||
+        employee.email.toLowerCase().includes(query)) &&
+      matchesStatus
+    );
   });
 
   const payrollStats = useMemo(() => {
     const paidCount = payrolls.filter(payroll => payroll.status === 'paid').length;
     const processedCount = payrolls.length;
     const pendingCount = Math.max(0, eligibleEmployees.length - processedCount);
-    const totalNet = payrolls.reduce(
-      (sum, payroll) => sum + Number(payroll.totalSalary || 0),
-      0
-    );
+    const totalNet = payrolls.reduce((sum, payroll) => sum + Number(payroll.totalSalary || 0), 0);
     return { paidCount, processedCount, pendingCount, totalNet };
   }, [eligibleEmployees.length, payrolls]);
 
   const headerFont = { fontFamily: '"Plus Jakarta Sans", "Segoe UI", sans-serif' };
   const displayFont = { fontFamily: '"DM Serif Display", Georgia, serif' };
 
-  const fetchLatestPayrollForEmployee = async (employeeId) => {
+  const fetchLatestPayrollForEmployee = async employeeId => {
     const response = await fetch(
       `${BASE_URL}/payroll/employee/${employeeId}?month=${month}&year=${year}`,
       { headers: authHeaders }
@@ -171,7 +158,7 @@ const AdminPayroll = () => {
     return (data.payrolls || [])[0] || null;
   };
 
-  const openPanel = async (employee) => {
+  const openPanel = async employee => {
     const payroll = payrollMap[employee._id];
     setSelectedEmployee({ ...employee, payroll });
     setFormState({
@@ -184,9 +171,9 @@ const AdminPayroll = () => {
     setIsPanelOpen(true);
     try {
       const latestPayroll = await fetchLatestPayrollForEmployee(employee._id);
-      setSelectedEmployee((prev) => (prev ? { ...prev, payroll: latestPayroll } : prev));
+      setSelectedEmployee(prev => (prev ? { ...prev, payroll: latestPayroll } : prev));
       if (latestPayroll) {
-        setFormState((prev) => ({
+        setFormState(prev => ({
           ...prev,
           overtimeHours: latestPayroll?.overtimeHours || 0,
           penalties: latestPayroll?.penalties || 0,
@@ -206,12 +193,12 @@ const AdminPayroll = () => {
     setPanelDeductions({ lateCheckin: 0, halfDay: 0, absent: 0 });
   };
 
-  const formatDatePart = (value) => String(value).padStart(2, '0');
+  const formatDatePart = value => String(value).padStart(2, '0');
 
   const toRequestDate = (yearValue, monthValue, dayValue) =>
     `${formatDatePart(dayValue)}-${formatDatePart(monthValue)}-${yearValue}`;
 
-  const fetchPanelDeductions = async (employeeId) => {
+  const fetchPanelDeductions = async employeeId => {
     try {
       const startDate = toRequestDate(year, month, 1);
       const lastDay = new Date(year, month, 0).getDate();
@@ -258,7 +245,7 @@ const AdminPayroll = () => {
     const syncLatest = async () => {
       try {
         const latestPayroll = await fetchLatestPayrollForEmployee(selectedEmployee._id);
-        setSelectedEmployee((prev) => (prev ? { ...prev, payroll: latestPayroll } : prev));
+        setSelectedEmployee(prev => (prev ? { ...prev, payroll: latestPayroll } : prev));
       } catch (error) {
         // Ignore passive sync failures
       }
@@ -292,11 +279,11 @@ const AdminPayroll = () => {
       }
       const data = await response.json();
       toast.success('Payroll processed successfully.');
-      setPayrolls((prev) => {
-        const updated = prev.filter((item) => item._id !== data.payroll._id);
+      setPayrolls(prev => {
+        const updated = prev.filter(item => item._id !== data.payroll._id);
         return [data.payroll, ...updated];
       });
-      setSelectedEmployee((prev) => (prev ? { ...prev, payroll: data.payroll } : prev));
+      setSelectedEmployee(prev => (prev ? { ...prev, payroll: data.payroll } : prev));
     } catch (error) {
       toast.error(error.message || 'Failed to process payroll.');
     }
@@ -344,9 +331,7 @@ const AdminPayroll = () => {
           <p className="text-xs uppercase tracking-[0.2em] text-light-text/60 dark:text-dark-text/60">
             Payroll Detail
           </p>
-          <h2 className="text-xl font-semibold">
-            {selectedEmployee?.name || 'Select Employee'}
-          </h2>
+          <h2 className="text-xl font-semibold">{selectedEmployee?.name || 'Select Employee'}</h2>
           {selectedEmployee ? (
             <p className="text-sm text-light-text/60 dark:text-dark-text/60">
               {selectedEmployee.email}
@@ -375,214 +360,214 @@ const AdminPayroll = () => {
 
           return (
             <>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-              Overtime Hours
-            </label>
-            <input
-              type="number"
-              value={formState.overtimeHours}
-              disabled={isPayrollPaidLocked}
-              onChange={(e) =>
-                setFormState((prev) => ({ ...prev, overtimeHours: Number(e.target.value) }))
-              }
-              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
-            />
-          </div>
-          <div>
-            <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-              Penalties
-            </label>
-            <input
-              type="number"
-              value={formState.penalties}
-              disabled={isPayrollPaidLocked}
-              onChange={(e) =>
-                setFormState((prev) => ({ ...prev, penalties: Number(e.target.value) }))
-              }
-              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
-            />
-          </div>
-          <div>
-            <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-              Loan Amount
-            </label>
-            <input
-              type="number"
-              value={formState.loanAmount}
-              disabled={isPayrollPaidLocked}
-              onChange={(e) =>
-                setFormState((prev) => ({ ...prev, loanAmount: Number(e.target.value) }))
-              }
-              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
-            />
-          </div>
-          <div>
-            <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-              Extra Amount
-            </label>
-            <input
-              type="number"
-              value={formState.extraAmount}
-              disabled={isPayrollPaidLocked}
-              onChange={(e) =>
-                setFormState((prev) => ({ ...prev, extraAmount: Number(e.target.value) }))
-              }
-              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
-            />
-          </div>
-        </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                    Overtime Hours
+                  </label>
+                  <input
+                    type="number"
+                    value={formState.overtimeHours}
+                    disabled={isPayrollPaidLocked}
+                    onChange={e =>
+                      setFormState(prev => ({ ...prev, overtimeHours: Number(e.target.value) }))
+                    }
+                    className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                    Penalties
+                  </label>
+                  <input
+                    type="number"
+                    value={formState.penalties}
+                    disabled={isPayrollPaidLocked}
+                    onChange={e =>
+                      setFormState(prev => ({ ...prev, penalties: Number(e.target.value) }))
+                    }
+                    className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                    Loan Amount
+                  </label>
+                  <input
+                    type="number"
+                    value={formState.loanAmount}
+                    disabled={isPayrollPaidLocked}
+                    onChange={e =>
+                      setFormState(prev => ({ ...prev, loanAmount: Number(e.target.value) }))
+                    }
+                    className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                    Extra Amount
+                  </label>
+                  <input
+                    type="number"
+                    value={formState.extraAmount}
+                    disabled={isPayrollPaidLocked}
+                    onChange={e =>
+                      setFormState(prev => ({ ...prev, extraAmount: Number(e.target.value) }))
+                    }
+                    className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
+                  />
+                </div>
+              </div>
 
-        <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
-          <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-            Penalty Summary
-          </p>
-          <div className="flex items-center justify-between text-sm">
-            <span>Late Check-in Deduction</span>
-            <span>₹{lateCheckinDeduction.toFixed(2)}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Half Day Deduction</span>
-            <span>₹{halfDayDeduction.toFixed(2)}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Absent Day Deduction</span>
-            <span>₹{absentDeduction.toFixed(2)}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Manual Penalties</span>
-            <span>₹{manualPenalty.toFixed(2)}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Total Penalty</span>
-            <span>₹{totalPenalty.toFixed(2)}</span>
-          </div>
-        </div>
+              <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
+                <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                  Penalty Summary
+                </p>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Late Check-in Deduction</span>
+                  <span>₹{lateCheckinDeduction.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Half Day Deduction</span>
+                  <span>₹{halfDayDeduction.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Absent Day Deduction</span>
+                  <span>₹{absentDeduction.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Manual Penalties</span>
+                  <span>₹{manualPenalty.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Total Penalty</span>
+                  <span>₹{totalPenalty.toFixed(2)}</span>
+                </div>
+              </div>
 
-        <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
-          <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-            Overtime Summary
-          </p>
-          <div className="flex items-center justify-between text-sm">
-            <span>Overtime Hours</span>
-            <span>{overtimeHours.toFixed(2)}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Overtime Amount</span>
-            <span>₹{overtimeAmount.toFixed(2)}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Extras Amount</span>
-            <span>₹{extraAmount.toFixed(2)}</span>
-          </div>
-        </div>
+              <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
+                <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                  Overtime Summary
+                </p>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Overtime Hours</span>
+                  <span>{overtimeHours.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Overtime Amount</span>
+                  <span>₹{overtimeAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Extras Amount</span>
+                  <span>₹{extraAmount.toFixed(2)}</span>
+                </div>
+              </div>
 
-        <div>
-          <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-            Status
-          </label>
-          <select
-            value={formState.status}
-            disabled={isPayrollPaidLocked}
-            onChange={(e) => setFormState((prev) => ({ ...prev, status: e.target.value }))}
-            className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
-          >
-            <option value="unpaid">Unpaid</option>
-            <option value="paid">Paid</option>
-          </select>
-        </div>
+              <div>
+                <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                  Status
+                </label>
+                <select
+                  value={formState.status}
+                  disabled={isPayrollPaidLocked}
+                  onChange={e => setFormState(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
+                >
+                  <option value="unpaid">Unpaid</option>
+                  <option value="paid">Paid</option>
+                </select>
+              </div>
 
-        <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
-          <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-            Attendance Summary
-          </p>
-          <div className="flex items-center justify-between text-sm">
-            <span>Full Days</span>
-            <span>{selectedEmployee?.payroll?.fullDays || 0}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Half Days</span>
-            <span>{selectedEmployee?.payroll?.halfDays || 0}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Paid Leaves</span>
-            <span>{selectedEmployee?.payroll?.paidLeaves || 0}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Unpaid Days</span>
-            <span>{selectedEmployee?.payroll?.unpaidDays || 0}</span>
-          </div>
-        </div>
+              <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
+                <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                  Attendance Summary
+                </p>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Full Days</span>
+                  <span>{selectedEmployee?.payroll?.fullDays || 0}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Half Days</span>
+                  <span>{selectedEmployee?.payroll?.halfDays || 0}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Paid Leaves</span>
+                  <span>{selectedEmployee?.payroll?.paidLeaves || 0}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Unpaid Days</span>
+                  <span>{selectedEmployee?.payroll?.unpaidDays || 0}</span>
+                </div>
+              </div>
 
-        <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
-          <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-            Salary Breakdown
-          </p>
-          {Number(selectedEmployee?.payroll?.paidLeaves || 0) > 0 ? (
-            <div className="flex items-center justify-between text-sm">
-              <span>Paid Leaves Gross</span>
-              <span>
-                ₹
-                {(
-                  Number(selectedEmployee?.payroll?.paidLeaves || 0) *
-                  Number(selectedEmployee?.payroll?.dailyWage || 0)
-                ).toFixed(2)}
-              </span>
-            </div>
-          ) : null}
-          <div className="flex items-center justify-between text-sm">
-            <span>Base Salary</span>
-            <span>₹{selectedEmployee?.payroll?.baseSalary?.toFixed(2) || '0.00'}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Bonuses</span>
-            <span>
-              ₹
-              {(
-                Number(selectedEmployee?.payroll?.overtimeAmount || 0) +
-                Number(selectedEmployee?.payroll?.extraAmount || 0)
-              ).toFixed(2)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Overtime Gross</span>
-            <span>₹{Number(selectedEmployee?.payroll?.overtimeAmount || 0).toFixed(2)}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Extras Gross</span>
-            <span>₹{Number(selectedEmployee?.payroll?.extraAmount || 0).toFixed(2)}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Deductions</span>
-            <span>
-              ₹
-              {(
-                Number(panelDeductions.lateCheckin || 0) +
-                Number(panelDeductions.halfDay || 0) +
-                Number(panelDeductions.absent || 0) +
-                Number(selectedEmployee?.payroll?.penalties || 0) +
-                Number(selectedEmployee?.payroll?.loanAmount || 0)
-              ).toFixed(2)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Total Salary</span>
-            <span className="font-semibold">
-              ₹
-              {(
-                Number(selectedEmployee?.payroll?.baseSalary || 0) +
-                Number(selectedEmployee?.payroll?.overtimeAmount || 0) +
-                Number(selectedEmployee?.payroll?.extraAmount || 0) -
-                (Number(panelDeductions.lateCheckin || 0) +
-                  Number(panelDeductions.halfDay || 0) +
-                  Number(panelDeductions.absent || 0) +
-                  Number(selectedEmployee?.payroll?.penalties || 0) +
-                  Number(selectedEmployee?.payroll?.loanAmount || 0))
-              ).toFixed(2)}
-            </span>
-          </div>
-        </div>
+              <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
+                <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                  Salary Breakdown
+                </p>
+                {Number(selectedEmployee?.payroll?.paidLeaves || 0) > 0 ? (
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Paid Leaves Gross</span>
+                    <span>
+                      ₹
+                      {(
+                        Number(selectedEmployee?.payroll?.paidLeaves || 0) *
+                        Number(selectedEmployee?.payroll?.dailyWage || 0)
+                      ).toFixed(2)}
+                    </span>
+                  </div>
+                ) : null}
+                <div className="flex items-center justify-between text-sm">
+                  <span>Base Salary</span>
+                  <span>₹{selectedEmployee?.payroll?.baseSalary?.toFixed(2) || '0.00'}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Bonuses</span>
+                  <span>
+                    ₹
+                    {(
+                      Number(selectedEmployee?.payroll?.overtimeAmount || 0) +
+                      Number(selectedEmployee?.payroll?.extraAmount || 0)
+                    ).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Overtime Gross</span>
+                  <span>₹{Number(selectedEmployee?.payroll?.overtimeAmount || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Extras Gross</span>
+                  <span>₹{Number(selectedEmployee?.payroll?.extraAmount || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Deductions</span>
+                  <span>
+                    ₹
+                    {(
+                      Number(panelDeductions.lateCheckin || 0) +
+                      Number(panelDeductions.halfDay || 0) +
+                      Number(panelDeductions.absent || 0) +
+                      Number(selectedEmployee?.payroll?.penalties || 0) +
+                      Number(selectedEmployee?.payroll?.loanAmount || 0)
+                    ).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Total Salary</span>
+                  <span className="font-semibold">
+                    ₹
+                    {(
+                      Number(selectedEmployee?.payroll?.baseSalary || 0) +
+                      Number(selectedEmployee?.payroll?.overtimeAmount || 0) +
+                      Number(selectedEmployee?.payroll?.extraAmount || 0) -
+                      (Number(panelDeductions.lateCheckin || 0) +
+                        Number(panelDeductions.halfDay || 0) +
+                        Number(panelDeductions.absent || 0) +
+                        Number(selectedEmployee?.payroll?.penalties || 0) +
+                        Number(selectedEmployee?.payroll?.loanAmount || 0))
+                    ).toFixed(2)}
+                  </span>
+                </div>
+              </div>
             </>
           );
         })()}
@@ -621,7 +606,7 @@ const AdminPayroll = () => {
   return (
     <div
       className="min-h-screen px-6 py-6 lg:ml-16 bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text"
-         style={headerFont}
+      style={headerFont}
     >
       <div className="max-w-7xl mx-auto">
         <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 bg-white/85 dark:bg-dark-card/85 p-6 shadow-sm">
@@ -675,7 +660,7 @@ const AdminPayroll = () => {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search employees"
               className="w-full pl-12 pr-4 py-3 rounded-lg bg-white dark:bg-dark-card border border-light-border dark:border-dark-border focus:ring-2 focus:ring-primary/30"
             />
@@ -691,7 +676,7 @@ const AdminPayroll = () => {
           </select>
           <select
             value={month}
-            onChange={(e) => setMonth(Number(e.target.value))}
+            onChange={e => setMonth(Number(e.target.value))}
             className="px-4 py-3 rounded-lg bg-white dark:bg-dark-card border border-light-border dark:border-dark-border"
           >
             {Array.from({ length: 12 }, (_, index) => (
@@ -702,14 +687,16 @@ const AdminPayroll = () => {
           </select>
           <select
             value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
+            onChange={e => setYear(Number(e.target.value))}
             className="px-4 py-3 rounded-lg bg-white dark:bg-dark-card border border-light-border dark:border-dark-border"
           >
-            {Array.from({ length: 6 }, (_, index) => new Date().getFullYear() - index).map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
+            {Array.from({ length: 6 }, (_, index) => new Date().getFullYear() - index).map(
+              value => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              )
+            )}
           </select>
         </div>
 
@@ -731,7 +718,7 @@ const AdminPayroll = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredEmployees.map((employee) => {
+                  {filteredEmployees.map(employee => {
                     const payroll = payrollMap[employee._id];
                     return (
                       <tr
@@ -812,4 +799,3 @@ const AdminPayroll = () => {
 };
 
 export default AdminPayroll;
-

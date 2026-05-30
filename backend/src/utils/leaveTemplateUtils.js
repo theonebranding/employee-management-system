@@ -75,11 +75,7 @@ const buildPayrollDaySets = async (employeeId, startDate, endDate) => {
   const endYear = endIst.getUTCFullYear();
   const endMonth = endIst.getUTCMonth() + 1;
 
-  while (
-    cursorYear < endYear ||
-    (cursorYear === endYear && cursorMonth <= endMonth)
-  ) {
-    // eslint-disable-next-line no-await-in-loop
+  while (cursorYear < endYear || (cursorYear === endYear && cursorMonth <= endMonth)) {
     const { all } = await getEmployeeHolidayDateSet({
       employeeId,
       month: cursorMonth,
@@ -212,14 +208,18 @@ export const getTemplateBalance = async ({ employeeId, template, referenceDate =
     };
   }
 
-  const { start: rawPeriodStart, end: periodEnd } = getLeavePeriodRange(allocationPeriod, reference);
+  const { start: rawPeriodStart, end: periodEnd } = getLeavePeriodRange(
+    allocationPeriod,
+    reference
+  );
   const periodStart = rawPeriodStart < effectiveDate ? effectiveDate : rawPeriodStart;
   const previousReferenceDate = getPreviousPeriodReferenceDate(carryForwardPeriod, reference);
   const { start: previousPeriodStart, end: previousPeriodEnd } = getLeavePeriodRange(
     carryForwardPeriod,
     previousReferenceDate
   );
-  const normalizedPreviousPeriodStart = previousPeriodStart < effectiveDate ? effectiveDate : previousPeriodStart;
+  const normalizedPreviousPeriodStart =
+    previousPeriodStart < effectiveDate ? effectiveDate : previousPeriodStart;
 
   const used = await getTemplateUsedDays({
     employeeId,

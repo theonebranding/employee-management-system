@@ -32,7 +32,7 @@ const AbsentTable = ({ filteredAbsentDays, sortConfig, handleSort }) => {
     );
   };
 
-  const formatIstDate = (value) => {
+  const formatIstDate = value => {
     if (!value) return '-';
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return '-';
@@ -60,10 +60,7 @@ const AbsentTable = ({ filteredAbsentDays, sortConfig, handleSort }) => {
         <table className="min-w-full text-light-text dark:text-dark-text">
           <thead className="text-light-text dark:text-dark-text">
             <tr className="border-b border-light-border dark:border-dark-border">
-              <th
-                className="text-left py-4 px-6 cursor-pointer"
-                onClick={() => handleSort('date')}
-              >
+              <th className="text-left py-4 px-6 cursor-pointer" onClick={() => handleSort('date')}>
                 Date {renderSortIcon('date')}
               </th>
               <th className="text-left py-4 px-6">Day</th>

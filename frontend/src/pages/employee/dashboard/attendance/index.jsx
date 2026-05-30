@@ -1,8 +1,8 @@
 /* eslint-disable unused-imports/no-unused-vars */
 /* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable no-unused-vars */
-import 'react-toastify/dist/ReactToastify.css';
+
 import 'leaflet/dist/leaflet.css';
+import 'react-toastify/dist/ReactToastify.css';
 
 import confetti from 'canvas-confetti';
 import L from 'leaflet';
@@ -17,6 +17,9 @@ import CheckoutModal from './components/checkoutModal';
 import HeaderSection from './components/headerSection';
 import LocationMap from './components/locationMap';
 import StatsCard from './components/statsCard';
+
+// Status string constants (avoid sonarjs/no-duplicate-string).
+const STATUS_CHECKED_IN = 'Checked In';
 
 const Attendance = () => {
   const navigate = useNavigate();
@@ -52,12 +55,12 @@ const Attendance = () => {
         return;
       }
       navigator.geolocation.getCurrentPosition(
-        (position) =>
+        position =>
           resolve({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           }),
-        (error) => {
+        error => {
           if (error.code === 1) reject(new Error('Location permission denied.'));
           else if (error.code === 2) reject(new Error('Location unavailable.'));
           else reject(new Error('Location request timed out.'));
@@ -130,7 +133,7 @@ const Attendance = () => {
         spread: 55,
         origin: { x: 1 },
       });
-      // eslint-disable-next-line no-undef
+
       if (Date.now() < end) requestAnimationFrame(frame);
     };
     frame();
@@ -175,7 +178,7 @@ const Attendance = () => {
     }
   };
 
-  const notifyAttendanceUpdated = (attendance) => {
+  const notifyAttendanceUpdated = attendance => {
     const payload = {
       ts: Date.now(),
       employeeId: attendance?.employee,
@@ -283,7 +286,7 @@ const Attendance = () => {
   };
 
   useEffect(() => {
-    if (status === 'Checked In') {
+    if (status === STATUS_CHECKED_IN) {
       const interval = setInterval(fetchAttendanceStatus, 120000);
       return () => clearInterval(interval);
     }
@@ -299,7 +302,7 @@ const Attendance = () => {
 
     if (
       shouldAutoCheckout &&
-      status === 'Checked In' &&
+      status === STATUS_CHECKED_IN &&
       !loading &&
       !hasTriggeredAutoCheckout.current
     ) {
@@ -308,12 +311,11 @@ const Attendance = () => {
       navigate('/employee/dashboard/attendance', { replace: true });
       handleAttendanceAction('checkout');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, loading, navigate]);
 
   const getStatusColor = () => {
     switch (status) {
-      case 'Checked In':
+      case STATUS_CHECKED_IN:
         return 'bg-success/20 text-success ring-1 ring-success/50';
       case 'Checked Out':
         return 'bg-danger/20 text-danger ring-1 ring-danger/50';
@@ -344,8 +346,8 @@ const Attendance = () => {
   const isDisabled = buttonStatus => {
     if (loading) return true;
     if (status === 'In Recess') return buttonStatus !== 'end-recess';
-    if (status !== 'Checked In' && buttonStatus !== 'checkin') return true;
-    if (buttonStatus === 'checkin' && status === 'Checked In') return true;
+    if (status !== STATUS_CHECKED_IN && buttonStatus !== 'checkin') return true;
+    if (buttonStatus === 'checkin' && status === STATUS_CHECKED_IN) return true;
     if (buttonStatus === 'checkout' && (status === 'Checked Out' || status === 'In Recess'))
       return true;
     if (buttonStatus === 'start-recess' && (status === 'Checked Out' || status === 'In Recess'))

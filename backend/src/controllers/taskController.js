@@ -3,7 +3,7 @@ import Task from '../models/taskSchema.js';
 import Employee from '../models/employeeSchema.js';
 import TaskComment from '../models/taskCommentSchema.js';
 
-const normalize = value => String(value || '').trim();
+const normalize = (value) => String(value || '').trim();
 const TASK_STATUS = ['pending', 'in-progress', 'completed', 'cancelled'];
 
 const buildEmployeeFilter = ({ assignedTo, targetDepartment, targetDesignation }) => {
@@ -37,13 +37,13 @@ const resolveAssignedEmployees = async ({ assignedTo, targetDepartment, targetDe
   if (!employees.length) {
     throw new Error('No employees matched selected department/designation');
   }
-  return employees.map(emp => emp._id);
+  return employees.map((emp) => emp._id);
 };
 
 const isEmployeeAssignedToTask = (task, employee) => {
   const employeeId = String(employee._id);
   if (task.assignedTo && String(task.assignedTo) === employeeId) return true;
-  if ((task.assignedEmployeeIds || []).some(id => String(id) === employeeId)) return true;
+  if ((task.assignedEmployeeIds || []).some((id) => String(id) === employeeId)) return true;
 
   const dept = employee.department || '';
   const desig = employee.designation || '';
@@ -73,18 +73,17 @@ export const getAllTasks = async (req, res) => {
         return res.status(404).json({ message: 'Employee not found' });
       }
 
-      query.$or = [
-        { assignedTo: req.user._id },
-        { assignedEmployeeIds: req.user._id },
-      ];
+      query.$or = [{ assignedTo: req.user._id }, { assignedEmployeeIds: req.user._id }];
 
       if (employee.department || employee.designation) {
         query.$or.push({
           targetDepartment: employee.department || '',
           targetDesignation: employee.designation || '',
         });
-        if (employee.department) query.$or.push({ targetDepartment: employee.department, targetDesignation: '' });
-        if (employee.designation) query.$or.push({ targetDepartment: '', targetDesignation: employee.designation });
+        if (employee.department)
+          query.$or.push({ targetDepartment: employee.department, targetDesignation: '' });
+        if (employee.designation)
+          query.$or.push({ targetDepartment: '', targetDesignation: employee.designation });
       }
     }
 
@@ -115,8 +114,10 @@ export const getMyTasks = async (req, res) => {
         targetDepartment: employee.department || '',
         targetDesignation: employee.designation || '',
       });
-      if (employee.department) query.$or.push({ targetDepartment: employee.department, targetDesignation: '' });
-      if (employee.designation) query.$or.push({ targetDepartment: '', targetDesignation: employee.designation });
+      if (employee.department)
+        query.$or.push({ targetDepartment: employee.department, targetDesignation: '' });
+      if (employee.designation)
+        query.$or.push({ targetDepartment: '', targetDesignation: employee.designation });
     }
 
     const tasks = await Task.find(query)
@@ -231,12 +232,13 @@ export const updateTask = async (req, res) => {
 
     const hasAssignedToInBody = Object.prototype.hasOwnProperty.call(req.body, 'assignedTo');
     const hasDepartmentInBody = Object.prototype.hasOwnProperty.call(req.body, 'targetDepartment');
-    const hasDesignationInBody = Object.prototype.hasOwnProperty.call(req.body, 'targetDesignation');
+    const hasDesignationInBody = Object.prototype.hasOwnProperty.call(
+      req.body,
+      'targetDesignation'
+    );
 
     const existingAssignedToId = existingTask.assignedTo ? String(existingTask.assignedTo) : '';
-    const nextAssignedTo = hasAssignedToInBody
-      ? normalize(assignedTo) || ''
-      : existingAssignedToId;
+    const nextAssignedTo = hasAssignedToInBody ? normalize(assignedTo) || '' : existingAssignedToId;
     const nextDepartment = hasDepartmentInBody
       ? normalize(targetDepartment)
       : existingTask.targetDepartment || '';

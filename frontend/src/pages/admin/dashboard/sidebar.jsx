@@ -91,11 +91,11 @@ const AdminSidebar = () => {
   };
 
   const toggleSidebar = () => {
-    setIsSidebarOpen((prev) => !prev);
+    setIsSidebarOpen(prev => !prev);
   };
 
   const toggleSection = (key, isVisible) => {
-    setOpenSections((prev) => {
+    setOpenSections(prev => {
       const nextOpen = !isVisible;
       if (!nextOpen) {
         setHoverSuppressedSection(key);
@@ -153,8 +153,7 @@ const AdminSidebar = () => {
             const isSectionOpen = item.key ? openSections[item.key] : false;
             const isSectionHovered = item.key ? hoveredSection === item.key : false;
             const shouldShowSubmenu =
-              isSectionOpen ||
-              (isSectionHovered && hoverSuppressedSection !== item.key);
+              isSectionOpen || (isSectionHovered && hoverSuppressedSection !== item.key);
             const isItemActive =
               hasChildren && item.key === 'reports'
                 ? isReportsRoute
@@ -222,13 +221,12 @@ const AdminSidebar = () => {
                 </div>
                 {/* Mobile Dropdown */}
                 {hasChildren && (
-                  <div
-                    className={`pl-10 pr-3 space-y-1 ${shouldShowSubmenu ? 'block' : 'hidden'}`}
-                  >
-                    {item.children.map((child) => {
+                  <div className={`pl-10 pr-3 space-y-1 ${shouldShowSubmenu ? 'block' : 'hidden'}`}>
+                    {item.children.map(child => {
                       const isChildActive =
                         item.key === 'reports'
-                          ? isReportsRoute && reportsTab === new URLSearchParams(child.path.split('?')[1]).get('tab')
+                          ? isReportsRoute &&
+                            reportsTab === new URLSearchParams(child.path.split('?')[1]).get('tab')
                           : location.pathname === child.path;
 
                       return (
@@ -252,8 +250,6 @@ const AdminSidebar = () => {
                     })}
                   </div>
                 )}
-                
-                
               </div>
             );
           })}

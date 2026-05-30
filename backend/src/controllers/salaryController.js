@@ -18,7 +18,7 @@ const resolvePayslipSettings = async () => {
 const pickTemplate = (settings, templateId) => {
   const selectedId = templateId || settings.activeTemplateId;
   return (
-    settings.templates.find(template => template.id === selectedId) ||
+    settings.templates.find((template) => template.id === selectedId) ||
     settings.templates[0] || {
       id: 'classic-template',
       name: 'Classic Ledger',
@@ -52,8 +52,12 @@ const parseMoneyField = (value, { field, required = false, min = 0 } = {}) => {
 };
 
 const parseMonthYear = ({ month, year, defaultDate = new Date() }) => {
-  const monthNum = month === undefined || month === null || month === '' ? defaultDate.getMonth() + 1 : Number(month);
-  const yearNum = year === undefined || year === null || year === '' ? defaultDate.getFullYear() : Number(year);
+  const monthNum =
+    month === undefined || month === null || month === ''
+      ? defaultDate.getMonth() + 1
+      : Number(month);
+  const yearNum =
+    year === undefined || year === null || year === '' ? defaultDate.getFullYear() : Number(year);
   if (!Number.isInteger(monthNum) || monthNum < 1 || monthNum > 12) {
     return { error: 'Salary month must be between 1 and 12' };
   }
@@ -63,7 +67,7 @@ const parseMonthYear = ({ month, year, defaultDate = new Date() }) => {
   return { value: { month: monthNum, year: yearNum } };
 };
 
-const parseEffectiveDate = value => {
+const parseEffectiveDate = (value) => {
   if (value === undefined) return { value: undefined };
   if (value === null || value === '') return { value: null };
   const parsed = new Date(value);
@@ -71,7 +75,7 @@ const parseEffectiveDate = value => {
   return { value: parsed };
 };
 
-const sanitizeReason = value => {
+const sanitizeReason = (value) => {
   if (value === undefined) return { value: undefined };
   const trimmed = String(value || '').trim();
   if (trimmed.length > 200) return { error: 'Revision reason cannot exceed 200 characters' };
@@ -96,7 +100,11 @@ export const addSalary = async (req, res) => {
       revisionReason,
     } = req.body;
 
-    const parsedBase = parseMoneyField(baseSalary, { field: 'Base salary', required: true, min: 1 });
+    const parsedBase = parseMoneyField(baseSalary, {
+      field: 'Base salary',
+      required: true,
+      min: 1,
+    });
     const parsedBonuses = parseMoneyField(bonuses, { field: 'Bonuses', min: 0 });
     const parsedDeductions = parseMoneyField(deductions, { field: 'Deductions', min: 0 });
     const parsedMonthYear = parseMonthYear({ month: salaryMonth, year: salaryYear });
@@ -132,7 +140,8 @@ export const addSalary = async (req, res) => {
       ...normalized,
       salaryMonth: parsedMonthYear.value.month,
       salaryYear: parsedMonthYear.value.year,
-      effectiveFrom: parsedEffectiveFrom.value === undefined ? new Date() : parsedEffectiveFrom.value,
+      effectiveFrom:
+        parsedEffectiveFrom.value === undefined ? new Date() : parsedEffectiveFrom.value,
       revisionReason: parsedReason.value || 'Initial onboarding salary',
     });
 
@@ -147,7 +156,16 @@ export const addSalary = async (req, res) => {
 export const generatePayslip = async (req, res) => {
   try {
     const { employeeId } = req.params;
-    const { salaryId, month, year, templateId, sendByEmail = false, baseSalary, bonuses, deductions } = req.body;
+    const {
+      salaryId,
+      month,
+      year,
+      templateId,
+      sendByEmail = false,
+      baseSalary,
+      bonuses,
+      deductions,
+    } = req.body;
 
     if (!employeeId || !mongoose.Types.ObjectId.isValid(employeeId)) {
       return res.status(400).json({ message: 'Invalid employee ID' });
@@ -179,7 +197,9 @@ export const generatePayslip = async (req, res) => {
 
     if (!salary) {
       if (!normalized.baseSalary) {
-        return res.status(400).json({ message: 'Base salary is required for new payslip generation' });
+        return res
+          .status(400)
+          .json({ message: 'Base salary is required for new payslip generation' });
       }
 
       salary = new Salary({
@@ -192,9 +212,12 @@ export const generatePayslip = async (req, res) => {
       });
     } else if (baseSalary !== undefined || bonuses !== undefined || deductions !== undefined) {
       salary.baseSalary = normalized.baseSalary || salary.baseSalary;
-      salary.bonuses = baseSalary !== undefined || bonuses !== undefined ? normalized.bonuses : salary.bonuses;
+      salary.bonuses =
+        baseSalary !== undefined || bonuses !== undefined ? normalized.bonuses : salary.bonuses;
       salary.deductions =
-        baseSalary !== undefined || deductions !== undefined ? normalized.deductions : salary.deductions;
+        baseSalary !== undefined || deductions !== undefined
+          ? normalized.deductions
+          : salary.deductions;
       salary.totalSalary = salary.baseSalary + salary.bonuses - salary.deductions;
     }
 
@@ -230,7 +253,11 @@ export const generatePayslip = async (req, res) => {
     });
 
     if (sendByEmail) {
-      await sendEmail(employee.email, `Payslip - ${salary.salaryMonth}/${salary.salaryYear}`, payslipHtml);
+      await sendEmail(
+        employee.email,
+        `Payslip - ${salary.salaryMonth}/${salary.salaryYear}`,
+        payslipHtml
+      );
       salary.emailedAt = new Date();
       await salary.save();
     }
@@ -276,7 +303,11 @@ export const sendPayslipEmail = async (req, res) => {
       : (await resolvePayslipSettings()).toObject();
 
     const payslipHtml = generatePayslipHtml({ salary, employee, settings, template });
-    await sendEmail(employee.email, `Payslip - ${salary.salaryMonth}/${salary.salaryYear}`, payslipHtml);
+    await sendEmail(
+      employee.email,
+      `Payslip - ${salary.salaryMonth}/${salary.salaryYear}`,
+      payslipHtml
+    );
 
     salary.emailedAt = new Date();
     await salary.save();
@@ -348,7 +379,10 @@ export const getSalaryByEmployee = async (req, res) => {
       return res.status(403).json({ message: 'You can only access your own salary records' });
     }
 
-    const salaries = await Salary.find({ employee: employeeId }).sort({ paymentDate: -1, createdAt: -1 });
+    const salaries = await Salary.find({ employee: employeeId }).sort({
+      paymentDate: -1,
+      createdAt: -1,
+    });
     if (!salaries || salaries.length === 0) {
       return res.status(404).json({ message: 'No salary records found for this employee' });
     }
@@ -361,11 +395,13 @@ export const getSalaryByEmployee = async (req, res) => {
 
 export const getMyPayslips = async (req, res) => {
   try {
-    const salaries = await Salary.find({ employee: req.user._id, payslipStatus: 'generated' }).sort({
-      salaryYear: -1,
-      salaryMonth: -1,
-      createdAt: -1,
-    });
+    const salaries = await Salary.find({ employee: req.user._id, payslipStatus: 'generated' }).sort(
+      {
+        salaryYear: -1,
+        salaryMonth: -1,
+        createdAt: -1,
+      }
+    );
 
     return res.status(200).json({ message: 'Payslips fetched successfully', salaries });
   } catch (error) {
@@ -450,7 +486,9 @@ export const getSalaryDeductions = async (req, res) => {
       },
     });
   } catch (err) {
-    return res.status(500).json({ message: 'Error fetching salary deductions', error: err.message });
+    return res
+      .status(500)
+      .json({ message: 'Error fetching salary deductions', error: err.message });
   }
 };
 
@@ -459,7 +497,11 @@ export const addSalaryWithDeductions = async (req, res) => {
   try {
     const { employeeId, baseSalary, bonuses = 0, workingDaysInMonth } = req.body;
 
-    const parsedBase = parseMoneyField(baseSalary, { field: 'Base salary', required: true, min: 1 });
+    const parsedBase = parseMoneyField(baseSalary, {
+      field: 'Base salary',
+      required: true,
+      min: 1,
+    });
     const parsedBonuses = parseMoneyField(bonuses, { field: 'Bonuses', min: 0 });
     const parsedWorkingDays = Number(workingDaysInMonth);
     if (parsedBase.error || parsedBonuses.error) {
@@ -485,7 +527,7 @@ export const addSalaryWithDeductions = async (req, res) => {
     let lateComingDeductions = 0;
     const absences = parsedWorkingDays - attendances.length;
 
-    attendances.forEach(record => {
+    attendances.forEach((record) => {
       if (record.checkInTime) {
         const checkInHour = new Date(record.checkInTime).getHours();
         const lateBy = Math.max(0, checkInHour - 9);
@@ -514,6 +556,8 @@ export const addSalaryWithDeductions = async (req, res) => {
 
     return res.status(201).json({ message: 'Salary with deductions added successfully', salary });
   } catch (err) {
-    return res.status(500).json({ message: 'Error adding salary with deductions', error: err.message });
+    return res
+      .status(500)
+      .json({ message: 'Error adding salary with deductions', error: err.message });
   }
 };

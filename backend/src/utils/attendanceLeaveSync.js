@@ -90,7 +90,10 @@ export const clearLeaveAttendanceMaster = async (leaveId) => {
       { _id: row._id },
       {
         $unset: { leaveId: '', generatedForLeave: '' },
-        $set: { manualPayrollStatus: null, currentStatus: row.checkOutTime ? 'Checked Out' : 'Checked In' },
+        $set: {
+          manualPayrollStatus: null,
+          currentStatus: row.checkOutTime ? 'Checked Out' : 'Checked In',
+        },
       }
     );
   }

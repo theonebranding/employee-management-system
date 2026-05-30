@@ -78,7 +78,6 @@ const resolveAttendanceStatus = (record, settings) => {
 
   const workingMinutes = Number(record.totalWorkingTime || 0);
   const minAbsentHours = Number(settings?.minAbsentHours || 180);
-  const halfDayHours = Number(settings?.halfDayHours || 240);
   const fullDayHours = Number(settings?.fullDayHours || 470);
 
   if (workingMinutes < minAbsentHours) return 'absent';
@@ -198,7 +197,8 @@ const getExtraAllowanceTotal = async (employeeId, month, year) => {
 
 const getSundayCompensationFromRecord = (record) => {
   if (!record?.checkInTime) return null;
-  if (record.manualPayrollStatus === 'absent' || record.manualPayrollStatus === 'leave') return null;
+  if (record.manualPayrollStatus === 'absent' || record.manualPayrollStatus === 'leave')
+    return null;
 
   const isHalfDay = record.manualPayrollStatus === 'half-day' || record.halfDay;
   const fraction = isHalfDay ? 0.5 : 1;
@@ -423,54 +423,6 @@ export const syncSundayCompensationForAttendanceChange = async ({
   return sundayCompensationEntries;
 };
 
-const getComputedNetPay = (payroll, loanAmountOverride) => {
-  const dailyWage = Number(payroll.dailyWage || 0);
-  const fullDays = Number(payroll.fullDays || 0);
-  const halfDays = Number(payroll.halfDays || 0);
-  const paidLeaves = Number(payroll.paidLeaves || 0);
-  const overtimeAmount = Number(payroll.overtimeAmount || 0);
-  const extraAmount = Number(payroll.extraAmount || 0);
-  const penalties = Number(payroll.penalties || 0);
-  const loanAmount = Number(loanAmountOverride ?? (payroll.loanAmount || 0));
-
-  return (
-    fullDays * dailyWage +
-    halfDays * dailyWage * 0.5 +
-    paidLeaves * dailyWage +
-    overtimeAmount +
-    extraAmount -
-    penalties -
-    loanAmount
-  );
-};
-
-const countApprovedLeaves = (leaves, month, year, attendanceDays, holidayDays) => {
-  let total = 0;
-  const { start: startOfMonth, end: endOfMonth } = getIstMonthRange(month, year);
-
-  leaves.forEach((leave) => {
-    const start = new Date(leave.startDate);
-    const end = new Date(leave.endDate);
-    const rangeStart = start < startOfMonth ? startOfMonth : start;
-    const rangeEnd = end > endOfMonth ? endOfMonth : end;
-
-    const current = new Date(rangeStart);
-    while (current <= rangeEnd) {
-      const dateKey = toDateKey(current);
-      if (
-        getIstDayOfWeek(current) !== 0 &&
-        !attendanceDays.has(dateKey) &&
-        !holidayDays.has(dateKey)
-      ) {
-        total += 1;
-      }
-      current.setUTCDate(current.getUTCDate() + 1);
-    }
-  });
-
-  return total;
-};
-
 const computePayroll = async ({
   employee,
   month,
@@ -491,7 +443,11 @@ const computePayroll = async ({
   const { start, end } = getMonthRange(month, year);
   const nonSundayDays = countWorkingDays(month, year);
 
-  const { fixedDates, floatingDates, all: holidayDays } = await getEmployeeHolidayDateSet({
+  const {
+    fixedDates,
+    floatingDates,
+    all: holidayDays,
+  } = await getEmployeeHolidayDateSet({
     employeeId: employee._id,
     month,
     year,
@@ -530,12 +486,15 @@ const computePayroll = async ({
     0
   );
 
-  const leaveTemplateAssignment = await LeaveTemplateAssignment.findOne({ employee: employee._id }).populate(
-    'template'
-  );
+  const leaveTemplateAssignment = await LeaveTemplateAssignment.findOne({
+    employee: employee._id,
+  }).populate('template');
   const leaveEncashmentEnabled = Boolean(
     leaveTemplateAssignment?.template?.encashmentAllowed &&
-      shouldApplyLeaveEncashmentForPayroll(month, leaveTemplateAssignment?.template?.carryForwardPeriod)
+    shouldApplyLeaveEncashmentForPayroll(
+      month,
+      leaveTemplateAssignment?.template?.carryForwardPeriod
+    )
   );
   const leaveBalance = leaveEncashmentEnabled
     ? await getTemplateBalance({
@@ -618,12 +577,6 @@ const computePayroll = async ({
     endDate: { $gte: start },
   });
 
-  const attendanceDays = new Set(
-    attendanceRecords
-      .filter((record) => record.checkInTime)
-      .map((record) => toDateKey(new Date(record.date)))
-  );
-
   const approvedPaidLeaves = await Promise.all(
     approvedLeaves.map(async (leave) => {
       if (Number.isFinite(leave.paidDays) && leave.paidDays > 0) {
@@ -684,9 +637,7 @@ const computePayroll = async ({
   const halfDayDeduction = halfDays * dailyWage * 0.5;
   const defaultExtra = Number(payrollSettings?.extras?.defaultExtra || 0);
   const normalizedExtraAmount =
-    extraAmount !== undefined && extraAmount !== null
-      ? Number(extraAmount || 0)
-      : defaultExtra;
+    extraAmount !== undefined && extraAmount !== null ? Number(extraAmount || 0) : defaultExtra;
   const totalExtraAmount = normalizedExtraAmount + Number(autoExtraAmount || 0);
   const leaveEncashmentAmount = Number(leaveEncashmentTotal || 0);
 
@@ -968,7 +919,11 @@ const emailPaidPayrollPayslip = async ({ payroll, employee, processedBy }) => {
     template,
   });
 
-  await sendEmail(employee.email, `Payslip - ${salary.salaryMonth}/${salary.salaryYear}`, payslipHtml);
+  await sendEmail(
+    employee.email,
+    `Payslip - ${salary.salaryMonth}/${salary.salaryYear}`,
+    payslipHtml
+  );
 
   salary.payslipStatus = 'generated';
   salary.generatedAt = new Date();
@@ -1118,7 +1073,6 @@ export const getPayrolls = async (req, res) => {
       Payroll.countDocuments(query),
     ]);
 
-
     return res.status(200).json({
       message: 'Payrolls fetched successfully',
       payrolls,
@@ -1185,7 +1139,9 @@ export const getPayrollPreview = async (req, res) => {
       payrolls: previewPayrolls,
     });
   } catch (error) {
-    return res.status(500).json({ message: 'Error fetching payroll preview', error: error.message });
+    return res
+      .status(500)
+      .json({ message: 'Error fetching payroll preview', error: error.message });
   }
 };
 
@@ -1206,11 +1162,11 @@ export const getPayrollByEmployee = async (req, res) => {
       .populate('employee', 'name email jobRole')
       .sort({ year: -1, month: -1, createdAt: -1 });
 
-    return res
-      .status(200)
-      .json({ message: 'Payroll records fetched successfully', payrolls });
+    return res.status(200).json({ message: 'Payroll records fetched successfully', payrolls });
   } catch (error) {
-    return res.status(500).json({ message: 'Error fetching payroll records', error: error.message });
+    return res
+      .status(500)
+      .json({ message: 'Error fetching payroll records', error: error.message });
   }
 };
 
@@ -1232,7 +1188,9 @@ export const getPayrollHistory = async (req, res) => {
 
     return res.status(200).json({ message: 'Payroll history fetched successfully', history });
   } catch (error) {
-    return res.status(500).json({ message: 'Error fetching payroll history', error: error.message });
+    return res
+      .status(500)
+      .json({ message: 'Error fetching payroll history', error: error.message });
   }
 };
 

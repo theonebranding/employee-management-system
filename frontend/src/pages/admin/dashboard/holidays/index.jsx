@@ -21,6 +21,27 @@ const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 const CURRENT_YEAR = new Date().getFullYear();
 const YEAR_OPTIONS = [CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1];
 
+const TEMPLATE_TYPE_FIXED = 'fixed';
+const TEMPLATE_TYPE_FLOATING = 'floating';
+const TEMPLATE_TYPES = [TEMPLATE_TYPE_FIXED, TEMPLATE_TYPE_FLOATING];
+const TEMPLATE_TYPE_OPTIONS = [
+  { value: TEMPLATE_TYPE_FIXED, label: 'Fixed' },
+  { value: TEMPLATE_TYPE_FLOATING, label: 'Floating' },
+];
+
+// Reusable class fragments. Extracted into module-level constants so the
+// sonarjs/no-duplicate-string rule does not flag the same Tailwind utility
+// string repeated across icon buttons and secondary cancel buttons.
+const NEUTRAL_BORDER_HOVER_CLASSES =
+  'border-light-border dark:border-dark-border text-light-text dark:text-dark-text hover:bg-light-bg dark:hover:bg-dark-bg';
+const HOVER_NEUTRAL_CLASSES =
+  'hover:bg-light-bg dark:hover:bg-dark-bg text-light-text dark:text-dark-text';
+const SECONDARY_BUTTON_CLASSES = `px-4 py-2 rounded-lg border ${NEUTRAL_BORDER_HOVER_CLASSES}`;
+const SECONDARY_BUTTON_SM_CLASSES = `px-3 py-1.5 rounded-lg border text-sm ${NEUTRAL_BORDER_HOVER_CLASSES}`;
+const ICON_BUTTON_CLASSES = `p-2 rounded-lg ${HOVER_NEUTRAL_CLASSES}`;
+const ICON_BUTTON_SM_CLASSES = `p-1.5 rounded-lg ${HOVER_NEUTRAL_CLASSES}`;
+const DISABLED_BUTTON_CLASSES = 'opacity-60 cursor-not-allowed';
+
 const authHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem('token')}`,
 });
@@ -30,7 +51,7 @@ const jsonHeaders = () => ({
   'Content-Type': 'application/json',
 });
 
-const formatDate = (value) => {
+const formatDate = value => {
   if (!value) return '';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '';
@@ -41,7 +62,7 @@ const formatDate = (value) => {
   });
 };
 
-const formatDateLong = (value) => {
+const formatDateLong = value => {
   if (!value) return '';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '';
@@ -55,7 +76,7 @@ const formatDateLong = (value) => {
 
 // Convert any date value to a `YYYY-MM-DD` string suitable for an
 // <input type="date"> control. Avoids timezone drift caused by toISOString.
-const toInputDate = (value) => {
+const toInputDate = value => {
   if (!value) return '';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '';
@@ -66,7 +87,7 @@ const toInputDate = (value) => {
 };
 
 const TypeBadge = ({ type }) => {
-  if (type === 'fixed') {
+  if (type === TEMPLATE_TYPE_FIXED) {
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
         Fixed
@@ -180,7 +201,7 @@ const AdminHolidays = () => {
     setDrawerOpen(true);
   };
 
-  const openEditDrawer = (template) => {
+  const openEditDrawer = template => {
     setDrawerMode('edit');
     setDrawerTemplate(template);
     setDrawerOpen(true);
@@ -195,7 +216,7 @@ const AdminHolidays = () => {
     fetchTemplates();
   };
 
-  const openAssignModal = (template) => {
+  const openAssignModal = template => {
     setAssignTarget(template);
     setAssignOpen(true);
   };
@@ -210,24 +231,22 @@ const AdminHolidays = () => {
     fetchTemplates();
   };
 
-  const requestDelete = (template) => setDeleteTarget(template);
+  const requestDelete = template => setDeleteTarget(template);
   const cancelDelete = () => setDeleteTarget(null);
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const response = await fetch(
-        `${BASE_URL}/holidays/templates/${deleteTarget._id}`,
-        { method: 'DELETE', headers: authHeaders() }
-      );
+      const response = await fetch(`${BASE_URL}/holidays/templates/${deleteTarget._id}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         if (response.status === 409 && data.code === 'TEMPLATE_HAS_ASSIGNMENTS') {
           const count =
-            typeof deleteTarget.assignmentCount === 'number'
-              ? deleteTarget.assignmentCount
-              : null;
+            typeof deleteTarget.assignmentCount === 'number' ? deleteTarget.assignmentCount : null;
           toast.error(
             count !== null
               ? `Cannot delete: template has ${count} active assignment${count === 1 ? '' : 's'}. Unassign them first.`
@@ -267,11 +286,11 @@ const AdminHolidays = () => {
                 </label>
                 <select
                   value={yearFilter}
-                  onChange={(e) => setYearFilter(e.target.value)}
+                  onChange={e => setYearFilter(e.target.value)}
                   className="px-3 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-sm text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="">All years</option>
-                  {YEAR_OPTIONS.map((y) => (
+                  {YEAR_OPTIONS.map(y => (
                     <option key={y} value={y}>
                       {y}
                     </option>
@@ -284,11 +303,7 @@ const AdminHolidays = () => {
                   Type
                 </label>
                 <div className="flex rounded-lg border border-light-border dark:border-dark-border overflow-hidden">
-                  {[
-                    { value: 'all', label: 'All' },
-                    { value: 'fixed', label: 'Fixed' },
-                    { value: 'floating', label: 'Floating' },
-                  ].map((opt) => (
+                  {[{ value: 'all', label: 'All' }, ...TEMPLATE_TYPE_OPTIONS].map(opt => (
                     <button
                       key={opt.value}
                       type="button"
@@ -322,9 +337,7 @@ const AdminHolidays = () => {
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="w-6 h-6 text-primary animate-spin" />
-              <span className="ml-3 text-light-text dark:text-dark-text">
-                Loading templates...
-              </span>
+              <span className="ml-3 text-light-text dark:text-dark-text">Loading templates...</span>
             </div>
           ) : templates.length === 0 ? (
             <div className="p-12 text-center">
@@ -359,7 +372,7 @@ const AdminHolidays = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-light-border dark:divide-dark-border">
-                  {templates.map((tpl) => (
+                  {templates.map(tpl => (
                     <tr
                       key={tpl._id}
                       className="hover:bg-light-bg/60 dark:hover:bg-dark-bg/60 transition-colors"
@@ -372,9 +385,7 @@ const AdminHolidays = () => {
                           </div>
                         ) : null}
                       </td>
-                      <td className="py-3 px-4 text-light-text dark:text-dark-text">
-                        {tpl.year}
-                      </td>
+                      <td className="py-3 px-4 text-light-text dark:text-dark-text">{tpl.year}</td>
                       <td className="py-3 px-4">
                         <TypeBadge type={tpl.type} />
                       </td>
@@ -499,7 +510,6 @@ const AdminHolidays = () => {
 
 export default AdminHolidays;
 
-
 // ---------------------------------------------------------------------------
 // Create / Edit Template drawer
 // ---------------------------------------------------------------------------
@@ -515,10 +525,10 @@ const TemplateDrawer = ({ mode, template, visible, onClose, onSaved }) => {
   const [name, setName] = useState(template?.name || '');
   const [description, setDescription] = useState(template?.description || '');
   const [year, setYear] = useState(template?.year || CURRENT_YEAR);
-  const [type, setType] = useState(template?.type || 'fixed');
+  const [type, setType] = useState(template?.type || TEMPLATE_TYPE_FIXED);
   const [holidays, setHolidays] = useState(() =>
     Array.isArray(template?.holidays)
-      ? template.holidays.map((h) => ({
+      ? template.holidays.map(h => ({
           name: h.name,
           date: toInputDate(h.date),
         }))
@@ -527,16 +537,16 @@ const TemplateDrawer = ({ mode, template, visible, onClose, onSaved }) => {
   const [saving, setSaving] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
 
-  const addHoliday = (entry) => {
-    setHolidays((prev) => [...prev, entry]);
+  const addHoliday = entry => {
+    setHolidays(prev => [...prev, entry]);
     setAddOpen(false);
   };
 
-  const removeHoliday = (index) => {
-    setHolidays((prev) => prev.filter((_, idx) => idx !== index));
+  const removeHoliday = index => {
+    setHolidays(prev => prev.filter((_, idx) => idx !== index));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
     if (!name.trim()) {
       toast.error('Template name is required');
@@ -547,7 +557,7 @@ const TemplateDrawer = ({ mode, template, visible, onClose, onSaved }) => {
       toast.error('Please enter a valid year');
       return;
     }
-    if (!['fixed', 'floating'].includes(type)) {
+    if (!TEMPLATE_TYPES.includes(type)) {
       toast.error('Please choose Fixed or Floating');
       return;
     }
@@ -557,7 +567,7 @@ const TemplateDrawer = ({ mode, template, visible, onClose, onSaved }) => {
       description: description.trim(),
       year: yearNum,
       type,
-      holidays: holidays.map((h) => ({ name: h.name, date: h.date })),
+      holidays: holidays.map(h => ({ name: h.name, date: h.date })),
     };
 
     const url = isEdit
@@ -576,8 +586,7 @@ const TemplateDrawer = ({ mode, template, visible, onClose, onSaved }) => {
       if (!response.ok) {
         if (response.status === 409 && data.code === 'TEMPLATE_TYPE_CHANGE_BLOCKED') {
           toast.error(
-            data.message ||
-              'Template type cannot change once assignments or credits exist.'
+            data.message || 'Template type cannot change once assignments or credits exist.'
           );
           return;
         }
@@ -587,9 +596,7 @@ const TemplateDrawer = ({ mode, template, visible, onClose, onSaved }) => {
         }
         throw new Error(data.message || 'Failed to save template');
       }
-      toast.success(
-        isEdit ? 'Holiday template updated' : 'Holiday template created'
-      );
+      toast.success(isEdit ? 'Holiday template updated' : 'Holiday template created');
       onSaved();
     } catch (err) {
       console.error('Error saving holiday template:', err);
@@ -626,7 +633,7 @@ const TemplateDrawer = ({ mode, template, visible, onClose, onSaved }) => {
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg text-light-text dark:text-dark-text"
+            className={ICON_BUTTON_CLASSES}
             aria-label="Close drawer"
           >
             <X className="w-5 h-5" />
@@ -641,7 +648,7 @@ const TemplateDrawer = ({ mode, template, visible, onClose, onSaved }) => {
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={e => setName(e.target.value)}
               required
               placeholder="e.g. India Public Holidays 2025"
               className="w-full px-3 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-primary"
@@ -654,7 +661,7 @@ const TemplateDrawer = ({ mode, template, visible, onClose, onSaved }) => {
             </label>
             <textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={e => setDescription(e.target.value)}
               rows={2}
               placeholder="Optional description"
               className="w-full px-3 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-primary"
@@ -669,7 +676,7 @@ const TemplateDrawer = ({ mode, template, visible, onClose, onSaved }) => {
               <input
                 type="number"
                 value={year}
-                onChange={(e) => setYear(e.target.value)}
+                onChange={e => setYear(e.target.value)}
                 required
                 min={1970}
                 max={2100}
@@ -682,17 +689,14 @@ const TemplateDrawer = ({ mode, template, visible, onClose, onSaved }) => {
                 Type <span className="text-danger">*</span>
               </label>
               <div className="flex gap-3 pt-1">
-                {[
-                  { value: 'fixed', label: 'Fixed' },
-                  { value: 'floating', label: 'Floating' },
-                ].map((opt) => (
+                {TEMPLATE_TYPE_OPTIONS.map(opt => (
                   <label
                     key={opt.value}
                     className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm cursor-pointer transition-colors ${
                       type === opt.value
                         ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-light-border dark:border-dark-border text-light-text dark:text-dark-text hover:bg-light-bg dark:hover:bg-dark-bg'
-                    } ${typeLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        : NEUTRAL_BORDER_HOVER_CLASSES
+                    } ${typeLocked ? DISABLED_BUTTON_CLASSES : ''}`}
                   >
                     <input
                       type="radio"
@@ -733,7 +737,8 @@ const TemplateDrawer = ({ mode, template, visible, onClose, onSaved }) => {
 
             {holidays.length === 0 ? (
               <div className="rounded-lg border border-dashed border-light-border dark:border-dark-border px-4 py-6 text-center text-sm text-light-text/60 dark:text-dark-text/60">
-                No holidays added yet. Click <span className="font-medium">Add Holiday</span> to start.
+                No holidays added yet. Click <span className="font-medium">Add Holiday</span> to
+                start.
               </div>
             ) : (
               <ul className="rounded-lg border border-light-border dark:border-dark-border divide-y divide-light-border dark:divide-dark-border">
@@ -766,11 +771,7 @@ const TemplateDrawer = ({ mode, template, visible, onClose, onSaved }) => {
         </form>
 
         <footer className="px-6 py-4 border-t border-light-border dark:border-dark-border flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-light-border dark:border-dark-border text-sm text-light-text dark:text-dark-text hover:bg-light-bg dark:hover:bg-dark-bg"
-          >
+          <button type="button" onClick={onClose} className={SECONDARY_BUTTON_CLASSES}>
             Cancel
           </button>
           <button
@@ -778,7 +779,7 @@ const TemplateDrawer = ({ mode, template, visible, onClose, onSaved }) => {
             onClick={handleSubmit}
             disabled={saving}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary-dark text-white text-sm font-medium transition-colors ${
-              saving ? 'opacity-60 cursor-not-allowed' : ''
+              saving ? DISABLED_BUTTON_CLASSES : ''
             }`}
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
@@ -806,7 +807,7 @@ const AddHolidayModal = ({ year, onCancel, onAdd }) => {
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = e => {
     e.preventDefault();
     if (!name.trim() || !date) {
       toast.error('Holiday name and date are required');
@@ -840,7 +841,7 @@ const AddHolidayModal = ({ year, onCancel, onAdd }) => {
           <button
             type="button"
             onClick={onCancel}
-            className="p-1.5 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg text-light-text dark:text-dark-text"
+            className={ICON_BUTTON_SM_CLASSES}
             aria-label="Close"
           >
             <X className="w-4 h-4" />
@@ -854,7 +855,7 @@ const AddHolidayModal = ({ year, onCancel, onAdd }) => {
             <input
               type="date"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={e => setDate(e.target.value)}
               required
               className="w-full px-3 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-primary"
             />
@@ -866,7 +867,7 @@ const AddHolidayModal = ({ year, onCancel, onAdd }) => {
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={e => setName(e.target.value)}
               required
               placeholder="e.g. Diwali"
               className="w-full px-3 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-primary"
@@ -874,11 +875,7 @@ const AddHolidayModal = ({ year, onCancel, onAdd }) => {
           </div>
         </div>
         <footer className="flex justify-end gap-2 px-5 py-3 border-t border-light-border dark:border-dark-border">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-3 py-1.5 rounded-lg border border-light-border dark:border-dark-border text-sm text-light-text dark:text-dark-text hover:bg-light-bg dark:hover:bg-dark-bg"
-          >
+          <button type="button" onClick={onCancel} className={SECONDARY_BUTTON_SM_CLASSES}>
             Cancel
           </button>
           <button
@@ -892,7 +889,6 @@ const AddHolidayModal = ({ year, onCancel, onAdd }) => {
     </div>
   );
 };
-
 
 // ---------------------------------------------------------------------------
 // Bulk Assign Template modal
@@ -962,19 +958,19 @@ const AssignTemplateModal = ({ template, onClose, onAssigned }) => {
     };
   }, [debouncedSearch]);
 
-  const selectedIds = useMemo(() => new Set(selected.map((e) => e._id)), [selected]);
+  const selectedIds = useMemo(() => new Set(selected.map(e => e._id)), [selected]);
 
-  const toggleEmployee = (emp) => {
-    setSelected((prev) => {
-      if (prev.some((e) => e._id === emp._id)) {
-        return prev.filter((e) => e._id !== emp._id);
+  const toggleEmployee = emp => {
+    setSelected(prev => {
+      if (prev.some(e => e._id === emp._id)) {
+        return prev.filter(e => e._id !== emp._id);
       }
       return [...prev, emp];
     });
   };
 
-  const removeChip = (id) => {
-    setSelected((prev) => prev.filter((e) => e._id !== id));
+  const removeChip = id => {
+    setSelected(prev => prev.filter(e => e._id !== id));
   };
 
   const handleSubmit = async () => {
@@ -984,14 +980,11 @@ const AssignTemplateModal = ({ template, onClose, onAssigned }) => {
     }
     setSubmitting(true);
     try {
-      const response = await fetch(
-        `${BASE_URL}/holidays/templates/${template._id}/assign`,
-        {
-          method: 'POST',
-          headers: jsonHeaders(),
-          body: JSON.stringify({ employeeIds: selected.map((e) => e._id) }),
-        }
-      );
+      const response = await fetch(`${BASE_URL}/holidays/templates/${template._id}/assign`, {
+        method: 'POST',
+        headers: jsonHeaders(),
+        body: JSON.stringify({ employeeIds: selected.map(e => e._id) }),
+      });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data.message || 'Failed to assign template');
@@ -999,9 +992,7 @@ const AssignTemplateModal = ({ template, onClose, onAssigned }) => {
       const created = Array.isArray(data.created) ? data.created : [];
       const skipped = Array.isArray(data.skipped) ? data.skipped : [];
       if (created.length > 0) {
-        toast.success(
-          `Assigned to ${created.length} employee${created.length === 1 ? '' : 's'}`
-        );
+        toast.success(`Assigned to ${created.length} employee${created.length === 1 ? '' : 's'}`);
       } else if (skipped.length > 0) {
         toast.info('All selected employees were already assigned');
       } else {
@@ -1041,7 +1032,7 @@ const AssignTemplateModal = ({ template, onClose, onAssigned }) => {
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg text-light-text dark:text-dark-text"
+            className={ICON_BUTTON_CLASSES}
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -1058,7 +1049,7 @@ const AssignTemplateModal = ({ template, onClose, onAssigned }) => {
               <input
                 type="text"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={e => setSearch(e.target.value)}
                 placeholder="Type a name to search..."
                 className="w-full pl-9 pr-3 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-primary"
               />
@@ -1067,7 +1058,7 @@ const AssignTemplateModal = ({ template, onClose, onAssigned }) => {
 
           {selected.length > 0 ? (
             <div className="flex flex-wrap gap-2">
-              {selected.map((emp) => (
+              {selected.map(emp => (
                 <span
                   key={emp._id}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs"
@@ -1104,7 +1095,7 @@ const AssignTemplateModal = ({ template, onClose, onAssigned }) => {
                   Try a different search term.
                 </li>
               ) : null}
-              {results.map((emp) => {
+              {results.map(emp => {
                 const isChecked = selectedIds.has(emp._id);
                 return (
                   <li key={emp._id} className="hover:bg-light-bg/60 dark:hover:bg-dark-bg/60">
@@ -1137,11 +1128,7 @@ const AssignTemplateModal = ({ template, onClose, onAssigned }) => {
             {selected.length} selected
           </span>
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-light-border dark:border-dark-border text-sm text-light-text dark:text-dark-text hover:bg-light-bg dark:hover:bg-dark-bg"
-            >
+            <button type="button" onClick={onClose} className={SECONDARY_BUTTON_CLASSES}>
               Cancel
             </button>
             <button
@@ -1149,7 +1136,7 @@ const AssignTemplateModal = ({ template, onClose, onAssigned }) => {
               onClick={handleSubmit}
               disabled={submitting || selected.length === 0}
               className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary-dark text-white text-sm font-medium transition-colors ${
-                submitting || selected.length === 0 ? 'opacity-60 cursor-not-allowed' : ''
+                submitting || selected.length === 0 ? DISABLED_BUTTON_CLASSES : ''
               }`}
             >
               {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
@@ -1174,10 +1161,9 @@ const AssigneesModal = ({ template, onClose, onUnassigned }) => {
   const fetchAssignments = async () => {
     setLoading(true);
     try {
-      const response = await fetch(
-        `${BASE_URL}/holidays/templates/${template._id}/assignments`,
-        { headers: authHeaders() }
-      );
+      const response = await fetch(`${BASE_URL}/holidays/templates/${template._id}/assignments`, {
+        headers: authHeaders(),
+      });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data.message || 'Failed to fetch assignments');
@@ -1201,7 +1187,7 @@ const AssigneesModal = ({ template, onClose, onUnassigned }) => {
     if (
       !window.confirm(
         `Remove ${displayName || 'this employee'} from "${template.name}"? ` +
-          (template.type === 'floating'
+          (template.type === TEMPLATE_TYPE_FLOATING
             ? 'Their unused floating credits for this template will be forfeited.'
             : 'They will stop receiving these holidays going forward.')
       )
@@ -1257,7 +1243,7 @@ const AssigneesModal = ({ template, onClose, onUnassigned }) => {
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg text-light-text dark:text-dark-text"
+            className={ICON_BUTTON_CLASSES}
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -1281,7 +1267,7 @@ const AssigneesModal = ({ template, onClose, onUnassigned }) => {
             </div>
           ) : (
             <ul className="rounded-lg border border-light-border dark:border-dark-border divide-y divide-light-border dark:divide-dark-border">
-              {assignments.map((row) => {
+              {assignments.map(row => {
                 const emp = row.employee || {};
                 const empId = emp._id || emp.id;
                 const displayName = emp.name || 'Unknown employee';
@@ -1309,7 +1295,7 @@ const AssigneesModal = ({ template, onClose, onUnassigned }) => {
                       onClick={() => handleUnassign(empId, displayName)}
                       disabled={removingId === empId}
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-danger hover:bg-danger/10 ${
-                        removingId === empId ? 'opacity-60 cursor-not-allowed' : ''
+                        removingId === empId ? DISABLED_BUTTON_CLASSES : ''
                       }`}
                       title="Remove this employee from the template"
                     >
@@ -1328,11 +1314,7 @@ const AssigneesModal = ({ template, onClose, onUnassigned }) => {
         </div>
 
         <footer className="flex justify-end px-6 py-4 border-t border-light-border dark:border-dark-border">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-light-border dark:border-dark-border text-sm text-light-text dark:text-dark-text hover:bg-light-bg dark:hover:bg-dark-bg"
-          >
+          <button type="button" onClick={onClose} className={SECONDARY_BUTTON_CLASSES}>
             Close
           </button>
         </footer>
@@ -1357,17 +1339,11 @@ const DeleteConfirmDialog = ({ title, message, deleting, onCancel, onConfirm }) 
         <div className="p-2 rounded-full bg-danger/10 text-danger">
           <AlertCircle className="w-5 h-5" />
         </div>
-        <h3 className="text-base font-semibold text-light-text dark:text-dark-text">
-          {title}
-        </h3>
+        <h3 className="text-base font-semibold text-light-text dark:text-dark-text">{title}</h3>
       </div>
       <p className="px-5 py-4 text-sm text-light-text/80 dark:text-dark-text/80">{message}</p>
       <footer className="flex justify-end gap-2 px-5 py-3 border-t border-light-border dark:border-dark-border">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-3 py-1.5 rounded-lg border border-light-border dark:border-dark-border text-sm text-light-text dark:text-dark-text hover:bg-light-bg dark:hover:bg-dark-bg"
-        >
+        <button type="button" onClick={onCancel} className={SECONDARY_BUTTON_SM_CLASSES}>
           Cancel
         </button>
         <button
@@ -1375,7 +1351,7 @@ const DeleteConfirmDialog = ({ title, message, deleting, onCancel, onConfirm }) 
           onClick={onConfirm}
           disabled={deleting}
           className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-danger text-white text-sm font-medium hover:opacity-90 ${
-            deleting ? 'opacity-60 cursor-not-allowed' : ''
+            deleting ? DISABLED_BUTTON_CLASSES : ''
           }`}
         >
           {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}

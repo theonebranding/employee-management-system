@@ -3,10 +3,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import Admin from '../models/adminSchema.js';
 import Employee from '../models/employeeSchema.js';
-import {
-  sendResetPasswordEmail,
-  sendResetPasswordSuccessEmail,
-} from '../services/emailService.js';
+import { sendResetPasswordEmail, sendResetPasswordSuccessEmail } from '../services/emailService.js';
 import { generateTokens } from '../utils/tokenutils.js';
 
 const isProduction = process.env.NODE_ENV === 'production';

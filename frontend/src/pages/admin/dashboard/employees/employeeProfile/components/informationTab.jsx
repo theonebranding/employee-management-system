@@ -34,7 +34,16 @@ const fieldStyle = {
   workInfoStyle: 'bg-secondary/10 text-secondary',
 };
 
-const InfoCard = ({ icon: Icon, label, value, color, editable, onChange, inputType = 'text', options = [] }) => (
+const InfoCard = ({
+  icon: Icon,
+  label,
+  value,
+  color,
+  editable,
+  onChange,
+  inputType = 'text',
+  options = [],
+}) => (
   <div className="flex items-center gap-3 p-4 rounded-lg bg-light-card/50 dark:bg-dark-card/50 border border-light-border/50 dark:border-dark-border/50 hover:border-light-border/80 dark:hover:border-dark-border/80 transition-all">
     <div className={`p-2 rounded-lg ${color}`}>
       <Icon className="w-5 h-5" />

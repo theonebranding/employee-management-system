@@ -107,11 +107,7 @@ const HolidayEmployees = ({ selectedDate }) => {
               {holidayList.map((employee, index) => {
                 const source = employee.holiday?.source;
                 const sourceLabel =
-                  source === 'fixed'
-                    ? 'Fixed'
-                    : source === 'floating'
-                      ? 'Floating'
-                      : null;
+                  source === 'fixed' ? 'Fixed' : source === 'floating' ? 'Floating' : null;
                 const sourceBadgeClass =
                   source === 'fixed'
                     ? 'bg-primary/10 text-primary'

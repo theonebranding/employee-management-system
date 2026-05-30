@@ -257,8 +257,8 @@ const MonthlyAttendance = () => {
         <div className="bg-light-card dark:bg-dark-card rounded-2xl p-6 shadow-card ring-1 ring-light-border dark:ring-dark-border">
           <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
           <div className="overflow-x-auto">
-            {activeTab === 'attendance' && (
-              filteredRecords.length > 0 ? (
+            {activeTab === 'attendance' &&
+              (filteredRecords.length > 0 ? (
                 <AttendanceTable
                   filteredRecords={filteredRecords}
                   sortConfig={sortConfig}
@@ -268,10 +268,9 @@ const MonthlyAttendance = () => {
                 />
               ) : (
                 <EmptyState tab="attendance" searchDate={searchDate} />
-              )
-            )}
-            {activeTab === 'late' && (
-              filteredLateCheckIns.length > 0 ? (
+              ))}
+            {activeTab === 'late' &&
+              (filteredLateCheckIns.length > 0 ? (
                 <LateCheckInsTable
                   filteredLateCheckIns={filteredLateCheckIns}
                   sortConfig={sortConfig}
@@ -280,10 +279,9 @@ const MonthlyAttendance = () => {
                 />
               ) : (
                 <EmptyState tab="late" searchDate={searchDate} />
-              )
-            )}
-            {activeTab === 'absent' && (
-              filteredAbsentDays.length > 0 ? (
+              ))}
+            {activeTab === 'absent' &&
+              (filteredAbsentDays.length > 0 ? (
                 <AbsentTable
                   filteredAbsentDays={filteredAbsentDays}
                   sortConfig={sortConfig}
@@ -291,8 +289,7 @@ const MonthlyAttendance = () => {
                 />
               ) : (
                 <EmptyState tab="absent" searchDate={searchDate} />
-              )
-            )}
+              ))}
           </div>
         </div>
         <MapModal

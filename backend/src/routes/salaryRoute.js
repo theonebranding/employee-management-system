@@ -30,7 +30,12 @@ router.get('/my-payslips', verifyToken, checkRole(['employee']), getMyPayslips);
 
 router.post('/generate/:employeeId', verifyToken, checkRole(['admin']), generatePayslip);
 
-router.get('/payslip-html/:salaryId', verifyToken, checkRole(['admin', 'employee']), getPayslipHtmlBySalaryId);
+router.get(
+  '/payslip-html/:salaryId',
+  verifyToken,
+  checkRole(['admin', 'employee']),
+  getPayslipHtmlBySalaryId
+);
 
 router.post('/:salaryId/send-email', verifyToken, checkRole(['admin']), sendPayslipEmail);
 

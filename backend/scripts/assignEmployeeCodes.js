@@ -5,7 +5,7 @@ import EmployeeSequence from '../src/models/employeeSequenceSchema.js';
 
 dotenv.config();
 
-const MONGO_URL = process.env.MONGO_URL || process.env.MONGO_URL 
+const MONGO_URL = process.env.MONGO_URL || process.env.MONGO_URL;
 console.log('MONGO_URL:', MONGO_URL);
 const YEAR_SUFFIX = '25';
 
@@ -18,24 +18,20 @@ function getInitials(name = '') {
   return normalized
     .split(' ')
     .filter(Boolean)
-    .map(part => part[0].toUpperCase())
+    .map((part) => part[0].toUpperCase())
     .join('')
     .slice(0, 3);
 }
 
 async function assignCodes({ dryRun = false } = {}) {
   const filter = {
-    $or: [
-      { employeeCode: { $exists: false } },
-      { employeeCode: null },
-      { employeeCode: '' },
-    ],
+    $or: [{ employeeCode: { $exists: false } }, { employeeCode: null }, { employeeCode: '' }],
   };
-    console.log('Using MONGO_URL:', MONGO_URL);
-    console.log('Connected DB:', mongoose.connection.db.databaseName);
+  console.log('Using MONGO_URL:', MONGO_URL);
+  console.log('Connected DB:', mongoose.connection.db.databaseName);
 
-const missingCount = await Employee.countDocuments(filter);
-console.log('Missing by filter:', missingCount);
+  const missingCount = await Employee.countDocuments(filter);
+  console.log('Missing by filter:', missingCount);
 
   const cursor = Employee.find(filter).cursor();
   let count = 0;

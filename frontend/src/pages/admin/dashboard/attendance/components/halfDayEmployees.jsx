@@ -41,7 +41,8 @@ const HalfDayEmployees = ({ startDate, endDate }) => {
           return entry.halfDay === true;
         })
         .map(entry => ({
-          date: entry.checkInTime !== 'N/A' ? new Date(entry.checkInTime).toLocaleDateString() : 'N/A',
+          date:
+            entry.checkInTime !== 'N/A' ? new Date(entry.checkInTime).toLocaleDateString() : 'N/A',
           employeeName: entry.employeeName,
           employeeCode: entry.employeeCode,
           hoursWorked: formatHoursWorked(entry.totalWorkTime),

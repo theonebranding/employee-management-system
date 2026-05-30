@@ -164,14 +164,7 @@ const listAssignmentsForTemplate = async (templateId) => {
  * @returns {Promise<Array>}
  */
 const listAssignmentsForEmployee = async (employeeId) => {
-  return TemplateAssignment.find({ employee: employeeId })
-    .populate('template')
-    .lean();
+  return TemplateAssignment.find({ employee: employeeId }).populate('template').lean();
 };
 
-export {
-  bulkAssign,
-  unassign,
-  listAssignmentsForTemplate,
-  listAssignmentsForEmployee,
-};
+export { bulkAssign, unassign, listAssignmentsForTemplate, listAssignmentsForEmployee };

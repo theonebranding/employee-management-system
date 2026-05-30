@@ -12,7 +12,10 @@ const passwordSchema = z
   .min(6, 'Password must be at least 6 characters')
   .max(128, 'Password must be at most 128 characters');
 
-const otpSchema = z.string().trim().regex(/^\d{6}$/, 'OTP must be a 6-digit number');
+const otpSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{6}$/, 'OTP must be a 6-digit number');
 
 export const loginSchema = z
   .object({

@@ -27,7 +27,6 @@ const getResolvedPayrollStatus = (attendance, settings) => {
 
   const workingMinutes = Number(attendance.totalWorkingTime || 0);
   const minAbsentHours = Number(settings?.minAbsentHours || 180);
-  const halfDayHours = Number(settings?.halfDayHours || 240);
   const fullDayHours = Number(settings?.fullDayHours || 470);
 
   if (workingMinutes < minAbsentHours) return 'absent';
@@ -143,7 +142,10 @@ export const getDailyAttendance = async (req, res) => {
         fullDayThresholdMinutes,
         halfDayThresholdMinutes,
         minAbsentHours,
-        remainingToPresentMinutes: Math.max(fullDayThresholdMinutes - Number(workingMinutes || 0), 0),
+        remainingToPresentMinutes: Math.max(
+          fullDayThresholdMinutes - Number(workingMinutes || 0),
+          0
+        ),
         halfDay: resolvedStatus === 'half-day',
         hasCheckInPunch: !!emp.checkInTime,
         hasCheckOutPunch: !!emp.checkOutTime,
@@ -221,9 +223,6 @@ export const getMonthlyAttendance = async (req, res) => {
 
     const { start: startDate, end: endDate } = getIstMonthRange(Number(month), Number(year));
 
-    const isSundayAbsentOrLeave = (record) =>
-      getIstDayOfWeek(record.date) === 0 && ['absent', 'leave'].includes(record.manualPayrollStatus);
-
     // Admin monthly report mode: return all attendance entries for selected month.
     if (req.user.role === 'admin' && !employeeId) {
       const settings = await AdminAttendanceSettings.findOne().lean();
@@ -267,16 +266,13 @@ export const getMonthlyAttendance = async (req, res) => {
         // Compute resolved status using same logic as getDailyAttendance
         const workingMinutes = Number(record.totalWorkingTime || 0);
         const minAbsentHours = Number(settings?.minAbsentHours || 180);
-        const halfDayHours = Number(settings?.halfDayHours || 240);
         const fullDayHours = Number(settings?.fullDayHours || 470);
 
         const empKey = String(record.employee?._id || '');
         const dateKey = getIstDayKey(new Date(record.date));
         const holidaySet = holidaySetsByEmployee.get(empKey);
         const isHoliday = holidaySet ? holidaySet.has(dateKey) : false;
-        const holidayInfo = isHoliday
-          ? holidayInfoByKey.get(`${empKey}_${dateKey}`)
-          : null;
+        const holidayInfo = isHoliday ? holidayInfoByKey.get(`${empKey}_${dateKey}`) : null;
 
         let resolvedStatus = 'present';
         if (isHoliday) {
@@ -298,27 +294,27 @@ export const getMonthlyAttendance = async (req, res) => {
         }
 
         return {
-        _id: record._id,
-        employeeId: record.employee?._id?.toString() || '',
-        employeeName: record.employee?.name || 'Unknown',
-        employeeCode: record.employee?.employeeCode || '',
-        date: record.date,
-        checkInTime: record.checkInTime,
-        checkOutTime: record.checkOutTime || null,
-        status: resolvedStatus,
-        statusLabel: isHoliday
-          ? holidayInfo?.name
-            ? `Holiday (${holidayInfo.name})`
-            : 'Holiday'
-          : null,
-        isHoliday,
-        holidayName: holidayInfo?.name || null,
-        holidaySource: holidayInfo?.source || null,
-        actualHours: Number((workingMinutes / 60).toFixed(2)),
-        totalWorkingTime: workingMinutes,
-        totalRecessDuration: record.totalRecessDuration || 0,
+          _id: record._id,
+          employeeId: record.employee?._id?.toString() || '',
+          employeeName: record.employee?.name || 'Unknown',
+          employeeCode: record.employee?.employeeCode || '',
+          date: record.date,
+          checkInTime: record.checkInTime,
+          checkOutTime: record.checkOutTime || null,
+          status: resolvedStatus,
+          statusLabel: isHoliday
+            ? holidayInfo?.name
+              ? `Holiday (${holidayInfo.name})`
+              : 'Holiday'
+            : null,
+          isHoliday,
+          holidayName: holidayInfo?.name || null,
+          holidaySource: holidayInfo?.source || null,
+          actualHours: Number((workingMinutes / 60).toFixed(2)),
+          totalWorkingTime: workingMinutes,
+          totalRecessDuration: record.totalRecessDuration || 0,
         };
-        });
+      });
 
       return res.status(200).json({
         message: 'Monthly attendance fetched successfully',
@@ -346,7 +342,11 @@ export const getMonthlyAttendance = async (req, res) => {
     // Resolve this employee's holiday set for the month so per-day records
     // (and any synthesized holiday-only days) can carry status=Holiday.
     const settings = await AdminAttendanceSettings.findOne().lean();
-    const { fixedDates, floatingDates, all: holidaySet } = await getEmployeeHolidayDateSet({
+    const {
+      fixedDates,
+      floatingDates,
+      all: holidaySet,
+    } = await getEmployeeHolidayDateSet({
       employeeId,
       month: Number(month),
       year: Number(year),
@@ -413,9 +413,7 @@ export const getMonthlyAttendance = async (req, res) => {
     // Synthesize holiday-only rows for days the employee didn't punch in.
     // Without these the per-employee monthly history would hide the holiday
     // entirely, since there is no Attendance document to back it.
-    const recordedDateKeys = new Set(
-      records.map((record) => getIstDayKey(new Date(record.date)))
-    );
+    const recordedDateKeys = new Set(records.map((record) => getIstDayKey(new Date(record.date))));
     const syntheticHolidayRecords = [];
     for (const dateKey of holidaySet) {
       if (recordedDateKeys.has(dateKey)) continue;
@@ -509,7 +507,7 @@ export const getAbsenteeList = async (req, res) => {
             const checkInTime = new Date(record.checkInTime);
             const workingMinutes = Math.floor((now - checkInTime) / 60000);
             attendanceForStatus = {
-              ...record.toObject ? record.toObject() : record,
+              ...(record.toObject ? record.toObject() : record),
               totalWorkingTime: workingMinutes,
             };
           }
@@ -526,9 +524,7 @@ export const getAbsenteeList = async (req, res) => {
 
     // Step 3: Fetch employees on holiday (fixed templates + redeemed floating credits)
     const holidayRows = await getEmployeesOnHoliday({ startDate: start, endDate: endOfDay });
-    const holidayEmployeeIds = new Set(
-      holidayRows.map((row) => row.employee._id.toString())
-    );
+    const holidayEmployeeIds = new Set(holidayRows.map((row) => row.employee._id.toString()));
 
     // Step 4: Filter employees who are **absent** (not present and not on holiday)
     const absentEmployees = allEmployees.filter(
@@ -627,10 +623,7 @@ export const getEmployeeAbsentDays = async (req, res) => {
       date: { $gte: effectiveStart, $lte: effectiveEnd },
     }).lean();
     const attendanceByDate = new Map(
-      attendanceRecords.map((record) => [
-        getIstDayKey(new Date(record.date)),
-        record,
-      ])
+      attendanceRecords.map((record) => [getIstDayKey(new Date(record.date)), record])
     );
 
     const absentDays = [];
@@ -663,9 +656,7 @@ export const getEmployeeAbsentDays = async (req, res) => {
     });
   } catch (err) {
     console.error('Error in getEmployeeAbsentDays:', err);
-    return res
-      .status(500)
-      .json({ message: 'Error fetching absent days', error: err.message });
+    return res.status(500).json({ message: 'Error fetching absent days', error: err.message });
   }
 };
 
@@ -712,13 +703,17 @@ export const getEmployeeAbsenteeList = async (req, res) => {
     const currentDate = getStartOfIstDay();
 
     // Adjust end date to be either the requested end date or current date, whichever is earlier
-    const effectiveEndDate = getEndOfIstDay(new Date(Math.min(end.getTime(), currentDate.getTime())));
+    const effectiveEndDate = getEndOfIstDay(
+      new Date(Math.min(end.getTime(), currentDate.getTime()))
+    );
 
-    const joinedDate = employee.joinedDate ? getIstDayStartFromParts(
-      employee.joinedDate.getFullYear(),
-      employee.joinedDate.getMonth() + 1,
-      employee.joinedDate.getDate()
-    ) : null;
+    const joinedDate = employee.joinedDate
+      ? getIstDayStartFromParts(
+          employee.joinedDate.getFullYear(),
+          employee.joinedDate.getMonth() + 1,
+          employee.joinedDate.getDate()
+        )
+      : null;
     const rangeStart = joinedDate && joinedDate > start ? joinedDate : start;
 
     // Calculate total days in the month
@@ -915,7 +910,9 @@ export const getEmployeeHalfDays = async (req, res) => {
     const currentDate = getStartOfIstDay();
 
     // Adjust end date to be either the requested end date or current date, whichever is earlier
-    const effectiveEndDate = getEndOfIstDay(new Date(Math.min(end.getTime(), currentDate.getTime())));
+    const effectiveEndDate = getEndOfIstDay(
+      new Date(Math.min(end.getTime(), currentDate.getTime()))
+    );
 
     // Fetch employee details
     const employee = await Employee.findById(employeeId);
@@ -925,11 +922,13 @@ export const getEmployeeHalfDays = async (req, res) => {
 
     const settings = await AdminAttendanceSettings.findOne().lean();
 
-    const joinedDate = employee.joinedDate ? getIstDayStartFromParts(
-      employee.joinedDate.getFullYear(),
-      employee.joinedDate.getMonth() + 1,
-      employee.joinedDate.getDate()
-    ) : null;
+    const joinedDate = employee.joinedDate
+      ? getIstDayStartFromParts(
+          employee.joinedDate.getFullYear(),
+          employee.joinedDate.getMonth() + 1,
+          employee.joinedDate.getDate()
+        )
+      : null;
     const rangeStart = joinedDate && joinedDate > start ? joinedDate : start;
 
     // Fetch attendance records and resolve half-day rows via attendance settings

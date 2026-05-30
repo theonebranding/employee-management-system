@@ -64,11 +64,11 @@ const AdminAssignLeaveTemplate = () => {
       setSelected(new Set());
       return;
     }
-    setSelected(new Set(employees.map((emp) => emp._id)));
+    setSelected(new Set(employees.map(emp => emp._id)));
   };
 
-  const toggleOne = (id) => {
-    setSelected((prev) => {
+  const toggleOne = id => {
+    setSelected(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
@@ -131,15 +131,13 @@ const AdminAssignLeaveTemplate = () => {
         <div className="bg-light-card dark:bg-dark-card rounded-xl border border-light-border dark:border-dark-border shadow-card">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-6 py-4 border-b border-light-border dark:border-dark-border">
             <div className="flex items-center gap-3">
-              <label className="text-sm text-light-text dark:text-dark-text">
-                Select Template
-              </label>
+              <label className="text-sm text-light-text dark:text-dark-text">Select Template</label>
               <select
                 value={selectedTemplate}
-                onChange={(e) => setSelectedTemplate(e.target.value)}
+                onChange={e => setSelectedTemplate(e.target.value)}
                 className="px-3 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-sm"
               >
-                {templates.map((template) => (
+                {templates.map(template => (
                   <option key={template._id} value={template._id}>
                     {template.name}
                   </option>
@@ -186,27 +184,27 @@ const AdminAssignLeaveTemplate = () => {
                     </td>
                   </tr>
                 ) : employees.length > 0 ? (
-                  employees.map((emp) => {
+                  employees.map(emp => {
                     const isChecked = selected.has(emp._id);
                     return (
-                    <tr key={emp._id} className="text-light-text dark:text-dark-text">
-                      <td className="px-4 py-3">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleOne(emp._id)}
-                          className="h-4 w-4 accent-primary"
-                          aria-label={`Select ${emp.name}`}
-                        />
-                      </td>
-                      <td className="px-4 py-3">{emp.employeeCode || emp._id}</td>
-                      <td className="px-4 py-3">{emp.name}</td>
-                      <td className="px-4 py-3">{emp.department}</td>
-                      <td className="px-4 py-3">{emp.designation}</td>
-                      <td className="px-4 py-3">{emp.templateAssigned || '—'}</td>
-                    </tr>
-                  );
-                })
+                      <tr key={emp._id} className="text-light-text dark:text-dark-text">
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleOne(emp._id)}
+                            className="h-4 w-4 accent-primary"
+                            aria-label={`Select ${emp.name}`}
+                          />
+                        </td>
+                        <td className="px-4 py-3">{emp.employeeCode || emp._id}</td>
+                        <td className="px-4 py-3">{emp.name}</td>
+                        <td className="px-4 py-3">{emp.department}</td>
+                        <td className="px-4 py-3">{emp.designation}</td>
+                        <td className="px-4 py-3">{emp.templateAssigned || '—'}</td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td

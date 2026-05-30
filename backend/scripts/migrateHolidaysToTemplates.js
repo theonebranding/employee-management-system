@@ -161,9 +161,7 @@ const migrate = async () => {
   console.log(`HolidayTemplate records reused (already existed): ${templatesReused}`);
   console.log(`TemplateAssignment records created: ${assignmentsCreated}`);
   console.log(`TemplateAssignment records skipped (duplicate-key): ${assignmentsSkipped}`);
-  console.log(
-    'Legacy_PredefinedHoliday is no longer read at runtime and is safe to drop.'
-  );
+  console.log('Legacy_PredefinedHoliday is no longer read at runtime and is safe to drop.');
   console.log(
     'Legacy_SelectedHoliday is no longer read at runtime; leave the collection in place ' +
       'for audit and drop in a follow-up cleanup.'

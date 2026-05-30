@@ -18,7 +18,12 @@ router.get('/', verifyToken, getExtraAllowances);
 router.post('/', verifyToken, checkRole(['admin']), createExtraAllowance);
 
 // Sync extra allowances from attendance
-router.post('/sync-from-attendance', verifyToken, checkRole(['admin']), syncExtraAllowancesFromAttendance);
+router.post(
+  '/sync-from-attendance',
+  verifyToken,
+  checkRole(['admin']),
+  syncExtraAllowancesFromAttendance
+);
 
 // Update extra allowance
 router.put('/:allowanceId', verifyToken, checkRole(['admin']), updateExtraAllowance);

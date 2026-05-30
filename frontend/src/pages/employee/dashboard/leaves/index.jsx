@@ -228,37 +228,50 @@ const Leaves = () => {
         <div className="bg-light-card dark:bg-dark-card rounded-2xl p-6 shadow-card ring-1 ring-light-border dark:ring-dark-border">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <p className="text-sm text-light-text dark:text-dark-text opacity-70">Assigned leave template</p>
+              <p className="text-sm text-light-text dark:text-dark-text opacity-70">
+                Assigned leave template
+              </p>
               <h3 className="text-xl font-semibold text-light-text dark:text-dark-text mt-1">
                 {templateLoading
                   ? 'Loading template...'
                   : assignedTemplate?.template?.name || 'No leave template assigned yet'}
               </h3>
               <p className="text-sm text-light-text dark:text-dark-text opacity-70 mt-2">
-                {assignedTemplate?.template?.description || 'Available leave balance will appear here when a template is assigned.'}
+                {assignedTemplate?.template?.description ||
+                  'Available leave balance will appear here when a template is assigned.'}
               </p>
             </div>
             {assignedTemplate?.balance && (
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
                 <div className="px-4 py-3 rounded-xl bg-light-bg dark:bg-dark-bg">
                   <p className="text-xs opacity-70 text-light-text dark:text-dark-text">Total</p>
-                  <p className="text-lg font-semibold text-light-text dark:text-dark-text">{assignedTemplate.balance.total}</p>
+                  <p className="text-lg font-semibold text-light-text dark:text-dark-text">
+                    {assignedTemplate.balance.total}
+                  </p>
                 </div>
                 <div className="px-4 py-3 rounded-xl bg-light-bg dark:bg-dark-bg">
                   <p className="text-xs opacity-70 text-light-text dark:text-dark-text">Used</p>
-                  <p className="text-lg font-semibold text-light-text dark:text-dark-text">{assignedTemplate.balance.used}</p>
+                  <p className="text-lg font-semibold text-light-text dark:text-dark-text">
+                    {assignedTemplate.balance.used}
+                  </p>
                 </div>
                 <div className="px-4 py-3 rounded-xl bg-success/10">
                   <p className="text-xs opacity-70 text-success">Remaining</p>
-                  <p className="text-lg font-semibold text-success">{assignedTemplate.balance.remaining}</p>
+                  <p className="text-lg font-semibold text-success">
+                    {assignedTemplate.balance.remaining}
+                  </p>
                 </div>
                 <div className="px-4 py-3 rounded-xl bg-info/10">
                   <p className="text-xs opacity-70 text-info">Carry Forward</p>
-                  <p className="text-lg font-semibold text-info">{assignedTemplate.balance.carryForwardDays || 0}</p>
+                  <p className="text-lg font-semibold text-info">
+                    {assignedTemplate.balance.carryForwardDays || 0}
+                  </p>
                 </div>
                 <div className="px-4 py-3 rounded-xl bg-warning/10">
                   <p className="text-xs opacity-70 text-warning">Encashable</p>
-                  <p className="text-lg font-semibold text-warning">{assignedTemplate.balance.encashmentDays || 0}</p>
+                  <p className="text-lg font-semibold text-warning">
+                    {assignedTemplate.balance.encashmentDays || 0}
+                  </p>
                 </div>
               </div>
             )}
@@ -284,7 +297,8 @@ const Leaves = () => {
             </button>
           </div>
           <p className="text-sm text-light-text dark:text-dark-text opacity-70 mt-3">
-            Template leave auto-uses your assigned quota. Special leave requires a document and will wait for admin review.
+            Template leave auto-uses your assigned quota. Special leave requires a document and will
+            wait for admin review.
           </p>
         </div>
 
@@ -401,10 +415,7 @@ const Leaves = () => {
                 New Leave Request
               </h2>
             </div>
-            <form
-              onSubmit={handleNewRequest}
-              className="flex flex-col flex-1 min-h-0"
-            >
+            <form onSubmit={handleNewRequest} className="flex flex-col flex-1 min-h-0">
               <div className="flex-1 overflow-y-auto px-8 pb-2 space-y-6">
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-light-text dark:text-dark-text">
@@ -450,7 +461,9 @@ const Leaves = () => {
                       </label>
                       <select
                         value={newRequest.leaveCategory}
-                        onChange={e => setNewRequest({ ...newRequest, leaveCategory: e.target.value })}
+                        onChange={e =>
+                          setNewRequest({ ...newRequest, leaveCategory: e.target.value })
+                        }
                         className="w-full px-4 py-2.5 bg-light-bg dark:bg-dark-bg rounded-lg ring-1 ring-light-border dark:ring-dark-border focus:ring-2 focus:ring-primary text-light-text dark:text-dark-text"
                         required
                       >
@@ -475,9 +488,12 @@ const Leaves = () => {
                         required
                       />
                       <p className="text-xs text-light-text dark:text-dark-text opacity-70">
-                        Accepted: image or PDF. The file is attached to the request for admin review.
+                        Accepted: image or PDF. The file is attached to the request for admin
+                        review.
                       </p>
-                      {documentUploading && <p className="text-xs text-primary">Reading document...</p>}
+                      {documentUploading && (
+                        <p className="text-xs text-primary">Reading document...</p>
+                      )}
                       {newRequest.documentName && (
                         <p className="text-xs text-success">Uploaded: {newRequest.documentName}</p>
                       )}
@@ -486,10 +502,15 @@ const Leaves = () => {
                 )}
                 {requestMode === 'template' && assignedTemplate?.template && (
                   <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-light-text dark:text-dark-text">
-                    This request will use your assigned template <span className="font-semibold">{assignedTemplate.template.name}</span> and will auto-approve when the template policy allows it and the request stays within the available balance.
+                    This request will use your assigned template{' '}
+                    <span className="font-semibold">{assignedTemplate.template.name}</span> and will
+                    auto-approve when the template policy allows it and the request stays within the
+                    available balance.
                     {assignedTemplate?.balance?.carryForwardDays !== undefined ? (
                       <span className="block mt-2 text-xs opacity-80">
-                        Carry-forward available this period: {assignedTemplate.balance.carryForwardDays || 0}. Extra unused leaves beyond the limit: {assignedTemplate.balance.encashmentDays || 0}.
+                        Carry-forward available this period:{' '}
+                        {assignedTemplate.balance.carryForwardDays || 0}. Extra unused leaves beyond
+                        the limit: {assignedTemplate.balance.encashmentDays || 0}.
                       </span>
                     ) : null}
                   </div>

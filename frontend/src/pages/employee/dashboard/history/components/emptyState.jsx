@@ -6,8 +6,7 @@ const EmptyState = ({ tab = 'attendance', searchDate }) => {
   // here so the component stays a drop-in replacement.
   const resolvedTab = tab;
 
-  const Icon =
-    resolvedTab === 'late' ? CheckSquare : resolvedTab === 'absent' ? UserX : Calendar;
+  const Icon = resolvedTab === 'late' ? CheckSquare : resolvedTab === 'absent' ? UserX : Calendar;
   const iconClass =
     resolvedTab === 'late'
       ? 'text-success'

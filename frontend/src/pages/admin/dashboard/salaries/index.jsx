@@ -1,21 +1,18 @@
 /* eslint-disable unused-imports/no-unused-vars */
 /* eslint-disable no-unused-vars */
 /* eslint-disable react-hooks/exhaustive-deps */
-import {
-  Calculator,
-  ChevronDown,
-  Download,
-  Filter,
-  Search,
-  X,
-} from 'lucide-react';
+import { Calculator, ChevronDown, Download, Filter, Search, X } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 
-import { useTheme } from '../../../../context/themeContext';
 import Header from '../../../../components/pageHeader';
+import { useTheme } from '../../../../context/themeContext';
 
+// String constants used across the file (avoid sonarjs/no-duplicate-string).
+const LEAVE_ENCASHMENT_LABEL = 'Leave Encashment';
+
+// eslint-disable-next-line sonarjs/cognitive-complexity
 const AdminSalaryManagement = () => {
   const navigate = useNavigate();
   const { theme } = useTheme();
@@ -114,7 +111,7 @@ const AdminSalaryManagement = () => {
     const shifted = new Date(date.getTime() + IST_OFFSET_MINUTES * 60 * 1000);
     return shifted.toISOString().slice(0, 10);
   };
-  const toIstDate = (dateValue) =>
+  const toIstDate = dateValue =>
     new Date(new Date(dateValue).getTime() + IST_OFFSET_MINUTES * 60 * 1000);
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
   const authHeaders = useMemo(
@@ -197,7 +194,7 @@ const AdminSalaryManagement = () => {
     }
   };
 
-  const startSalaryTableAutoScroll = (direction) => {
+  const startSalaryTableAutoScroll = direction => {
     if (!salaryTableScrollRef.current) return;
     stopSalaryTableAutoScroll();
     const step = direction === 'left' ? -18 : 18;
@@ -312,7 +309,7 @@ const AdminSalaryManagement = () => {
       }
 
       const counts = {};
-      (data?.lateCheckIns || []).forEach((record) => {
+      (data?.lateCheckIns || []).forEach(record => {
         const employeeId = record.employee?._id || record.employee;
         if (!employeeId) return;
         counts[employeeId] = (counts[employeeId] || 0) + 1;
@@ -488,7 +485,7 @@ const AdminSalaryManagement = () => {
       refreshExtraAllowancesData();
     };
 
-    const onStorageUpdate = (event) => {
+    const onStorageUpdate = event => {
       if (event.key === 'attendanceUpdated') {
         refreshExtraAllowancesData();
       }
@@ -501,12 +498,11 @@ const AdminSalaryManagement = () => {
       window.removeEventListener('attendanceUpdated', onAttendanceUpdated);
       window.removeEventListener('storage', onStorageUpdate);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month, year]);
 
   const toMonthIndex = (yearValue, monthValue) => yearValue * 12 + (monthValue - 1);
 
-  const isInSelectedMonth = (dateValue) => {
+  const isInSelectedMonth = dateValue => {
     if (!dateValue) return false;
     const parsed = toIstDate(dateValue);
     if (Number.isNaN(parsed.getTime())) return false;
@@ -520,7 +516,7 @@ const AdminSalaryManagement = () => {
     return parsed.getMonth() + 1 === targetMonth && parsed.getFullYear() === targetYear;
   };
 
-  const doesLeaveOverlapSelectedMonth = (leave) => {
+  const doesLeaveOverlapSelectedMonth = leave => {
     if (!leave?.startDate || !leave?.endDate) return false;
     const leaveStart = new Date(leave.startDate);
     const leaveEnd = new Date(leave.endDate);
@@ -531,30 +527,38 @@ const AdminSalaryManagement = () => {
     return leaveStart <= monthEnd && leaveEnd >= monthStart;
   };
 
-  const getExtrasForEmployee = (employeeId) =>
-    extraAllowances.filter((record) => {
+  const getExtrasForEmployee = employeeId =>
+    extraAllowances.filter(record => {
       const recordEmployeeId = record.employee?._id || record.employee;
       if (!recordEmployeeId || recordEmployeeId !== employeeId) return false;
-      if (record?.reference === 'Leave Encashment' || record?.breakdown?.kind === 'leave-encashment') {
+      if (
+        record?.reference === LEAVE_ENCASHMENT_LABEL ||
+        record?.breakdown?.kind === 'leave-encashment'
+      ) {
         return false;
       }
       return isInSelectedMonth(record.transactionDate);
     });
 
-  const getExtraAmountForEmployee = (employeeId) =>
+  const getExtraAmountForEmployee = employeeId =>
     getExtrasForEmployee(employeeId).reduce((sum, record) => sum + Number(record.amount || 0), 0);
 
-  const getLeaveEncashmentRecordsForEmployee = (employeeId) =>
-    extraAllowances.filter((record) => {
+  const getLeaveEncashmentRecordsForEmployee = employeeId =>
+    extraAllowances.filter(record => {
       const recordEmployeeId = record.employee?._id || record.employee;
       if (!recordEmployeeId || recordEmployeeId !== employeeId) return false;
-      if (!(record?.reference === 'Leave Encashment' || record?.breakdown?.kind === 'leave-encashment')) {
+      if (
+        !(
+          record?.reference === LEAVE_ENCASHMENT_LABEL ||
+          record?.breakdown?.kind === 'leave-encashment'
+        )
+      ) {
         return false;
       }
       return isInSelectedMonth(record.transactionDate);
     });
 
-  const getRecordMonthLabel = (record) => {
+  const getRecordMonthLabel = record => {
     if (!record?.transactionDate) return 'Current Month';
     const parsed = toIstDate(record.transactionDate);
     if (Number.isNaN(parsed.getTime())) return 'Current Month';
@@ -564,30 +568,36 @@ const AdminSalaryManagement = () => {
     });
   };
 
-  const getExtraSourceLabel = (record) => {
+  const getExtraSourceLabel = record => {
     if (record?.reference === 'Compensation') return 'Sunday Compensation';
-    if (record?.reference === 'Leave Encashment' || record?.breakdown?.kind === 'leave-encashment') {
-      return 'Leave Encashment';
+    if (
+      record?.reference === LEAVE_ENCASHMENT_LABEL ||
+      record?.breakdown?.kind === 'leave-encashment'
+    ) {
+      return LEAVE_ENCASHMENT_LABEL;
     }
     return record?.reference?.trim() || 'Manual Extra';
   };
 
-  const getExtraSourcePeriodLabel = (record) => {
+  const getExtraSourcePeriodLabel = record => {
     const monthLabel = getRecordMonthLabel(record);
     if (record?.reference === 'Compensation') return `Sunday · ${monthLabel}`;
-    if (record?.reference === 'Leave Encashment' || record?.breakdown?.kind === 'leave-encashment') {
+    if (
+      record?.reference === LEAVE_ENCASHMENT_LABEL ||
+      record?.breakdown?.kind === 'leave-encashment'
+    ) {
       return `Encashment · ${monthLabel}`;
     }
     return `Manual · ${monthLabel}`;
   };
 
-  const getExtraSourceSummary = (records) => {
+  const getExtraSourceSummary = records => {
     const summary = {
       sundayCompensation: { amount: 0, count: 0, records: [] },
       manual: { amount: 0, count: 0, byType: {} },
     };
 
-    (records || []).forEach((record) => {
+    (records || []).forEach(record => {
       const amount = Number(record?.amount || 0);
       if (record?.reference === 'Compensation') {
         summary.sundayCompensation.amount += amount;
@@ -612,7 +622,7 @@ const AdminSalaryManagement = () => {
     return summary;
   };
 
-  const getLeaveEncashmentSummary = (records) => {
+  const getLeaveEncashmentSummary = records => {
     const summary = {
       amount: 0,
       count: 0,
@@ -621,7 +631,7 @@ const AdminSalaryManagement = () => {
       records: [],
     };
 
-    (records || []).forEach((record) => {
+    (records || []).forEach(record => {
       const amount = Number(record?.amount || 0);
       summary.amount += amount;
       summary.count += 1;
@@ -639,8 +649,8 @@ const AdminSalaryManagement = () => {
     return summary;
   };
 
-  const getLoansForEmployee = (employeeId) =>
-    loanAdvances.filter((record) => {
+  const getLoansForEmployee = employeeId =>
+    loanAdvances.filter(record => {
       const recordEmployeeId = record.employee?._id || record.employee;
       if (!recordEmployeeId || recordEmployeeId !== employeeId) return false;
       if (loanFilterMode === 'all') return true;
@@ -715,7 +725,7 @@ const AdminSalaryManagement = () => {
 
   const loanAdvanceMap = useMemo(() => {
     const map = {};
-    loanAdvances.forEach((record) => {
+    loanAdvances.forEach(record => {
       const employeeId = record.employee?._id || record.employee;
       if (!employeeId) return;
       const deduction = getLoanDeductionForRecord(record, month, year);
@@ -764,7 +774,7 @@ const AdminSalaryManagement = () => {
     const fixedPenalty = Number(penaltySettings.fixedPenaltyPerDay || 0);
     const wageMultiplier = Number(penaltySettings.dailyWageMultiplier || 0);
 
-    employees.forEach((employee) => {
+    employees.forEach(employee => {
       if (!penaltySettings.enabled) return;
       const employeeId = employee._id;
       const lateCount = Number(lateCheckInCounts[employeeId] || 0);
@@ -795,9 +805,7 @@ const AdminSalaryManagement = () => {
     const extraAmount = Number(getExtraAmountForEmployee(employeeId) || 0);
     const leaveEncashmentAmount = Number(payroll?.leaveEncashmentAmount || 0);
     const penalties = Number(autoPenaltyMap[employeeId] ?? 0);
-    const loanAmount = Number(
-      loanAdvanceMap[employeeId] ?? payroll?.computedLoanAmount ?? 0
-    );
+    const loanAmount = Number(loanAdvanceMap[employeeId] ?? payroll?.computedLoanAmount ?? 0);
     const grossPay =
       fullDays * dailyWage +
       halfDays * dailyWage * 0.5 +
@@ -810,7 +818,7 @@ const AdminSalaryManagement = () => {
     return Number.isFinite(netPay) ? netPay : 0;
   };
 
-  const fetchLatestPayrollForEmployee = async (employeeId) => {
+  const fetchLatestPayrollForEmployee = async employeeId => {
     const response = await fetch(
       `${BASE_URL}/payroll/employee/${employeeId}?month=${month}&year=${year}`,
       { headers: authHeaders }
@@ -835,9 +843,7 @@ const AdminSalaryManagement = () => {
       overtimeHours: payroll?.overtimeHours || 0,
       penalties: payroll?.penalties || 0,
       loanAmount:
-        loanAdvanceMap[employee._id] ??
-        payroll?.computedLoanAmount ??
-        (payroll?.loanAmount || 0),
+        loanAdvanceMap[employee._id] ?? payroll?.computedLoanAmount ?? (payroll?.loanAmount || 0),
       extraAmount: getExtraAmountForEmployee(employee._id),
       status: payroll?.status || 'unpaid',
     });
@@ -913,6 +919,7 @@ const AdminSalaryManagement = () => {
     }, 300);
   };
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   const saveSettingsPanel = async () => {
     if (!settingsPanel) return;
 
@@ -1087,13 +1094,11 @@ const AdminSalaryManagement = () => {
       const baseSalary = Number(payroll.baseSalary || getEmployeeSalary(employee.email) || 0);
       const overtime = Number(payroll.overtimeAmount || 0);
       const penalties = Number(
-        payroll.isPreview
-          ? autoPenaltyMap[employee._id] ?? 0
-          : payroll.penalties || 0
+        payroll.isPreview ? (autoPenaltyMap[employee._id] ?? 0) : payroll.penalties || 0
       );
       const loanAmount = Number(
         payroll.isPreview
-          ? loanAdvanceMap[employee._id] ?? payroll.computedLoanAmount ?? 0
+          ? (loanAdvanceMap[employee._id] ?? payroll.computedLoanAmount ?? 0)
           : payroll.loanAmount || 0
       );
       const extras = Number(getExtraAmountForEmployee(employee._id) || 0);
@@ -1101,9 +1106,7 @@ const AdminSalaryManagement = () => {
         Number(payroll.dailyWage || 0) *
         (Number(payroll.fullDays || 0) + Number(payroll.halfDays || 0) * 0.5);
       const netPay = Number(
-        payroll.isPreview
-          ? getPreviewNetPay(employee._id, payroll)
-          : payroll.totalSalary || 0
+        payroll.isPreview ? getPreviewNetPay(employee._id, payroll) : payroll.totalSalary || 0
       );
 
       return [
@@ -1144,11 +1147,11 @@ const AdminSalaryManagement = () => {
         const baseSalary = Number(payroll.baseSalary || getEmployeeSalary(employee.email) || 0);
         const overtime = Number(payroll.overtimeAmount || 0);
         const penalties = Number(
-          payroll.isPreview ? autoPenaltyMap[employee._id] ?? 0 : payroll.penalties || 0
+          payroll.isPreview ? (autoPenaltyMap[employee._id] ?? 0) : payroll.penalties || 0
         );
         const loanAmount = Number(
           payroll.isPreview
-            ? loanAdvanceMap[employee._id] ?? payroll.computedLoanAmount ?? 0
+            ? (loanAdvanceMap[employee._id] ?? payroll.computedLoanAmount ?? 0)
             : payroll.loanAmount || 0
         );
         const extras = Number(getExtraAmountForEmployee(employee._id) || 0);
@@ -1156,9 +1159,7 @@ const AdminSalaryManagement = () => {
           Number(payroll.dailyWage || 0) *
           (Number(payroll.fullDays || 0) + Number(payroll.halfDays || 0) * 0.5);
         const netPay = Number(
-          payroll.isPreview
-            ? getPreviewNetPay(employee._id, payroll)
-            : payroll.totalSalary || 0
+          payroll.isPreview ? getPreviewNetPay(employee._id, payroll) : payroll.totalSalary || 0
         );
 
         return `
@@ -1297,9 +1298,7 @@ const AdminSalaryManagement = () => {
       setAutoPenaltyValue(computedPenalty);
       if (penaltySettings.enabled) {
         const roundedPenalty = Number(
-          Number.isFinite(computedPenalty)
-            ? Math.round(computedPenalty * 100) / 100
-            : 0
+          Number.isFinite(computedPenalty) ? Math.round(computedPenalty * 100) / 100 : 0
         );
         setFormState(prev => ({ ...prev, penalties: roundedPenalty }));
       }
@@ -1312,7 +1311,6 @@ const AdminSalaryManagement = () => {
     if (selectedEmployee) {
       fetchPanelDeductions(selectedEmployee._id);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month, year, selectedEmployee?._id]);
 
   useEffect(() => {
@@ -1330,10 +1328,9 @@ const AdminSalaryManagement = () => {
             ...prev,
             overtimeHours: Number(preferredPayroll?.overtimeHours || 0),
             penalties: Number(preferredPayroll?.penalties || 0),
-            loanAmount:
-              loanAdvances.find((item) => item.employee === selectedEmployee._id)?._id
-                ? prev.loanAmount
-                : Number((preferredPayroll?.computedLoanAmount ?? preferredPayroll?.loanAmount) || 0),
+            loanAmount: loanAdvances.find(item => item.employee === selectedEmployee._id)?._id
+              ? prev.loanAmount
+              : Number((preferredPayroll?.computedLoanAmount ?? preferredPayroll?.loanAmount) || 0),
             extraAmount: getExtraAmountForEmployee(selectedEmployee._id),
             status: preferredPayroll?.status || prev.status,
           }));
@@ -1348,7 +1345,9 @@ const AdminSalaryManagement = () => {
             ...prev,
             overtimeHours: Number(fallbackPayroll?.overtimeHours || 0),
             penalties: Number(fallbackPayroll?.penalties || 0),
-            loanAmount: Number((fallbackPayroll?.computedLoanAmount ?? fallbackPayroll?.loanAmount) || 0),
+            loanAmount: Number(
+              (fallbackPayroll?.computedLoanAmount ?? fallbackPayroll?.loanAmount) || 0
+            ),
             extraAmount: getExtraAmountForEmployee(selectedEmployee._id),
             status: fallbackPayroll?.status || prev.status,
           }));
@@ -1356,9 +1355,9 @@ const AdminSalaryManagement = () => {
       }
     };
     syncLatest();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  //}, [selectedEmployee?._id, month, year, payrolls.length]);
-    }, [selectedEmployee?._id, month, year, payrolls, previewPayrolls]);
+
+    //}, [selectedEmployee?._id, month, year, payrolls.length]);
+  }, [selectedEmployee?._id, month, year, payrolls, previewPayrolls]);
   useEffect(() => {
     if (settingsPanel !== 'extras') {
       setExtraDetails(null);
@@ -1370,9 +1369,8 @@ const AdminSalaryManagement = () => {
     }
     const records = getExtrasForEmployee(extraForm.employeeId);
     const total = records.reduce((sum, record) => sum + Number(record.amount || 0), 0);
-    const employee = employees.find((item) => item._id === extraForm.employeeId) || null;
+    const employee = employees.find(item => item._id === extraForm.employeeId) || null;
     setExtraDetails({ employee, records, total, count: records.length });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsPanel, extraForm.employeeId, extraAllowances, month, year, employees]);
 
   useEffect(() => {
@@ -1389,7 +1387,7 @@ const AdminSalaryManagement = () => {
 
     const syncPaidLeaveDetails = async () => {
       try {
-        const employee = employees.find((item) => item._id === paidLeaveDetails.employeeId) || null;
+        const employee = employees.find(item => item._id === paidLeaveDetails.employeeId) || null;
         const payroll = mergedPayrollMap[paidLeaveDetails.employeeId] || employee?.payroll || null;
         const dailyWage = Number(payroll?.dailyWage || 0);
 
@@ -1399,13 +1397,18 @@ const AdminSalaryManagement = () => {
           }),
         ]);
 
-        const leaveData = leaveResponse.ok ? await leaveResponse.json().catch(() => ({})) : { leaves: [] };
+        const leaveData = leaveResponse.ok
+          ? await leaveResponse.json().catch(() => ({}))
+          : { leaves: [] };
         const approvedLeaves = (leaveData.leaves || [])
-          .filter((leave) => leave?.status === 'approved')
+          .filter(leave => leave?.status === 'approved')
           .filter(doesLeaveOverlapSelectedMonth)
-          .filter((leave) => Number(leave.paidDays || 0) > 0 || Boolean(leave.isPaidLeave));
+          .filter(leave => Number(leave.paidDays || 0) > 0 || Boolean(leave.isPaidLeave));
 
-        const paidLeaves = approvedLeaves.reduce((sum, leave) => sum + Number(leave.paidDays || 0), 0);
+        const paidLeaves = approvedLeaves.reduce(
+          (sum, leave) => sum + Number(leave.paidDays || 0),
+          0
+        );
         const paidLeavesGross = paidLeaves * dailyWage;
         const encashmentRecords = getLeaveEncashmentRecordsForEmployee(paidLeaveDetails.employeeId);
         const encashmentSummary = getLeaveEncashmentSummary(encashmentRecords);
@@ -1434,8 +1437,15 @@ const AdminSalaryManagement = () => {
     return () => {
       active = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settingsPanel, paidLeaveDetails?.employeeId, mergedPayrollMap, extraAllowances, month, year, employees]);
+  }, [
+    settingsPanel,
+    paidLeaveDetails?.employeeId,
+    mergedPayrollMap,
+    extraAllowances,
+    month,
+    year,
+    employees,
+  ]);
 
   useEffect(() => {
     if (settingsPanel !== 'loans') {
@@ -1448,9 +1458,8 @@ const AdminSalaryManagement = () => {
     }
     const records = getLoansForEmployee(loanForm.employeeId);
     const total = records.reduce((sum, record) => sum + Number(record.amount || 0), 0);
-    const employee = employees.find((item) => item._id === loanForm.employeeId) || null;
+    const employee = employees.find(item => item._id === loanForm.employeeId) || null;
     setLoanDetails({ employee, records, total, count: records.length });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsPanel, loanForm.employeeId, loanAdvances, month, year, employees]);
 
   const processPayroll = async () => {
@@ -1462,12 +1471,12 @@ const AdminSalaryManagement = () => {
     const selectedPayroll = selectedEmployee?.payroll || {};
     const derivedPenalties = Number(
       selectedPayroll?.isPreview
-        ? autoPenaltyMap[selectedEmployee._id] ?? 0
+        ? (autoPenaltyMap[selectedEmployee._id] ?? 0)
         : selectedPayroll?.penalties || 0
     );
     const derivedLoanAmount = Number(
       selectedPayroll?.isPreview
-        ? loanAdvanceMap[selectedEmployee._id] ?? selectedPayroll?.computedLoanAmount ?? 0
+        ? (loanAdvanceMap[selectedEmployee._id] ?? selectedPayroll?.computedLoanAmount ?? 0)
         : selectedPayroll?.loanAmount || 0
     );
     const derivedOvertimeHours = Number(selectedPayroll?.overtimeHours || 0);
@@ -1495,11 +1504,11 @@ const AdminSalaryManagement = () => {
       }
       const data = await response.json();
       toast.success('Payroll processed successfully.');
-      setPayrolls((prev) => {
-        const updated = prev.filter((item) => item._id !== data.payroll._id);
+      setPayrolls(prev => {
+        const updated = prev.filter(item => item._id !== data.payroll._id);
         return [data.payroll, ...updated];
       });
-      setSelectedEmployee((prev) => (prev ? { ...prev, payroll: data.payroll } : prev));
+      setSelectedEmployee(prev => (prev ? { ...prev, payroll: data.payroll } : prev));
       await fetchExtraAllowances();
     } catch (error) {
       toast.error(error.message || 'Failed to process payroll.');
@@ -1597,7 +1606,7 @@ const AdminSalaryManagement = () => {
   };
 
   const removeWhiteBackground = (dataUrl, threshold = 240) =>
-    new Promise((resolve) => {
+    new Promise(resolve => {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
@@ -1652,8 +1661,7 @@ const AdminSalaryManagement = () => {
     return Array.from(uniqueDepartments).sort((a, b) => a.localeCompare(b));
   }, [employees]);
 
-  const eligibleEmployees = employees
-    .filter(isEmployeeEligibleForSelectedMonth);
+  const eligibleEmployees = employees.filter(isEmployeeEligibleForSelectedMonth);
 
   const filteredEmployees = eligibleEmployees
     .filter(employee => {
@@ -1683,10 +1691,7 @@ const AdminSalaryManagement = () => {
   const EMPLOYEES_PER_PAGE = 15;
   const totalPages = Math.max(1, Math.ceil(filteredEmployees.length / EMPLOYEES_PER_PAGE));
   const startIndex = (currentPage - 1) * EMPLOYEES_PER_PAGE;
-  const pagedEmployees = filteredEmployees.slice(
-    startIndex,
-    startIndex + EMPLOYEES_PER_PAGE
-  );
+  const pagedEmployees = filteredEmployees.slice(startIndex, startIndex + EMPLOYEES_PER_PAGE);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -1697,12 +1702,12 @@ const AdminSalaryManagement = () => {
   }, [totalPages]);
 
   const headerFont = { fontFamily: '"Plus Jakarta Sans", "Segoe UI", sans-serif' };
-  const parseBufferMinutes = (value) => {
+  const parseBufferMinutes = value => {
     if (typeof value !== 'string') return 0;
-    const [hours, minutes] = value.split(':').map((part) => Number(part || 0));
+    const [hours, minutes] = value.split(':').map(part => Number(part || 0));
     return Math.max(0, hours * 60 + minutes);
   };
-  const formatBufferMinutes = (value) => {
+  const formatBufferMinutes = value => {
     const totalMinutes = Math.max(0, Number(value || 0));
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
@@ -1738,353 +1743,352 @@ const AdminSalaryManagement = () => {
     const overtimeAmount = Number(payroll?.overtimeAmount || 0);
     const extraAmount = getExtraAmountForEmployee(selectedEmployee?._id);
     const snapshotPenaltyAmount = Number(
-      payroll?.isPreview ? autoPenaltyMap[selectedEmployee?._id] ?? 0 : payroll?.penalties || 0
+      payroll?.isPreview ? (autoPenaltyMap[selectedEmployee?._id] ?? 0) : payroll?.penalties || 0
     );
     const snapshotLoanAmount = Number(
       payroll?.isPreview
-        ? loanAdvanceMap[selectedEmployee?._id] ?? payroll?.computedLoanAmount ?? 0
+        ? (loanAdvanceMap[selectedEmployee?._id] ?? payroll?.computedLoanAmount ?? 0)
         : payroll?.loanAmount || 0
     );
     const showPenaltySummary = Boolean(penaltySettings.enabled);
 
     return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-light-text/60 dark:text-dark-text/60">
-            Payroll Snapshot
-          </p>
-          <h2 className="text-xl font-semibold">
-            {selectedEmployee?.name || 'Select Employee'}
-          </h2>
-          {selectedEmployee ? (
-            <p className="text-sm text-light-text/60 dark:text-dark-text/60">
-              {selectedEmployee.email}
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-light-text/60 dark:text-dark-text/60">
+              Payroll Snapshot
             </p>
+            <h2 className="text-xl font-semibold">{selectedEmployee?.name || 'Select Employee'}</h2>
+            {selectedEmployee ? (
+              <p className="text-sm text-light-text/60 dark:text-dark-text/60">
+                {selectedEmployee.email}
+              </p>
+            ) : null}
+          </div>
+          {showClose ? (
+            <button onClick={closePanel} aria-label="Close payroll panel">
+              <X className="w-5 h-5" />
+            </button>
           ) : null}
         </div>
-        {showClose ? (
-          <button onClick={closePanel} aria-label="Close payroll panel">
-            <X className="w-5 h-5" />
-          </button>
-        ) : null}
-      </div>
 
-      <div className="space-y-5">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-              Overtime Hours
-            </label>
-            <input
-              type="number"
-              step="1"
-              value={Number.isFinite(overtimeHours) ? overtimeHours : 0}
-              disabled
-              readOnly
-              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
-            />
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                Overtime Hours
+              </label>
+              <input
+                type="number"
+                step="1"
+                value={Number.isFinite(overtimeHours) ? overtimeHours : 0}
+                disabled
+                readOnly
+                className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
+              />
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                Penalties
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={Number.isFinite(snapshotPenaltyAmount) ? snapshotPenaltyAmount : 0}
+                disabled
+                readOnly
+                className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
+              />
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                Loan Amount
+              </label>
+              <input
+                type="number"
+                step="1"
+                value={Number.isFinite(snapshotLoanAmount) ? snapshotLoanAmount : 0}
+                disabled
+                readOnly
+                className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
+              />
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                Extra Amount
+              </label>
+              <input
+                type="number"
+                step="1"
+                value={Number.isFinite(extraAmount) ? extraAmount : 0}
+                disabled
+                readOnly
+                className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
+              />
+            </div>
           </div>
-          <div>
-            <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-              Penalties
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              value={Number.isFinite(snapshotPenaltyAmount) ? snapshotPenaltyAmount : 0}
-              disabled
-              readOnly
-              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
-            />
-          </div>
-          <div>
-            <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-              Loan Amount
-            </label>
-            <input
-              type="number"
-              step="1"
-              value={Number.isFinite(snapshotLoanAmount) ? snapshotLoanAmount : 0}
-              disabled
-              readOnly
-              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
-            />
-          </div>
-          <div>
-            <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-              Extra Amount
-            </label>
-            <input
-              type="number"
-              step="1"
-              value={Number.isFinite(extraAmount) ? extraAmount : 0}
-              disabled
-              readOnly
-              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
-            />
-          </div>
-        </div>
 
-        {showPenaltySummary ? (
+          {showPenaltySummary ? (
+            <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
+              <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                Penalty Summary
+              </p>
+              <div className="flex items-center justify-between text-sm">
+                <span>Late Check-ins</span>
+                <span>{lateCount}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span>Allowed Days</span>
+                <span>{allowedLateDays}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span>Excess Days</span>
+                <span>{excessLateDays}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span>Per-day Penalty</span>
+                <span>₹{Number(perDayPenalty || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span>Total Penalty</span>
+                <span>₹{Number(totalPenalty || 0).toFixed(2)}</span>
+              </div>
+            </div>
+          ) : null}
+
           <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
             <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-              Penalty Summary
+              Overtime Summary
             </p>
             <div className="flex items-center justify-between text-sm">
-              <span>Late Check-ins</span>
-              <span>{lateCount}</span>
+              <span>Overtime Hours</span>
+              <span>{overtimeHours.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span>Allowed Days</span>
-              <span>{allowedLateDays}</span>
+              <span>Overtime Rate</span>
+              <span>₹{Number(overtimeRate || 0).toFixed(2)} / hr</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span>Excess Days</span>
-              <span>{excessLateDays}</span>
+              <span>Overtime Amount</span>
+              <span>₹{overtimeAmount.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span>Per-day Penalty</span>
-              <span>₹{Number(perDayPenalty || 0).toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Total Penalty</span>
-              <span>₹{Number(totalPenalty || 0).toFixed(2)}</span>
+              <span>Extras Amount</span>
+              <span>₹{extraAmount.toFixed(2)}</span>
             </div>
           </div>
-        ) : null}
 
-        <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
-          <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-            Overtime Summary
-          </p>
-          <div className="flex items-center justify-between text-sm">
-            <span>Overtime Hours</span>
-            <span>{overtimeHours.toFixed(2)}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Overtime Rate</span>
-            <span>₹{Number(overtimeRate || 0).toFixed(2)} / hr</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Overtime Amount</span>
-            <span>₹{overtimeAmount.toFixed(2)}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Extras Amount</span>
-            <span>₹{extraAmount.toFixed(2)}</span>
-          </div>
-        </div>
-
-        <div>
-          <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-            Status
-          </label>
-          <select
-            value={formState.status}
-            disabled={isPayrollPaidLocked}
-            onChange={e => setFormState(prev => ({ ...prev, status: e.target.value }))}
-            className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
-          >
-            <option value="unpaid">Unpaid</option>
-            <option value="paid">Paid</option>
-          </select>
-        </div>
-
-        <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
-          <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-            Attendance Summary
-          </p>
-          <div className="flex items-center justify-between text-sm">
-            <span>Full Days</span>
-            <span>{selectedEmployee?.payroll?.fullDays || 0}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Half Days</span>
-            <span>{selectedEmployee?.payroll?.halfDays || 0}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Paid Leaves</span>
-            <span>{selectedEmployee?.payroll?.paidLeaves || 0}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Unpaid Days</span>
-            <span>{selectedEmployee?.payroll?.unpaidDays || 0}</span>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
-          <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-            Salary Breakdown
-          </p>
-          {(() => {
-            const payroll = selectedEmployee?.payroll;
-            const dailyWage = Number(payroll?.dailyWage || 0);
-            const fullDays = Number(payroll?.fullDays || 0);
-            const halfDays = Number(payroll?.halfDays || 0);
-            const paidLeaves = Number(payroll?.paidLeaves || 0);
-            const paidLeavesGross = paidLeaves * dailyWage;
-            const overtimeAmount = Number(payroll?.overtimeAmount || 0);
-            const leaveEncashmentAmount = Number(
-              payroll?.leaveEncashmentAmount ?? payroll?.leaveEncashment?.total ?? 0
-            );
-            const extraAmount = getExtraAmountForEmployee(selectedEmployee?._id);
-            const penalties = Number(
-              payroll?.isPreview
-                ? autoPenaltyMap[selectedEmployee?._id] ?? 0
-                : payroll?.penalties || 0
-            );
-            const loanAmount = payroll?.isPreview
-              ? Number(
-                  loanAdvanceMap[selectedEmployee?._id] ??
-                    payroll?.computedLoanAmount ??
-                    0
-                )
-              : Number(payroll?.loanAmount || 0);
-            const grossPay =
-              fullDays * dailyWage +
-              halfDays * dailyWage * 0.5 +
-              paidLeaves * dailyWage +
-              overtimeAmount +
-              extraAmount +
-              leaveEncashmentAmount;
-            const deductions = penalties + loanAmount;
-            const totalSalary = payroll?.isPreview
-              ? getPreviewNetPay(selectedEmployee?._id, payroll)
-              : Number(payroll?.totalSalary || 0);
-
-            return (
-              <>
-                {paidLeavesGross > 0 ? (
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Paid Leaves Gross</span>
-                    <span>₹{paidLeavesGross.toFixed(2)}</span>
-                  </div>
-                ) : null}
-                {leaveEncashmentAmount > 0 ? (
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Leave Encashment</span>
-                    <span>₹{leaveEncashmentAmount.toFixed(2)}</span>
-                  </div>
-                ) : null}
-                <div className="flex items-center justify-between text-sm">
-                  <span>Gross Pay</span>
-                  <span>₹{grossPay.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Deductions</span>
-                  <span>₹{deductions.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Total Salary</span>
-                  <span className="font-semibold">₹{totalSalary.toFixed(2)}</span>
-                </div>
-              </>
-            );
-          })()}
-        </div>
-
-        <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3">
           <div>
-            <h3 className="text-sm font-semibold">Payslip Branding</h3>
-            <p className="text-xs text-light-text/60 dark:text-dark-text/60">
-              These assets apply to all generated payslips.
+            <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+              Status
+            </label>
+            <select
+              value={formState.status}
+              disabled={isPayrollPaidLocked}
+              onChange={e => setFormState(prev => ({ ...prev, status: e.target.value }))}
+              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
+            >
+              <option value="unpaid">Unpaid</option>
+              <option value="paid">Paid</option>
+            </select>
+          </div>
+
+          <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
+            <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+              Attendance Summary
             </p>
+            <div className="flex items-center justify-between text-sm">
+              <span>Full Days</span>
+              <span>{selectedEmployee?.payroll?.fullDays || 0}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span>Half Days</span>
+              <span>{selectedEmployee?.payroll?.halfDays || 0}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span>Paid Leaves</span>
+              <span>{selectedEmployee?.payroll?.paidLeaves || 0}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span>Unpaid Days</span>
+              <span>{selectedEmployee?.payroll?.unpaidDays || 0}</span>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm">Company Logo</label>
-            {payslipSettings.logoData ? (
-              <div className="flex items-center justify-between gap-3">
-                <img
-                  src={payslipSettings.logoData}
-                  alt="Company logo preview"
-                  className="h-12 max-w-[160px] rounded bg-white object-contain"
-                />
-                <button
-                  type="button"
-                  onClick={() => setPayslipSettings(prev => ({ ...prev, logoData: '' }))}
-                  className="text-xs text-red-500"
-                >
-                  Remove
-                </button>
-              </div>
-            ) : null}
-            <input type="file" accept="image/*" onChange={handleLogoChange} className="w-full text-xs" />
+          <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
+            <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+              Salary Breakdown
+            </p>
+            {(() => {
+              const payroll = selectedEmployee?.payroll;
+              const dailyWage = Number(payroll?.dailyWage || 0);
+              const fullDays = Number(payroll?.fullDays || 0);
+              const halfDays = Number(payroll?.halfDays || 0);
+              const paidLeaves = Number(payroll?.paidLeaves || 0);
+              const paidLeavesGross = paidLeaves * dailyWage;
+              const overtimeAmount = Number(payroll?.overtimeAmount || 0);
+              const leaveEncashmentAmount = Number(
+                payroll?.leaveEncashmentAmount ?? payroll?.leaveEncashment?.total ?? 0
+              );
+              const extraAmount = getExtraAmountForEmployee(selectedEmployee?._id);
+              const penalties = Number(
+                payroll?.isPreview
+                  ? (autoPenaltyMap[selectedEmployee?._id] ?? 0)
+                  : payroll?.penalties || 0
+              );
+              const loanAmount = payroll?.isPreview
+                ? Number(loanAdvanceMap[selectedEmployee?._id] ?? payroll?.computedLoanAmount ?? 0)
+                : Number(payroll?.loanAmount || 0);
+              const grossPay =
+                fullDays * dailyWage +
+                halfDays * dailyWage * 0.5 +
+                paidLeaves * dailyWage +
+                overtimeAmount +
+                extraAmount +
+                leaveEncashmentAmount;
+              const deductions = penalties + loanAmount;
+              const totalSalary = payroll?.isPreview
+                ? getPreviewNetPay(selectedEmployee?._id, payroll)
+                : Number(payroll?.totalSalary || 0);
+
+              return (
+                <>
+                  {paidLeavesGross > 0 ? (
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Paid Leaves Gross</span>
+                      <span>₹{paidLeavesGross.toFixed(2)}</span>
+                    </div>
+                  ) : null}
+                  {leaveEncashmentAmount > 0 ? (
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Leave Encashment</span>
+                      <span>₹{leaveEncashmentAmount.toFixed(2)}</span>
+                    </div>
+                  ) : null}
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Gross Pay</span>
+                    <span>₹{grossPay.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Deductions</span>
+                    <span>₹{deductions.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Total Salary</span>
+                    <span className="font-semibold">₹{totalSalary.toFixed(2)}</span>
+                  </div>
+                </>
+              );
+            })()}
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm">Authorized Signature</label>
-            {payslipSettings.signatureData ? (
-              <div className="flex items-center justify-between gap-3">
-                <img
-                  src={payslipSettings.signatureData}
-                  alt="Signature preview"
-                  className="h-12 max-w-[160px] rounded bg-white object-contain"
-                />
-                <button
-                  type="button"
-                  onClick={() => setPayslipSettings(prev => ({ ...prev, signatureData: '' }))}
-                  className="text-xs text-red-500"
-                >
-                  Remove
-                </button>
-              </div>
-            ) : null}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleSignatureChange}
-              className="w-full text-xs"
-            />
-          </div>
+          <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3">
+            <div>
+              <h3 className="text-sm font-semibold">Payslip Branding</h3>
+              <p className="text-xs text-light-text/60 dark:text-dark-text/60">
+                These assets apply to all generated payslips.
+              </p>
+            </div>
 
+            <div className="space-y-2">
+              <label className="text-sm">Company Logo</label>
+              {payslipSettings.logoData ? (
+                <div className="flex items-center justify-between gap-3">
+                  <img
+                    src={payslipSettings.logoData}
+                    alt="Company logo preview"
+                    className="h-12 max-w-[160px] rounded bg-white object-contain"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPayslipSettings(prev => ({ ...prev, logoData: '' }))}
+                    className="text-xs text-red-500"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : null}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleLogoChange}
+                className="w-full text-xs"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm">Authorized Signature</label>
+              {payslipSettings.signatureData ? (
+                <div className="flex items-center justify-between gap-3">
+                  <img
+                    src={payslipSettings.signatureData}
+                    alt="Signature preview"
+                    className="h-12 max-w-[160px] rounded bg-white object-contain"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPayslipSettings(prev => ({ ...prev, signatureData: '' }))}
+                    className="text-xs text-red-500"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : null}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleSignatureChange}
+                className="w-full text-xs"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={savePayslipSettings}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-light-card dark:bg-dark-card border border-light-border dark:border-dark-border"
+              disabled={isSavingPayslipSettings}
+            >
+              {isSavingPayslipSettings ? 'Saving...' : 'Save Payslip Branding'}
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-col gap-3">
           <button
-            type="button"
-            onClick={savePayslipSettings}
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-light-card dark:bg-dark-card border border-light-border dark:border-dark-border"
-            disabled={isSavingPayslipSettings}
+            onClick={processPayroll}
+            disabled={!isSelectedMonthClosed || isPayrollPaidLocked}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSavingPayslipSettings ? 'Saving...' : 'Save Payslip Branding'}
+            <Calculator className="w-4 h-4" />
+            Process Payroll
+          </button>
+          {isPayrollPaidLocked ? (
+            <p className="text-xs text-light-text/60 dark:text-dark-text/60">
+              Payroll is locked for this month because status is paid.
+            </p>
+          ) : null}
+          {!isSelectedMonthClosed ? (
+            <p className="text-xs text-light-text/60 dark:text-dark-text/60">
+              Payroll unlocks after {selectedMonthLabel} {year} ends.
+            </p>
+          ) : null}
+          <button
+            onClick={generatePayslip}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border"
+          >
+            <Download className="w-4 h-4" />
+            Generate Payslip
+          </button>
+          <button
+            onClick={downloadPayslipPdf}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-light-card dark:bg-dark-card border border-light-border dark:border-dark-border"
+          >
+            <Download className="w-4 h-4" />
+            Print / Save PDF
           </button>
         </div>
       </div>
-
-      <div className="mt-6 flex flex-col gap-3">
-        <button
-          onClick={processPayroll}
-          disabled={!isSelectedMonthClosed || isPayrollPaidLocked}
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-white disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Calculator className="w-4 h-4" />
-          Process Payroll
-        </button>
-        {isPayrollPaidLocked ? (
-          <p className="text-xs text-light-text/60 dark:text-dark-text/60">
-            Payroll is locked for this month because status is paid.
-          </p>
-        ) : null}
-        {!isSelectedMonthClosed ? (
-          <p className="text-xs text-light-text/60 dark:text-dark-text/60">
-            Payroll unlocks after {selectedMonthLabel} {year} ends.
-          </p>
-        ) : null}
-        <button
-          onClick={generatePayslip}
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border"
-        >
-          <Download className="w-4 h-4" />
-          Generate Payslip
-        </button>
-        <button
-          onClick={downloadPayslipPdf}
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-light-card dark:bg-dark-card border border-light-border dark:border-dark-border"
-        >
-          <Download className="w-4 h-4" />
-          Print / Save PDF
-        </button>
-      </div>
-    </div>
     );
   };
 
@@ -2282,214 +2286,216 @@ const AdminSalaryManagement = () => {
             className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
           >
             <table className="min-w-full text-sm">
-            <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
-              <tr>
-                <th className="px-4 py-3 text-left font-semibold">Emp ID</th>
-                <th className="px-4 py-3 text-left font-semibold">Name</th>
-                <th className="px-4 py-3 text-left font-semibold">Department</th>
-                <th className="px-4 py-3 text-left font-semibold">Designation</th>
-                <th className="px-4 py-3 text-left font-semibold">Full Day</th>
-                <th className="px-4 py-3 text-left font-semibold">Half Day</th>
-                <th className="px-4 py-3 text-left font-semibold">Paid Leaves</th>
-                <th className="px-4 py-3 text-left font-semibold">Unpaid Days</th>
-                <th className="px-4 py-3 text-left font-semibold">Daily Wage</th>
-                <th className="px-4 py-3 text-left font-semibold">Gross Wage</th>
-                <th className="px-4 py-3 text-left font-semibold">Base Salary (Master)</th>
-                <th className="px-4 py-3 text-left font-semibold align-middle">
-                  <button
-                    type="button"
-                    onClick={() => setSettingsPanel('overtime')}
-                    className="inline-flex items-center p-0 leading-tight underline decoration-dotted"
-                  >
-                    Overtime
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left font-semibold align-middle">
-                  <button
-                    type="button"
-                    onClick={() => setSettingsPanel('penalties')}
-                    className="inline-flex items-center p-0 leading-tight underline decoration-dotted"
-                  >
-                    Penalties
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left font-semibold align-middle">
-                  <button
-                    type="button"
-                    onClick={() => setSettingsPanel('loans')}
-                    className="inline-flex items-center p-0 leading-tight underline decoration-dotted"
-                  >
-                    Loan & Advance
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left font-semibold align-middle">
-                  <button
-                    type="button"
-                    onClick={() => setSettingsPanel('extras')}
-                    className="inline-flex items-center p-0 leading-tight underline decoration-dotted"
-                  >
-                    Extras
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left font-semibold">Net Pay</th>
-                <th className="px-4 py-3 text-left font-semibold">Status</th>
-                <th className="px-4 py-3 text-left font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pagedEmployees.map(employee => {
-                const payroll = mergedPayrollMap[employee._id] || {};
-                const baseSalary = Number(payroll.baseSalary || getEmployeeSalary(employee.email) || 0);
-                const overtime = Number(payroll.overtimeAmount || 0);
-                const penalties = Number(
-                  payroll.isPreview ? autoPenaltyMap[employee._id] ?? 0 : payroll.penalties || 0
-                );
-                const loanAmount = Number(
-                  payroll.isPreview
-                    ? loanAdvanceMap[employee._id] ?? payroll.computedLoanAmount ?? 0
-                    : payroll.loanAmount || 0
-                );
-                const employeeExtras = getExtrasForEmployee(employee._id);
-                const extraSourceSummary = getExtraSourceSummary(employeeExtras);
-                const extras = Number(getExtraAmountForEmployee(employee._id) || 0);
-                const extraSourceLabels = [
-                  extraSourceSummary.sundayCompensation.count > 0 ? 'Sunday Compensation' : null,
-                  extraSourceSummary.manual.count > 0 ? 'Manual Extras' : null,
-                ].filter(Boolean);
-                const grossWage =
-                  Number(payroll.dailyWage || 0) *
-                  (Number(payroll.fullDays || 0) + Number(payroll.halfDays || 0) * 0.5);
-                const netPay = Number(
-                  payroll.isPreview
-                    ? getPreviewNetPay(employee._id, payroll)
-                    : payroll.totalSalary || 0
-                );
+              <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold">Emp ID</th>
+                  <th className="px-4 py-3 text-left font-semibold">Name</th>
+                  <th className="px-4 py-3 text-left font-semibold">Department</th>
+                  <th className="px-4 py-3 text-left font-semibold">Designation</th>
+                  <th className="px-4 py-3 text-left font-semibold">Full Day</th>
+                  <th className="px-4 py-3 text-left font-semibold">Half Day</th>
+                  <th className="px-4 py-3 text-left font-semibold">Paid Leaves</th>
+                  <th className="px-4 py-3 text-left font-semibold">Unpaid Days</th>
+                  <th className="px-4 py-3 text-left font-semibold">Daily Wage</th>
+                  <th className="px-4 py-3 text-left font-semibold">Gross Wage</th>
+                  <th className="px-4 py-3 text-left font-semibold">Base Salary (Master)</th>
+                  <th className="px-4 py-3 text-left font-semibold align-middle">
+                    <button
+                      type="button"
+                      onClick={() => setSettingsPanel('overtime')}
+                      className="inline-flex items-center p-0 leading-tight underline decoration-dotted"
+                    >
+                      Overtime
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-left font-semibold align-middle">
+                    <button
+                      type="button"
+                      onClick={() => setSettingsPanel('penalties')}
+                      className="inline-flex items-center p-0 leading-tight underline decoration-dotted"
+                    >
+                      Penalties
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-left font-semibold align-middle">
+                    <button
+                      type="button"
+                      onClick={() => setSettingsPanel('loans')}
+                      className="inline-flex items-center p-0 leading-tight underline decoration-dotted"
+                    >
+                      Loan & Advance
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-left font-semibold align-middle">
+                    <button
+                      type="button"
+                      onClick={() => setSettingsPanel('extras')}
+                      className="inline-flex items-center p-0 leading-tight underline decoration-dotted"
+                    >
+                      Extras
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-left font-semibold">Net Pay</th>
+                  <th className="px-4 py-3 text-left font-semibold">Status</th>
+                  <th className="px-4 py-3 text-left font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagedEmployees.map(employee => {
+                  const payroll = mergedPayrollMap[employee._id] || {};
+                  const baseSalary = Number(
+                    payroll.baseSalary || getEmployeeSalary(employee.email) || 0
+                  );
+                  const overtime = Number(payroll.overtimeAmount || 0);
+                  const penalties = Number(
+                    payroll.isPreview ? (autoPenaltyMap[employee._id] ?? 0) : payroll.penalties || 0
+                  );
+                  const loanAmount = Number(
+                    payroll.isPreview
+                      ? (loanAdvanceMap[employee._id] ?? payroll.computedLoanAmount ?? 0)
+                      : payroll.loanAmount || 0
+                  );
+                  const employeeExtras = getExtrasForEmployee(employee._id);
+                  const extraSourceSummary = getExtraSourceSummary(employeeExtras);
+                  const extras = Number(getExtraAmountForEmployee(employee._id) || 0);
+                  const extraSourceLabels = [
+                    extraSourceSummary.sundayCompensation.count > 0 ? 'Sunday Compensation' : null,
+                    extraSourceSummary.manual.count > 0 ? 'Manual Extras' : null,
+                  ].filter(Boolean);
+                  const grossWage =
+                    Number(payroll.dailyWage || 0) *
+                    (Number(payroll.fullDays || 0) + Number(payroll.halfDays || 0) * 0.5);
+                  const netPay = Number(
+                    payroll.isPreview
+                      ? getPreviewNetPay(employee._id, payroll)
+                      : payroll.totalSalary || 0
+                  );
 
-                return (
-                  <tr
-                    key={employee._id}
-                    className="border-t border-light-border/70 dark:border-dark-border/70 hover:bg-light-bg/40 dark:hover:bg-dark-bg/40"
-                  >
-                    <td className="px-4 py-3 text-light-text/70 dark:text-dark-text/70">
-                      {employee.employeeCode || 'N/A'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-light-text dark:text-dark-text">
-                        {employee.name}
-                      </div>
-                      <div className="text-xs text-light-text/60 dark:text-dark-text/60">
-                        {employee.email}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-light-text/70 dark:text-dark-text/70">
-                      {employee.department || 'N/A'}
-                    </td>
-                    <td className="px-4 py-3 text-light-text/70 dark:text-dark-text/70">
-                      {employee.designation || 'N/A'}
-                    </td>
-                    <td className="px-4 py-3">{payroll.fullDays || 0}</td>
-                    <td className="px-4 py-3">{payroll.halfDays || 0}</td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={(event) => openPaidLeavesPanel(employee, event)}
-                        className="text-left underline decoration-dotted"
-                        aria-label={`Open paid leave panel for ${employee.name}`}
-                      >
-                        {payroll.paidLeaves || 0}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">{payroll.unpaidDays || 0}</td>
-                    <td className="px-4 py-3">₹{Number(payroll.dailyWage || 0).toFixed(2)}</td>
-                    <td className="px-4 py-3">₹{grossWage.toFixed(2)}</td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/admin/dashboard/salaries/${employee._id}`)}
-                        className="text-left underline decoration-dotted"
-                        aria-label={`Open salary profile for ${employee.name}`}
-                      >
-                        ₹{baseSalary.toFixed(2)}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={(event) => openPanel(employee, event)}
-                        className="text-left underline decoration-dotted"
-                        aria-label={`Open payroll snapshot for ${employee.name}`}
-                      >
-                        ₹{overtime.toFixed(2)}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={(event) => openPanel(employee, event)}
-                        className="text-left underline decoration-dotted"
-                        aria-label={`Open payroll snapshot for ${employee.name}`}
-                      >
-                        ₹{penalties.toFixed(2)}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={(event) => openLoansPanel(employee, event)}
-                        className="text-left underline decoration-dotted"
-                        aria-label={`Open loan panel for ${employee.name}`}
-                      >
-                        ₹{loanAmount.toFixed(2)}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      {(() => {
-                        return (
-                      <button
-                        type="button"
-                        onClick={(event) => openExtrasPanel(employee, event)}
-                        className="text-left underline decoration-dotted"
-                        aria-label={`Open extras panel for ${employee.name}`}
-                      >
-                        <span className="flex flex-col items-start leading-tight">
-                          <span>₹{extras.toFixed(2)}</span>
-                          {extraSourceLabels.length > 0 ? (
-                            <span className="text-[11px] font-medium text-info">
-                              {extraSourceLabels.join(' + ')}
-                            </span>
-                          ) : null}
-                        </span>
-                      </button>
-                        );
-                      })()}
-                    </td>
-                    <td className="px-4 py-3 font-semibold">₹{netPay.toFixed(2)}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          payroll.status === 'paid'
-                            ? 'bg-success/20 text-success'
-                            : 'bg-warning/20 text-warning'
-                        }`}
-                      >
-                        {payroll.status || 'unpaid'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                  return (
+                    <tr
+                      key={employee._id}
+                      className="border-t border-light-border/70 dark:border-dark-border/70 hover:bg-light-bg/40 dark:hover:bg-dark-bg/40"
+                    >
+                      <td className="px-4 py-3 text-light-text/70 dark:text-dark-text/70">
+                        {employee.employeeCode || 'N/A'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-light-text dark:text-dark-text">
+                          {employee.name}
+                        </div>
+                        <div className="text-xs text-light-text/60 dark:text-dark-text/60">
+                          {employee.email}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-light-text/70 dark:text-dark-text/70">
+                        {employee.department || 'N/A'}
+                      </td>
+                      <td className="px-4 py-3 text-light-text/70 dark:text-dark-text/70">
+                        {employee.designation || 'N/A'}
+                      </td>
+                      <td className="px-4 py-3">{payroll.fullDays || 0}</td>
+                      <td className="px-4 py-3">{payroll.halfDays || 0}</td>
+                      <td className="px-4 py-3">
                         <button
-                          onClick={() => openPanel(employee)}
-                          className="inline-flex items-center gap-1 px-3 py-2 text-xs rounded-lg border border-light-border dark:border-dark-border bg-white/70 dark:bg-dark-card/70"
+                          type="button"
+                          onClick={event => openPaidLeavesPanel(employee, event)}
+                          className="text-left underline decoration-dotted"
+                          aria-label={`Open paid leave panel for ${employee.name}`}
                         >
-                          <Calculator className="w-4 h-4" />
-                          Payroll
+                          {payroll.paidLeaves || 0}
                         </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
+                      </td>
+                      <td className="px-4 py-3">{payroll.unpaidDays || 0}</td>
+                      <td className="px-4 py-3">₹{Number(payroll.dailyWage || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3">₹{grossWage.toFixed(2)}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/admin/dashboard/salaries/${employee._id}`)}
+                          className="text-left underline decoration-dotted"
+                          aria-label={`Open salary profile for ${employee.name}`}
+                        >
+                          ₹{baseSalary.toFixed(2)}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={event => openPanel(employee, event)}
+                          className="text-left underline decoration-dotted"
+                          aria-label={`Open payroll snapshot for ${employee.name}`}
+                        >
+                          ₹{overtime.toFixed(2)}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={event => openPanel(employee, event)}
+                          className="text-left underline decoration-dotted"
+                          aria-label={`Open payroll snapshot for ${employee.name}`}
+                        >
+                          ₹{penalties.toFixed(2)}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={event => openLoansPanel(employee, event)}
+                          className="text-left underline decoration-dotted"
+                          aria-label={`Open loan panel for ${employee.name}`}
+                        >
+                          ₹{loanAmount.toFixed(2)}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        {(() => {
+                          return (
+                            <button
+                              type="button"
+                              onClick={event => openExtrasPanel(employee, event)}
+                              className="text-left underline decoration-dotted"
+                              aria-label={`Open extras panel for ${employee.name}`}
+                            >
+                              <span className="flex flex-col items-start leading-tight">
+                                <span>₹{extras.toFixed(2)}</span>
+                                {extraSourceLabels.length > 0 ? (
+                                  <span className="text-[11px] font-medium text-info">
+                                    {extraSourceLabels.join(' + ')}
+                                  </span>
+                                ) : null}
+                              </span>
+                            </button>
+                          );
+                        })()}
+                      </td>
+                      <td className="px-4 py-3 font-semibold">₹{netPay.toFixed(2)}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            payroll.status === 'paid'
+                              ? 'bg-success/20 text-success'
+                              : 'bg-warning/20 text-warning'
+                          }`}
+                        >
+                          {payroll.status || 'unpaid'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => openPanel(employee)}
+                            className="inline-flex items-center gap-1 px-3 py-2 text-xs rounded-lg border border-light-border dark:border-dark-border bg-white/70 dark:bg-dark-card/70"
+                          >
+                            <Calculator className="w-4 h-4" />
+                            Payroll
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
             </table>
           </div>
           <div
@@ -2547,7 +2553,7 @@ const AdminSalaryManagement = () => {
         >
           <div
             className={`absolute right-0 top-0 h-full w-full max-w-xl bg-light-bg dark:bg-dark-bg p-6 shadow-2xl overflow-y-auto transform-gpu transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${isPanelVisible ? 'translate-x-0' : 'translate-x-full'}`}
-            onClick={(event) => event.stopPropagation()}
+            onClick={event => event.stopPropagation()}
             role="presentation"
           >
             {renderPanelContent(true)}
@@ -2569,241 +2575,186 @@ const AdminSalaryManagement = () => {
           <div
             className="absolute right-0 top-0 h-full w-full max-w-lg bg-light-bg dark:bg-dark-bg p-6 shadow-2xl overflow-y-auto will-change-transform"
             style={{
-              transform: isSettingsPanelVisible ? 'translate3d(0, 0, 0)' : 'translate3d(100%, 0, 0)',
+              transform: isSettingsPanelVisible
+                ? 'translate3d(0, 0, 0)'
+                : 'translate3d(100%, 0, 0)',
               transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
             }}
-            onClick={(event) => event.stopPropagation()}
+            onClick={event => event.stopPropagation()}
             role="presentation"
           >
             <div
               className="transform-gpu"
               style={{
                 opacity: isSettingsContentVisible ? 1 : 0,
-                transform: isSettingsContentVisible ? 'translate3d(0, 0, 0)' : 'translate3d(12px, 0, 0)',
+                transform: isSettingsContentVisible
+                  ? 'translate3d(0, 0, 0)'
+                  : 'translate3d(12px, 0, 0)',
                 transition: 'opacity 240ms ease, transform 240ms ease',
               }}
             >
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-light-text/60 dark:text-dark-text/60">
-                  Payroll Settings
-                </p>
-                <h2 className="text-xl font-semibold">
-                  {settingsPanel === 'overtime'
-                    ? 'Overtime Pay Settings'
-                    : settingsPanel === 'penalties'
-                      ? 'Penalty Settings'
-                      : settingsPanel === 'loans'
-                        ? 'Add Loan/Advance'
-                        : settingsPanel === 'paidLeaves'
-                          ? 'Paid Leave Summary'
-                        : 'Add Extra Allowance'}
-                </h2>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-light-text/60 dark:text-dark-text/60">
+                    Payroll Settings
+                  </p>
+                  <h2 className="text-xl font-semibold">
+                    {settingsPanel === 'overtime'
+                      ? 'Overtime Pay Settings'
+                      : settingsPanel === 'penalties'
+                        ? 'Penalty Settings'
+                        : settingsPanel === 'loans'
+                          ? 'Add Loan/Advance'
+                          : settingsPanel === 'paidLeaves'
+                            ? 'Paid Leave Summary'
+                            : 'Add Extra Allowance'}
+                  </h2>
+                </div>
+                <button onClick={() => setSettingsPanel(null)} aria-label="Close payroll settings">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button
-                onClick={() => setSettingsPanel(null)}
-                aria-label="Close payroll settings"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            <div className="space-y-5">
-              {settingsPanel === 'overtime' && (
-                <>
-                  <div>
-                    <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                      Overtime Rate Basis
-                    </label>
-                    <div className="mt-2 space-y-2">
-                      <label className="flex items-center gap-2 text-sm">
-                        <input
-                          type="radio"
-                          name="overtimeRateBasis"
-                          value="fixed"
-                          checked={overtimeSettings.rateBasis === 'fixed'}
-                          onChange={() =>
-                            setOvertimeSettings(prev => ({ ...prev, rateBasis: 'fixed' }))
-                          }
-                        />
-                        Fixed Per Hour
-                      </label>
-                      <label className="flex items-center gap-2 text-sm">
-                        <input
-                          type="radio"
-                          name="overtimeRateBasis"
-                          value="daily_wage"
-                          checked={overtimeSettings.rateBasis === 'daily_wage'}
-                          onChange={() =>
-                            setOvertimeSettings(prev => ({ ...prev, rateBasis: 'daily_wage' }))
-                          }
-                        />
-                        Based on Daily Wage
-                      </label>
-                    </div>
-                  </div>
-
-                  {overtimeSettings.rateBasis === 'fixed' && (
+              <div className="space-y-5">
+                {settingsPanel === 'overtime' && (
+                  <>
                     <div>
                       <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                        Fixed Per Hour Pay
+                        Overtime Rate Basis
                       </label>
-                      <input
-                        type="number"
-                        step="1"
-                        value={overtimeSettings.hourlyRate}
-                        onChange={e =>
-                          setOvertimeSettings(prev => ({
-                            ...prev,
-                            hourlyRate: Number(e.target.value),
-                          }))
-                        }
-                        onFocus={e => e.target.select()}
-                        onWheel={e => e.currentTarget.blur()}
-                        className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
-                      />
-                      <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-2">
-                        Used when overtime basis is set to Fixed Per Hour.
-                      </p>
+                      <div className="mt-2 space-y-2">
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="radio"
+                            name="overtimeRateBasis"
+                            value="fixed"
+                            checked={overtimeSettings.rateBasis === 'fixed'}
+                            onChange={() =>
+                              setOvertimeSettings(prev => ({ ...prev, rateBasis: 'fixed' }))
+                            }
+                          />
+                          Fixed Per Hour
+                        </label>
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="radio"
+                            name="overtimeRateBasis"
+                            value="daily_wage"
+                            checked={overtimeSettings.rateBasis === 'daily_wage'}
+                            onChange={() =>
+                              setOvertimeSettings(prev => ({ ...prev, rateBasis: 'daily_wage' }))
+                            }
+                          />
+                          Based on Daily Wage
+                        </label>
+                      </div>
                     </div>
-                  )}
-                  {overtimeSettings.rateBasis === 'daily_wage' && (
+
+                    {overtimeSettings.rateBasis === 'fixed' && (
+                      <div>
+                        <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                          Fixed Per Hour Pay
+                        </label>
+                        <input
+                          type="number"
+                          step="1"
+                          value={overtimeSettings.hourlyRate}
+                          onChange={e =>
+                            setOvertimeSettings(prev => ({
+                              ...prev,
+                              hourlyRate: Number(e.target.value),
+                            }))
+                          }
+                          onFocus={e => e.target.select()}
+                          onWheel={e => e.currentTarget.blur()}
+                          className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                        />
+                        <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-2">
+                          Used when overtime basis is set to Fixed Per Hour.
+                        </p>
+                      </div>
+                    )}
+                    {overtimeSettings.rateBasis === 'daily_wage' && (
+                      <div>
+                        <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                          Daily Wage Multiplier
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={overtimeSettings.dailyWageMultiplier}
+                          onChange={e =>
+                            setOvertimeSettings(prev => ({
+                              ...prev,
+                              dailyWageMultiplier: Number(e.target.value),
+                            }))
+                          }
+                          onFocus={e => e.target.select()}
+                          onWheel={e => e.currentTarget.blur()}
+                          className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                        />
+                        <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-2">
+                          Overtime rate per hour = (Daily wage / {HOURS_PER_DAY}) x multiplier.
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                        Daily Wage Multiplier
+                        Buffer Period
                       </label>
                       <input
                         type="number"
                         min="0"
-                        step="0.1"
-                        value={overtimeSettings.dailyWageMultiplier}
+                        step="1"
+                        value={parseBufferMinutes(overtimeSettings.bufferMinutes)}
                         onChange={e =>
                           setOvertimeSettings(prev => ({
                             ...prev,
-                            dailyWageMultiplier: Number(e.target.value),
+                            bufferMinutes: formatBufferMinutes(e.target.value),
                           }))
                         }
-                        onFocus={e => e.target.select()}
-                        onWheel={e => e.currentTarget.blur()}
                         className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
                       />
                       <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-2">
-                        Overtime rate per hour = (Daily wage / {HOURS_PER_DAY}) x multiplier.
+                        Grace minutes before overtime starts
                       </p>
                     </div>
-                  )}
-                  <div>
-                    <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                      Buffer Period
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={parseBufferMinutes(overtimeSettings.bufferMinutes)}
-                      onChange={e =>
-                        setOvertimeSettings(prev => ({
-                          ...prev,
-                          bufferMinutes: formatBufferMinutes(e.target.value),
-                        }))
-                      }
-                      className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
-                    />
-                    <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-2">
-                      Grace minutes before overtime starts
-                    </p>
-                  </div>
-                </>
-              )}
+                  </>
+                )}
 
-              {settingsPanel === 'penalties' && (
-                <>
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                      Late Coming Penalty
-                    </label>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="sr-only peer"
-                        checked={penaltySettings.enabled}
-                        onChange={e =>
-                          setPenaltySettings(prev => ({ ...prev, enabled: e.target.checked }))
-                        }
-                      />
-                      <div className="w-10 h-6 bg-light-border dark:bg-dark-border peer-focus:outline-none rounded-full peer peer-checked:bg-primary transition-colors"></div>
-                      <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4"></span>
-                    </label>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                      Allowed Days
-                    </label>
-                    <input
-                      type="number"
-                      step="1"
-                      value={penaltySettings.allowedDays}
-                      onChange={e =>
-                        setPenaltySettings(prev => ({
-                          ...prev,
-                          allowedDays: Number(e.target.value),
-                        }))
-                      }
-                      disabled={!penaltySettings.enabled}
-                      onFocus={e => e.target.select()}
-                      onWheel={e => e.currentTarget.blur()}
-                      className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60 disabled:cursor-not-allowed"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                      Penalty Method
-                    </label>
-                    <div className="mt-2 space-y-2">
-                      <label className="flex items-center gap-2 text-sm">
-                        <input
-                          type="radio"
-                          name="penaltyMethod"
-                          value="fixed"
-                          checked={penaltySettings.method === 'fixed'}
-                          onChange={() =>
-                            setPenaltySettings(prev => ({ ...prev, method: 'fixed' }))
-                          }
-                          disabled={!penaltySettings.enabled}
-                        />
-                        Fixed Penalty Per Day
+                {settingsPanel === 'penalties' && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                        Late Coming Penalty
                       </label>
-                      <label className="flex items-center gap-2 text-sm">
+                      <label className="relative inline-flex items-center cursor-pointer">
                         <input
-                          type="radio"
-                          name="penaltyMethod"
-                          value="multiplier"
-                          checked={penaltySettings.method === 'multiplier'}
-                          onChange={() =>
-                            setPenaltySettings(prev => ({ ...prev, method: 'multiplier' }))
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={penaltySettings.enabled}
+                          onChange={e =>
+                            setPenaltySettings(prev => ({ ...prev, enabled: e.target.checked }))
                           }
-                          disabled={!penaltySettings.enabled}
                         />
-                        Multiplier of Daily Wage
+                        <div className="w-10 h-6 bg-light-border dark:bg-dark-border peer-focus:outline-none rounded-full peer peer-checked:bg-primary transition-colors"></div>
+                        <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4"></span>
                       </label>
                     </div>
-                  </div>
 
-                  {penaltySettings.method === 'fixed' ? (
                     <div>
                       <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                        Fixed Penalty Per Day
+                        Allowed Days
                       </label>
                       <input
                         type="number"
                         step="1"
-                        value={penaltySettings.fixedPenaltyPerDay}
+                        value={penaltySettings.allowedDays}
                         onChange={e =>
                           setPenaltySettings(prev => ({
                             ...prev,
-                            fixedPenaltyPerDay: Number(e.target.value),
+                            allowedDays: Number(e.target.value),
                           }))
                         }
                         disabled={!penaltySettings.enabled}
@@ -2812,325 +2763,609 @@ const AdminSalaryManagement = () => {
                         className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                     </div>
-                  ) : (
+
                     <div>
                       <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                        Multiply Daily Wage With
+                        Penalty Method
+                      </label>
+                      <div className="mt-2 space-y-2">
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="radio"
+                            name="penaltyMethod"
+                            value="fixed"
+                            checked={penaltySettings.method === 'fixed'}
+                            onChange={() =>
+                              setPenaltySettings(prev => ({ ...prev, method: 'fixed' }))
+                            }
+                            disabled={!penaltySettings.enabled}
+                          />
+                          Fixed Penalty Per Day
+                        </label>
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="radio"
+                            name="penaltyMethod"
+                            value="multiplier"
+                            checked={penaltySettings.method === 'multiplier'}
+                            onChange={() =>
+                              setPenaltySettings(prev => ({ ...prev, method: 'multiplier' }))
+                            }
+                            disabled={!penaltySettings.enabled}
+                          />
+                          Multiplier of Daily Wage
+                        </label>
+                      </div>
+                    </div>
+
+                    {penaltySettings.method === 'fixed' ? (
+                      <div>
+                        <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                          Fixed Penalty Per Day
+                        </label>
+                        <input
+                          type="number"
+                          step="1"
+                          value={penaltySettings.fixedPenaltyPerDay}
+                          onChange={e =>
+                            setPenaltySettings(prev => ({
+                              ...prev,
+                              fixedPenaltyPerDay: Number(e.target.value),
+                            }))
+                          }
+                          disabled={!penaltySettings.enabled}
+                          onFocus={e => e.target.select()}
+                          onWheel={e => e.currentTarget.blur()}
+                          className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60 disabled:cursor-not-allowed"
+                        />
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                          Multiply Daily Wage With
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={penaltySettings.dailyWageMultiplier}
+                          onChange={e =>
+                            setPenaltySettings(prev => ({
+                              ...prev,
+                              dailyWageMultiplier: Number(e.target.value),
+                            }))
+                          }
+                          disabled={!penaltySettings.enabled}
+                          onFocus={e => e.target.select()}
+                          onWheel={e => e.currentTarget.blur()}
+                          className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60 disabled:cursor-not-allowed"
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                        Grace Time
+                      </label>
+                      <input
+                        type="time"
+                        value={penaltySettings.graceTime}
+                        onChange={e =>
+                          setPenaltySettings(prev => ({
+                            ...prev,
+                            graceTime: e.target.value,
+                          }))
+                        }
+                        disabled={!penaltySettings.enabled}
+                        className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60 disabled:cursor-not-allowed"
+                      />
+                      <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-2">
+                        Flexible window before employees are considered late
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                {settingsPanel === 'loans' && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                        Employee
+                      </label>
+                      <select
+                        value={loanForm.employeeId}
+                        onChange={e =>
+                          setLoanForm(prev => ({ ...prev, employeeId: e.target.value }))
+                        }
+                        className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                      >
+                        <option value="">Select employee</option>
+                        {employees.map(employee => (
+                          <option key={employee._id} value={employee._id}>
+                            {employee.name}{' '}
+                            {employee.employeeCode ? `(${employee.employeeCode})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                        Refer Loan/Advance as
+                      </label>
+                      <input
+                        type="text"
+                        value={loanForm.reference}
+                        onChange={e =>
+                          setLoanForm(prev => ({ ...prev, reference: e.target.value }))
+                        }
+                        placeholder="Medical"
+                        className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                        Amount
                       </label>
                       <input
                         type="number"
-                        step="0.1"
-                        value={penaltySettings.dailyWageMultiplier}
-                        onChange={e =>
-                          setPenaltySettings(prev => ({
-                            ...prev,
-                            dailyWageMultiplier: Number(e.target.value),
-                          }))
-                        }
-                        disabled={!penaltySettings.enabled}
+                        step="1"
+                        value={loanForm.amount}
+                        onChange={e => setLoanForm(prev => ({ ...prev, amount: e.target.value }))}
+                        placeholder="Enter Amount"
                         onFocus={e => e.target.select()}
                         onWheel={e => e.currentTarget.blur()}
-                        className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
                       />
                     </div>
-                  )}
 
-                  <div>
-                    <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                      Grace Time
-                    </label>
-                    <input
-                      type="time"
-                      value={penaltySettings.graceTime}
-                      onChange={e =>
-                        setPenaltySettings(prev => ({
-                          ...prev,
-                          graceTime: e.target.value,
-                        }))
-                      }
-                      disabled={!penaltySettings.enabled}
-                      className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60 disabled:cursor-not-allowed"
-                    />
-                    <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-2">
-                      Flexible window before employees are considered late
-                    </p>
-                  </div>
-                </>
-              )}
-
-              {settingsPanel === 'loans' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                      Employee
-                    </label>
-                    <select
-                      value={loanForm.employeeId}
-                      onChange={e =>
-                        setLoanForm(prev => ({ ...prev, employeeId: e.target.value }))
-                      }
-                      className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
-                    >
-                      <option value="">Select employee</option>
-                      {employees.map(employee => (
-                        <option key={employee._id} value={employee._id}>
-                          {employee.name} {employee.employeeCode ? `(${employee.employeeCode})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                      Refer Loan/Advance as
-                    </label>
-                    <input
-                      type="text"
-                      value={loanForm.reference}
-                      onChange={e =>
-                        setLoanForm(prev => ({ ...prev, reference: e.target.value }))
-                      }
-                      placeholder="Medical"
-                      className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                      Amount
-                    </label>
-                    <input
-                      type="number"
-                      step="1"
-                      value={loanForm.amount}
-                      onChange={e =>
-                        setLoanForm(prev => ({ ...prev, amount: e.target.value }))
-                      }
-                      placeholder="Enter Amount"
-                      onFocus={e => e.target.select()}
-                      onWheel={e => e.currentTarget.blur()}
-                      className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                      Type
-                    </label>
-                    <div className="mt-2 flex items-center gap-4 text-sm">
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="loanType"
-                          value="loan"
-                          checked={loanForm.type === 'loan'}
-                          onChange={() => setLoanForm(prev => ({ ...prev, type: 'loan' }))}
-                        />
-                        Loan
+                    <div>
+                      <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                        Type
                       </label>
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="loanType"
-                          value="advance"
-                          checked={loanForm.type === 'advance'}
-                          onChange={() =>
-                            setLoanForm(prev => ({
-                              ...prev,
-                              type: 'advance',
-                              installmentType: 'monthly',
-                              monthlyInstallment: '',
-                              tenureMonths: '',
-                            }))
-                          }
-                        />
-                        Advance Payment
-                      </label>
-                    </div>
-                  </div>
-
-                  {loanForm.type === 'loan' ? (
-                    <>
-                      <div>
-                        <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                          Installment Type
-                        </label>
-                        <div className="mt-2 flex items-center gap-4 text-sm">
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name="installmentType"
-                              value="monthly"
-                              checked={loanForm.installmentType === 'monthly'}
-                              onChange={() =>
-                                setLoanForm(prev => ({ ...prev, installmentType: 'monthly' }))
-                              }
-                            />
-                            Monthly installment
-                          </label>
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name="installmentType"
-                              value="tenure"
-                              checked={loanForm.installmentType === 'tenure'}
-                              onChange={() =>
-                                setLoanForm(prev => ({ ...prev, installmentType: 'tenure' }))
-                              }
-                            />
-                            Tenure
-                          </label>
-                        </div>
-                      </div>
-
-                      {loanForm.installmentType === 'monthly' ? (
-                        <div>
-                          <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                            Monthly Installment
-                          </label>
+                      <div className="mt-2 flex items-center gap-4 text-sm">
+                        <label className="flex items-center gap-2">
                           <input
-                            type="number"
-                            step="1"
-                            value={loanForm.monthlyInstallment}
-                            onChange={e =>
+                            type="radio"
+                            name="loanType"
+                            value="loan"
+                            checked={loanForm.type === 'loan'}
+                            onChange={() => setLoanForm(prev => ({ ...prev, type: 'loan' }))}
+                          />
+                          Loan
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="loanType"
+                            value="advance"
+                            checked={loanForm.type === 'advance'}
+                            onChange={() =>
                               setLoanForm(prev => ({
                                 ...prev,
-                                monthlyInstallment: e.target.value,
+                                type: 'advance',
+                                installmentType: 'monthly',
+                                monthlyInstallment: '',
+                                tenureMonths: '',
                               }))
                             }
-                            placeholder="Enter Amount"
-                            onFocus={e => e.target.select()}
-                            onWheel={e => e.currentTarget.blur()}
-                            className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
                           />
-                        </div>
-                      ) : (
+                          Advance Payment
+                        </label>
+                      </div>
+                    </div>
+
+                    {loanForm.type === 'loan' ? (
+                      <>
                         <div>
                           <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                            Tenure (Months)
+                            Installment Type
                           </label>
-                          <input
-                            type="number"
-                            step="1"
-                            value={loanForm.tenureMonths}
-                            onChange={e =>
-                              setLoanForm(prev => ({ ...prev, tenureMonths: e.target.value }))
-                            }
-                            placeholder="Enter months"
-                            onFocus={e => e.target.select()}
-                            onWheel={e => e.currentTarget.blur()}
-                            className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
-                          />
-                        </div>
-                      )}
-                    </>
-                  ) : null}
-
-                  <div>
-                    <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                      Transaction Date
-                    </label>
-                    <input
-                      type="date"
-                      value={loanForm.transactionDate}
-                      onChange={e =>
-                        setLoanForm(prev => ({ ...prev, transactionDate: e.target.value }))
-                      }
-                      className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                      Comment
-                    </label>
-                    <textarea
-                      value={loanForm.comment}
-                      onChange={e => setLoanForm(prev => ({ ...prev, comment: e.target.value }))}
-                      placeholder=""
-                      rows={3}
-                      className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
-                    />
-                  </div>
-
-                  <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-4">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="flex flex-col">
-                        <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-                          Filter
-                        </label>
-                        <select
-                          value={loanFilterMode}
-                          onChange={e => setLoanFilterMode(e.target.value)}
-                          className="mt-2 w-full px-3 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
-                        >
-                          <option value="all">All Months</option>
-                          <option value="month">Specific Month</option>
-                        </select>
-                      </div>
-                      {loanFilterMode === 'month' ? (
-                        <>
-                          <div className="flex flex-col">
-                            <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-                              Month
+                          <div className="mt-2 flex items-center gap-4 text-sm">
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="installmentType"
+                                value="monthly"
+                                checked={loanForm.installmentType === 'monthly'}
+                                onChange={() =>
+                                  setLoanForm(prev => ({ ...prev, installmentType: 'monthly' }))
+                                }
+                              />
+                              Monthly installment
                             </label>
-                            <select
-                              value={loanFilterMonth}
-                              onChange={e => setLoanFilterMonth(Number(e.target.value))}
-                              className="mt-2 w-full px-3 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
-                            >
-                              {Array.from({ length: 12 }, (_, index) => (
-                                <option key={index + 1} value={index + 1}>
-                                  {new Date(0, index).toLocaleString('default', { month: 'long' })}
-                                </option>
-                              ))}
-                            </select>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="installmentType"
+                                value="tenure"
+                                checked={loanForm.installmentType === 'tenure'}
+                                onChange={() =>
+                                  setLoanForm(prev => ({ ...prev, installmentType: 'tenure' }))
+                                }
+                              />
+                              Tenure
+                            </label>
                           </div>
-                          <div className="flex flex-col">
-                            <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-                              Year
+                        </div>
+
+                        {loanForm.installmentType === 'monthly' ? (
+                          <div>
+                            <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                              Monthly Installment
                             </label>
-                            <select
-                              value={loanFilterYear}
-                              onChange={e => setLoanFilterYear(Number(e.target.value))}
-                              className="mt-2 w-full px-3 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
-                            >
-                              {Array.from({ length: 6 }, (_, index) => new Date().getFullYear() - index).map(
-                                value => (
+                            <input
+                              type="number"
+                              step="1"
+                              value={loanForm.monthlyInstallment}
+                              onChange={e =>
+                                setLoanForm(prev => ({
+                                  ...prev,
+                                  monthlyInstallment: e.target.value,
+                                }))
+                              }
+                              placeholder="Enter Amount"
+                              onFocus={e => e.target.select()}
+                              onWheel={e => e.currentTarget.blur()}
+                              className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                            />
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                              Tenure (Months)
+                            </label>
+                            <input
+                              type="number"
+                              step="1"
+                              value={loanForm.tenureMonths}
+                              onChange={e =>
+                                setLoanForm(prev => ({ ...prev, tenureMonths: e.target.value }))
+                              }
+                              placeholder="Enter months"
+                              onFocus={e => e.target.select()}
+                              onWheel={e => e.currentTarget.blur()}
+                              className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                            />
+                          </div>
+                        )}
+                      </>
+                    ) : null}
+
+                    <div>
+                      <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                        Transaction Date
+                      </label>
+                      <input
+                        type="date"
+                        value={loanForm.transactionDate}
+                        onChange={e =>
+                          setLoanForm(prev => ({ ...prev, transactionDate: e.target.value }))
+                        }
+                        className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                        Comment
+                      </label>
+                      <textarea
+                        value={loanForm.comment}
+                        onChange={e => setLoanForm(prev => ({ ...prev, comment: e.target.value }))}
+                        placeholder=""
+                        rows={3}
+                        className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                      />
+                    </div>
+
+                    <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-4">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex flex-col">
+                          <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                            Filter
+                          </label>
+                          <select
+                            value={loanFilterMode}
+                            onChange={e => setLoanFilterMode(e.target.value)}
+                            className="mt-2 w-full px-3 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                          >
+                            <option value="all">All Months</option>
+                            <option value="month">Specific Month</option>
+                          </select>
+                        </div>
+                        {loanFilterMode === 'month' ? (
+                          <>
+                            <div className="flex flex-col">
+                              <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                                Month
+                              </label>
+                              <select
+                                value={loanFilterMonth}
+                                onChange={e => setLoanFilterMonth(Number(e.target.value))}
+                                className="mt-2 w-full px-3 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                              >
+                                {Array.from({ length: 12 }, (_, index) => (
+                                  <option key={index + 1} value={index + 1}>
+                                    {new Date(0, index).toLocaleString('default', {
+                                      month: 'long',
+                                    })}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="flex flex-col">
+                              <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                                Year
+                              </label>
+                              <select
+                                value={loanFilterYear}
+                                onChange={e => setLoanFilterYear(Number(e.target.value))}
+                                className="mt-2 w-full px-3 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                              >
+                                {Array.from(
+                                  { length: 6 },
+                                  (_, index) => new Date().getFullYear() - index
+                                ).map(value => (
                                   <option key={value} value={value}>
                                     {value}
                                   </option>
-                                )
-                              )}
-                            </select>
-                          </div>
-                        </>
-                      ) : null}
+                                ))}
+                              </select>
+                            </div>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h3 className="text-base font-semibold">
+                            {loanDetails?.employee?.name || 'Loans & Advances'}
+                          </h3>
+                          <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                            Loan & Advance
+                          </p>
+                          <p className="text-sm text-light-text/60 dark:text-dark-text/60">
+                            {loanDetails?.employee?.employeeCode || 'N/A'}
+                            {loanDetails?.employee?.email ? ` · ${loanDetails.employee.email}` : ''}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                            Total Amount
+                          </p>
+                          <p className="text-lg font-semibold">
+                            ₹{(loanDetails?.total || 0).toFixed(2)}
+                          </p>
+                          <p className="text-xs text-light-text/60 dark:text-dark-text/60">
+                            {loanDetails?.count || 0} items
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
+                        <table className="min-w-full text-sm">
+                          <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
+                            <tr>
+                              <th className="px-4 py-3 text-left font-semibold">Date</th>
+                              <th className="px-4 py-3 text-left font-semibold">Type</th>
+                              <th className="px-4 py-3 text-left font-semibold">Amount</th>
+                              <th className="px-4 py-3 text-left font-semibold">Status</th>
+                              <th className="px-4 py-3 text-left font-semibold">Reference</th>
+                              <th className="px-4 py-3 text-left font-semibold">Installment</th>
+                              <th className="px-4 py-3 text-left font-semibold">Remarks</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {!loanDetails ? (
+                              <tr>
+                                <td
+                                  colSpan={7}
+                                  className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
+                                >
+                                  Select an employee to view loan history.
+                                </td>
+                              </tr>
+                            ) : loanDetails.records.length === 0 ? (
+                              <tr>
+                                <td
+                                  colSpan={7}
+                                  className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
+                                >
+                                  No loan or advance records for this period.
+                                </td>
+                              </tr>
+                            ) : (
+                              loanDetails.records.map(record => (
+                                <tr
+                                  key={record._id}
+                                  className="border-t border-light-border/70 dark:border-dark-border/70"
+                                >
+                                  <td className="px-4 py-3">
+                                    {record.transactionDate
+                                      ? new Date(record.transactionDate).toLocaleDateString(
+                                          'en-IN',
+                                          {
+                                            timeZone: 'Asia/Kolkata',
+                                          }
+                                        )
+                                      : 'N/A'}
+                                  </td>
+                                  <td className="px-4 py-3">{record.type || 'N/A'}</td>
+                                  <td className="px-4 py-3">
+                                    ₹{Number(record.amount || 0).toFixed(2)}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    {(() => {
+                                      const status = getLoanScheduleStatus(record, month, year);
+                                      const statusClass =
+                                        status === 'completed'
+                                          ? 'bg-success/20 text-success'
+                                          : status === 'cancelled'
+                                            ? 'bg-danger/20 text-danger'
+                                            : 'bg-warning/20 text-warning';
+
+                                      return (
+                                        <span
+                                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${statusClass}`}
+                                        >
+                                          {status}
+                                        </span>
+                                      );
+                                    })()}
+                                  </td>
+                                  <td className="px-4 py-3">{record.reference || 'N/A'}</td>
+                                  <td className="px-4 py-3">
+                                    {record.type === 'advance'
+                                      ? 'One-time'
+                                      : record.installmentType === 'monthly'
+                                        ? `₹${Number(record.monthlyInstallment || 0).toFixed(2)}`
+                                        : record.tenureMonths
+                                          ? `${record.tenureMonths} months`
+                                          : 'N/A'}
+                                  </td>
+                                  <td className="px-4 py-3">{record.comment || '—'}</td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
+                )}
 
-                  <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h3 className="text-base font-semibold">
-                          {loanDetails?.employee?.name || 'Loans & Advances'}
-                        </h3>
-                        <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-                          Loan & Advance
-                        </p>
-                        <p className="text-sm text-light-text/60 dark:text-dark-text/60">
-                          {loanDetails?.employee?.employeeCode || 'N/A'}
-                          {loanDetails?.employee?.email ? ` · ${loanDetails.employee.email}` : ''}
-                        </p>
+                {settingsPanel === 'paidLeaves' && (
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h3 className="text-base font-semibold">
+                            {paidLeaveDetails?.employee?.name || 'Paid Leaves'}
+                          </h3>
+                          <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                            Paid Leave Summary
+                          </p>
+                          <p className="text-sm text-light-text/60 dark:text-dark-text/60">
+                            {paidLeaveDetails?.employee?.employeeCode || 'N/A'}
+                            {paidLeaveDetails?.employee?.email
+                              ? ` · ${paidLeaveDetails.employee.email}`
+                              : ''}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                            Paid Leaves
+                          </p>
+                          <p className="text-lg font-semibold">
+                            {Number(paidLeaveDetails?.paidLeaves || 0).toFixed(0)}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-                          Total Amount
-                        </p>
-                        <p className="text-lg font-semibold">₹{(loanDetails?.total || 0).toFixed(2)}</p>
-                        <p className="text-xs text-light-text/60 dark:text-dark-text/60">
-                          {loanDetails?.count || 0} items
-                        </p>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="rounded-xl border border-light-border/70 dark:border-dark-border/70 bg-white/70 dark:bg-dark-card/70 px-4 py-3 space-y-1">
+                          <p className="text-xs uppercase tracking-[0.12em] text-info/70">
+                            Paid Leaves Gross
+                          </p>
+                          <p className="text-lg font-semibold text-info">
+                            ₹{Number(paidLeaveDetails?.paidLeavesGross || 0).toFixed(2)}
+                          </p>
+                          <p className="text-xs text-light-text/60 dark:text-dark-text/60">
+                            {Number(paidLeaveDetails?.paidLeaves || 0)} day(s) × ₹
+                            {Number(paidLeaveDetails?.dailyWage || 0).toFixed(2)}
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl border border-light-border/70 dark:border-dark-border/70 bg-white/70 dark:bg-dark-card/70 px-4 py-3 space-y-1">
+                          <p className="text-xs uppercase tracking-[0.12em] text-warning/70">
+                            Leave Encashment
+                          </p>
+                          <p className="text-lg font-semibold text-warning">
+                            ₹{Number(paidLeaveDetails?.encashmentSummary?.amount || 0).toFixed(2)}
+                          </p>
+                          <p className="text-xs text-light-text/60 dark:text-dark-text/60">
+                            {Number(paidLeaveDetails?.encashmentSummary?.count || 0)} record(s)
+                            {paidLeaveDetails?.encashmentSummary?.days
+                              ? ` · ${Number(paidLeaveDetails.encashmentSummary.days)} day(s)`
+                              : ''}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                            Approved Paid Leave Requests
+                          </p>
+                          <p className="text-sm text-light-text/60 dark:text-dark-text/60">
+                            These are the approved leave requests counted as paid leave in payroll.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
+                        <table className="min-w-full text-sm">
+                          <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
+                            <tr>
+                              <th className="px-4 py-3 text-left font-semibold">Date</th>
+                              <th className="px-4 py-3 text-left font-semibold">Days</th>
+                              <th className="px-4 py-3 text-left font-semibold">Type</th>
+                              <th className="px-4 py-3 text-left font-semibold">Amount</th>
+                              <th className="px-4 py-3 text-left font-semibold">Remarks</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {!paidLeaveDetails ? (
+                              <tr>
+                                <td
+                                  colSpan={5}
+                                  className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
+                                >
+                                  Select an employee to view paid leave details.
+                                </td>
+                              </tr>
+                            ) : (paidLeaveDetails.leaveRecords || []).length === 0 ? (
+                              <tr>
+                                <td
+                                  colSpan={5}
+                                  className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
+                                >
+                                  No approved paid leave requests for this period.
+                                </td>
+                              </tr>
+                            ) : (
+                              (paidLeaveDetails.leaveRecords || []).map(record => {
+                                const paidDayAmount =
+                                  Number(record.paidDays || 0) *
+                                  Number(paidLeaveDetails?.dailyWage || 0);
+
+                                return (
+                                  <tr
+                                    key={record._id}
+                                    className="border-t border-light-border/70 dark:border-dark-border/70"
+                                  >
+                                    <td className="px-4 py-3">
+                                      {record.startDate
+                                        ? new Date(record.startDate).toLocaleDateString('en-IN', {
+                                            timeZone: 'Asia/Kolkata',
+                                          })
+                                        : 'N/A'}
+                                    </td>
+                                    <td className="px-4 py-3">{Number(record.paidDays || 0)}</td>
+                                    <td className="px-4 py-3">{record.leaveMode || 'N/A'}</td>
+                                    <td className="px-4 py-3">₹{paidDayAmount.toFixed(2)}</td>
+                                    <td className="px-4 py-3">{record.reason || '—'}</td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
 
@@ -3139,35 +3374,24 @@ const AdminSalaryManagement = () => {
                         <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
                           <tr>
                             <th className="px-4 py-3 text-left font-semibold">Date</th>
-                            <th className="px-4 py-3 text-left font-semibold">Type</th>
+                            <th className="px-4 py-3 text-left font-semibold">Days</th>
+                            <th className="px-4 py-3 text-left font-semibold">Rate / Day</th>
                             <th className="px-4 py-3 text-left font-semibold">Amount</th>
-                            <th className="px-4 py-3 text-left font-semibold">Status</th>
-                            <th className="px-4 py-3 text-left font-semibold">Reference</th>
-                            <th className="px-4 py-3 text-left font-semibold">Installment</th>
                             <th className="px-4 py-3 text-left font-semibold">Remarks</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {!loanDetails ? (
+                          {!paidLeaveDetails?.encashmentRecords?.length ? (
                             <tr>
                               <td
-                                colSpan={7}
+                                colSpan={5}
                                 className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
                               >
-                                Select an employee to view loan history.
-                              </td>
-                            </tr>
-                          ) : loanDetails.records.length === 0 ? (
-                            <tr>
-                              <td
-                                colSpan={7}
-                                className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
-                              >
-                                No loan or advance records for this period.
+                                No leave encashment records for this period.
                               </td>
                             </tr>
                           ) : (
-                            loanDetails.records.map((record) => (
+                            paidLeaveDetails.encashmentRecords.map(record => (
                               <tr
                                 key={record._id}
                                 className="border-t border-light-border/70 dark:border-dark-border/70"
@@ -3179,36 +3403,14 @@ const AdminSalaryManagement = () => {
                                       })
                                     : 'N/A'}
                                 </td>
-                                <td className="px-4 py-3">{record.type || 'N/A'}</td>
-                                <td className="px-4 py-3">₹{Number(record.amount || 0).toFixed(2)}</td>
                                 <td className="px-4 py-3">
-                                  {(() => {
-                                    const status = getLoanScheduleStatus(record, month, year);
-                                    const statusClass =
-                                      status === 'completed'
-                                        ? 'bg-success/20 text-success'
-                                        : status === 'cancelled'
-                                          ? 'bg-danger/20 text-danger'
-                                          : 'bg-warning/20 text-warning';
-
-                                    return (
-                                      <span
-                                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${statusClass}`}
-                                      >
-                                        {status}
-                                      </span>
-                                    );
-                                  })()}
+                                  {Number(record.breakdown?.encashmentDays || 0)}
                                 </td>
-                                <td className="px-4 py-3">{record.reference || 'N/A'}</td>
                                 <td className="px-4 py-3">
-                                  {record.type === 'advance'
-                                    ? 'One-time'
-                                    : record.installmentType === 'monthly'
-                                      ? `₹${Number(record.monthlyInstallment || 0).toFixed(2)}`
-                                      : record.tenureMonths
-                                        ? `${record.tenureMonths} months`
-                                        : 'N/A'}
+                                  ₹{Number(record.breakdown?.ratePerDay || 0).toFixed(2)}
+                                </td>
+                                <td className="px-4 py-3">
+                                  ₹{Number(record.amount || 0).toFixed(2)}
                                 </td>
                                 <td className="px-4 py-3">{record.comment || '—'}</td>
                               </tr>
@@ -3218,467 +3420,326 @@ const AdminSalaryManagement = () => {
                       </table>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {settingsPanel === 'paidLeaves' && (
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h3 className="text-base font-semibold">
-                          {paidLeaveDetails?.employee?.name || 'Paid Leaves'}
-                        </h3>
-                        <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-                          Paid Leave Summary
-                        </p>
-                        <p className="text-sm text-light-text/60 dark:text-dark-text/60">
-                          {paidLeaveDetails?.employee?.employeeCode || 'N/A'}
-                          {paidLeaveDetails?.employee?.email ? ` · ${paidLeaveDetails.employee.email}` : ''}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-                          Paid Leaves
-                        </p>
-                        <p className="text-lg font-semibold">{Number(paidLeaveDetails?.paidLeaves || 0).toFixed(0)}</p>
-                      </div>
+                {settingsPanel === 'extras' && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                        Employee
+                      </label>
+                      <select
+                        value={extraForm.employeeId}
+                        onChange={e =>
+                          setExtraForm(prev => ({ ...prev, employeeId: e.target.value }))
+                        }
+                        className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                      >
+                        <option value="">Select employee</option>
+                        {employees.map(employee => (
+                          <option key={employee._id} value={employee._id}>
+                            {employee.name}{' '}
+                            {employee.employeeCode ? `(${employee.employeeCode})` : ''}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div className="rounded-xl border border-light-border/70 dark:border-dark-border/70 bg-white/70 dark:bg-dark-card/70 px-4 py-3 space-y-1">
-                        <p className="text-xs uppercase tracking-[0.12em] text-info/70">Paid Leaves Gross</p>
-                        <p className="text-lg font-semibold text-info">
-                          ₹{Number(paidLeaveDetails?.paidLeavesGross || 0).toFixed(2)}
-                        </p>
-                        <p className="text-xs text-light-text/60 dark:text-dark-text/60">
-                          {Number(paidLeaveDetails?.paidLeaves || 0)} day(s) × ₹
-                          {Number(paidLeaveDetails?.dailyWage || 0).toFixed(2)}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl border border-light-border/70 dark:border-dark-border/70 bg-white/70 dark:bg-dark-card/70 px-4 py-3 space-y-1">
-                        <p className="text-xs uppercase tracking-[0.12em] text-warning/70">Leave Encashment</p>
-                        <p className="text-lg font-semibold text-warning">
-                          ₹{Number(paidLeaveDetails?.encashmentSummary?.amount || 0).toFixed(2)}
-                        </p>
-                        <p className="text-xs text-light-text/60 dark:text-dark-text/60">
-                          {Number(paidLeaveDetails?.encashmentSummary?.count || 0)} record(s)
-                          {paidLeaveDetails?.encashmentSummary?.days
-                            ? ` · ${Number(paidLeaveDetails.encashmentSummary.days)} day(s)`
-                            : ''}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-                          Approved Paid Leave Requests
-                        </p>
-                        <p className="text-sm text-light-text/60 dark:text-dark-text/60">
-                          These are the approved leave requests counted as paid leave in payroll.
-                        </p>
-                      </div>
+                    <div>
+                      <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                        Refer Extra as
+                      </label>
+                      <input
+                        type="text"
+                        value={extraForm.reference}
+                        onChange={e =>
+                          setExtraForm(prev => ({ ...prev, reference: e.target.value }))
+                        }
+                        placeholder="Bonus"
+                        className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                      />
                     </div>
 
-                    <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
-                        <tr>
-                          <th className="px-4 py-3 text-left font-semibold">Date</th>
-                          <th className="px-4 py-3 text-left font-semibold">Days</th>
-                          <th className="px-4 py-3 text-left font-semibold">Type</th>
-                          <th className="px-4 py-3 text-left font-semibold">Amount</th>
-                          <th className="px-4 py-3 text-left font-semibold">Remarks</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {!paidLeaveDetails ? (
-                          <tr>
-                            <td
-                              colSpan={5}
-                              className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
-                            >
-                              Select an employee to view paid leave details.
-                            </td>
-                          </tr>
-                        ) : (paidLeaveDetails.leaveRecords || []).length === 0 ? (
-                          <tr>
-                            <td
-                              colSpan={5}
-                              className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
-                            >
-                              No approved paid leave requests for this period.
-                            </td>
-                          </tr>
-                        ) : (
-                          (paidLeaveDetails.leaveRecords || []).map((record) => {
-                            const paidDayAmount =
-                              Number(record.paidDays || 0) * Number(paidLeaveDetails?.dailyWage || 0);
-
-                            return (
-                            <tr
-                              key={record._id}
-                              className="border-t border-light-border/70 dark:border-dark-border/70"
-                            >
-                              <td className="px-4 py-3">
-                                {record.startDate
-                                  ? new Date(record.startDate).toLocaleDateString('en-IN', {
-                                      timeZone: 'Asia/Kolkata',
-                                    })
-                                  : 'N/A'}
-                              </td>
-                              <td className="px-4 py-3">{Number(record.paidDays || 0)}</td>
-                              <td className="px-4 py-3">{record.leaveMode || 'N/A'}</td>
-                              <td className="px-4 py-3">₹{paidDayAmount.toFixed(2)}</td>
-                              <td className="px-4 py-3">{record.reason || '—'}</td>
-                            </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                    </div>
-                  </div>
-
-                  <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
-                        <tr>
-                          <th className="px-4 py-3 text-left font-semibold">Date</th>
-                          <th className="px-4 py-3 text-left font-semibold">Days</th>
-                          <th className="px-4 py-3 text-left font-semibold">Rate / Day</th>
-                          <th className="px-4 py-3 text-left font-semibold">Amount</th>
-                          <th className="px-4 py-3 text-left font-semibold">Remarks</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {!paidLeaveDetails?.encashmentRecords?.length ? (
-                          <tr>
-                            <td
-                              colSpan={5}
-                              className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
-                            >
-                              No leave encashment records for this period.
-                            </td>
-                          </tr>
-                        ) : (
-                          paidLeaveDetails.encashmentRecords.map((record) => (
-                            <tr
-                              key={record._id}
-                              className="border-t border-light-border/70 dark:border-dark-border/70"
-                            >
-                              <td className="px-4 py-3">
-                                {record.transactionDate
-                                  ? new Date(record.transactionDate).toLocaleDateString('en-IN', {
-                                      timeZone: 'Asia/Kolkata',
-                                    })
-                                  : 'N/A'}
-                              </td>
-                              <td className="px-4 py-3">{Number(record.breakdown?.encashmentDays || 0)}</td>
-                              <td className="px-4 py-3">₹{Number(record.breakdown?.ratePerDay || 0).toFixed(2)}</td>
-                              <td className="px-4 py-3">₹{Number(record.amount || 0).toFixed(2)}</td>
-                              <td className="px-4 py-3">{record.comment || '—'}</td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {settingsPanel === 'extras' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                      Employee
-                    </label>
-                    <select
-                      value={extraForm.employeeId}
-                      onChange={e => setExtraForm(prev => ({ ...prev, employeeId: e.target.value }))}
-                      className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
-                    >
-                      <option value="">Select employee</option>
-                      {employees.map(employee => (
-                        <option key={employee._id} value={employee._id}>
-                          {employee.name} {employee.employeeCode ? `(${employee.employeeCode})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                      Refer Extra as
-                    </label>
-                    <input
-                      type="text"
-                      value={extraForm.reference}
-                      onChange={e => setExtraForm(prev => ({ ...prev, reference: e.target.value }))}
-                      placeholder="Bonus"
-                      className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                      Amount
-                    </label>
-                    <input
-                      type="number"
-                      step="1"
-                      value={extraForm.amount}
-                      onChange={e => setExtraForm(prev => ({ ...prev, amount: e.target.value }))}
-                      placeholder="Enter Amount"
-                      onFocus={e => e.target.select()}
-                      onWheel={e => e.currentTarget.blur()}
-                      className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                      Transaction Date
-                    </label>
-                    <input
-                      type="date"
-                      value={extraForm.transactionDate}
-                      onChange={e =>
-                        setExtraForm(prev => ({ ...prev, transactionDate: e.target.value }))
-                      }
-                      className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                      Comment
-                    </label>
-                    <textarea
-                      value={extraForm.comment}
-                      onChange={e => setExtraForm(prev => ({ ...prev, comment: e.target.value }))}
-                      rows={3}
-                      className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
-                    />
-                  </div>
-
-                  <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h3 className="text-base font-semibold">
-                          {extraDetails?.employee?.name || 'Extras'}
-                        </h3>
-                        <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-                          Extras
-                        </p>
-                        <p className="text-sm text-light-text/60 dark:text-dark-text/60">
-                          {extraDetails?.employee?.employeeCode || 'N/A'}
-                          {extraDetails?.employee?.email ? ` · ${extraDetails.employee.email}` : ''}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-                          Total Extras
-                        </p>
-                        <p className="text-lg font-semibold">₹{(extraDetails?.total || 0).toFixed(2)}</p>
-                        <p className="text-xs text-light-text/60 dark:text-dark-text/60">
-                          {extraDetails?.count || 0} items
-                        </p>
-                      </div>
+                    <div>
+                      <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                        Amount
+                      </label>
+                      <input
+                        type="number"
+                        step="1"
+                        value={extraForm.amount}
+                        onChange={e => setExtraForm(prev => ({ ...prev, amount: e.target.value }))}
+                        placeholder="Enter Amount"
+                        onFocus={e => e.target.select()}
+                        onWheel={e => e.currentTarget.blur()}
+                        className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                      />
                     </div>
 
-                    <div className="rounded-xl border border-info/20 bg-info/5 p-4 space-y-3">
-                      <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                        Transaction Date
+                      </label>
+                      <input
+                        type="date"
+                        value={extraForm.transactionDate}
+                        onChange={e =>
+                          setExtraForm(prev => ({ ...prev, transactionDate: e.target.value }))
+                        }
+                        className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                        Comment
+                      </label>
+                      <textarea
+                        value={extraForm.comment}
+                        onChange={e => setExtraForm(prev => ({ ...prev, comment: e.target.value }))}
+                        rows={3}
+                        className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card"
+                      />
+                    </div>
+
+                    <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-4">
                         <div>
-                          <p className="text-xs uppercase tracking-[0.12em] text-info/70">
-                            Extras Source Summary
+                          <h3 className="text-base font-semibold">
+                            {extraDetails?.employee?.name || 'Extras'}
+                          </h3>
+                          <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                            Extras
                           </p>
                           <p className="text-sm text-light-text/60 dark:text-dark-text/60">
-                            Clear source-wise breakdown of the extras shown here.
-                            Leave encashment is shown in Paid Leaves.
+                            {extraDetails?.employee?.employeeCode || 'N/A'}
+                            {extraDetails?.employee?.email
+                              ? ` · ${extraDetails.employee.email}`
+                              : ''}
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-xs uppercase tracking-[0.12em] text-info/70">Total Extras</p>
-                          <p className="text-lg font-semibold text-info">₹{(extraDetails?.total || 0).toFixed(2)}</p>
+                          <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
+                            Total Extras
+                          </p>
+                          <p className="text-lg font-semibold">
+                            ₹{(extraDetails?.total || 0).toFixed(2)}
+                          </p>
+                          <p className="text-xs text-light-text/60 dark:text-dark-text/60">
+                            {extraDetails?.count || 0} items
+                          </p>
                         </div>
                       </div>
 
-                      {(() => {
-                        const sourceSummary = getExtraSourceSummary(extraDetails?.records || []);
-                        const manualTypes = Object.entries(sourceSummary.manual.byType || {});
-                        const hasAnySources =
-                          sourceSummary.sundayCompensation.count > 0 ||
-                          sourceSummary.manual.count > 0;
+                      <div className="rounded-xl border border-info/20 bg-info/5 p-4 space-y-3">
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.12em] text-info/70">
+                              Extras Source Summary
+                            </p>
+                            <p className="text-sm text-light-text/60 dark:text-dark-text/60">
+                              Clear source-wise breakdown of the extras shown here. Leave encashment
+                              is shown in Paid Leaves.
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs uppercase tracking-[0.12em] text-info/70">
+                              Total Extras
+                            </p>
+                            <p className="text-lg font-semibold text-info">
+                              ₹{(extraDetails?.total || 0).toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
 
-                        if (!hasAnySources) {
-                          return (
-                            <div className="rounded-lg border border-dashed border-info/30 bg-white/50 dark:bg-dark-card/50 px-4 py-3 text-sm text-light-text/60 dark:text-dark-text/60">
-                              No extra sources are linked to this month yet.
-                            </div>
-                          );
-                        }
+                        {(() => {
+                          const sourceSummary = getExtraSourceSummary(extraDetails?.records || []);
+                          const manualTypes = Object.entries(sourceSummary.manual.byType || {});
+                          const hasAnySources =
+                            sourceSummary.sundayCompensation.count > 0 ||
+                            sourceSummary.manual.count > 0;
 
-                        return (
-                          <div className="space-y-3">
-                            {sourceSummary.sundayCompensation.count > 0 ? (
-                              <div className="rounded-lg border border-light-border/70 dark:border-dark-border/70 bg-white/70 dark:bg-dark-card/70 px-4 py-3 flex items-start justify-between gap-4">
-                                <div>
-                                  <p className="text-sm font-semibold text-light-text dark:text-dark-text">
-                                    Sunday Compensation
-                                  </p>
-                                  <p className="text-xs text-light-text/60 dark:text-dark-text/60">
-                                    Auto-added for Sunday attendance with check-in and check-out.
-                                  </p>
-                                    <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-1">
-                                      {getRecordMonthLabel(sourceSummary.sundayCompensation.records[0])}
-                                    </p>
-                                  <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-1">
-                                    {sourceSummary.sundayCompensation.count} record(s)
-                                  </p>
-                                </div>
-                                <p className="text-lg font-semibold text-success">₹{sourceSummary.sundayCompensation.amount.toFixed(2)}</p>
+                          if (!hasAnySources) {
+                            return (
+                              <div className="rounded-lg border border-dashed border-info/30 bg-white/50 dark:bg-dark-card/50 px-4 py-3 text-sm text-light-text/60 dark:text-dark-text/60">
+                                No extra sources are linked to this month yet.
                               </div>
-                            ) : null}
+                            );
+                          }
 
-                            {sourceSummary.manual.count > 0 ? (
-                              <div className="rounded-lg border border-light-border/70 dark:border-dark-border/70 bg-white/70 dark:bg-dark-card/70 px-4 py-3 space-y-2">
-                                <div className="flex items-start justify-between gap-4">
+                          return (
+                            <div className="space-y-3">
+                              {sourceSummary.sundayCompensation.count > 0 ? (
+                                <div className="rounded-lg border border-light-border/70 dark:border-dark-border/70 bg-white/70 dark:bg-dark-card/70 px-4 py-3 flex items-start justify-between gap-4">
                                   <div>
                                     <p className="text-sm font-semibold text-light-text dark:text-dark-text">
-                                      Manual Extras
+                                      Sunday Compensation
                                     </p>
                                     <p className="text-xs text-light-text/60 dark:text-dark-text/60">
-                                      Added manually by payroll/admin.
+                                      Auto-added for Sunday attendance with check-in and check-out.
                                     </p>
                                     <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-1">
-                                      {manualTypes.map(([label, item]) => (
-                                        <span key={label} className="mr-3 inline-block">
-                                          {label}: {getRecordMonthLabel(item.records[0])}
-                                        </span>
-                                      ))}
+                                      {getRecordMonthLabel(
+                                        sourceSummary.sundayCompensation.records[0]
+                                      )}
+                                    </p>
+                                    <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-1">
+                                      {sourceSummary.sundayCompensation.count} record(s)
                                     </p>
                                   </div>
-                                  <p className="text-lg font-semibold text-warning">₹{sourceSummary.manual.amount.toFixed(2)}</p>
+                                  <p className="text-lg font-semibold text-success">
+                                    ₹{sourceSummary.sundayCompensation.amount.toFixed(2)}
+                                  </p>
                                 </div>
-                                <div className="space-y-1 text-xs text-light-text/70 dark:text-dark-text/70">
-                                  {manualTypes.map(([label, item]) => (
-                                    <div key={label} className="flex items-center justify-between gap-3">
-                                      <span>{label}</span>
-                                      <span>₹{Number(item.amount || 0).toFixed(2)} · {item.count} item(s)</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ) : null}
-                          </div>
-                        );
-                      })()}
-                    </div>
+                              ) : null}
 
-                    <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
-                      <table className="min-w-full text-sm">
-                        <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
-                          <tr>
-                            <th className="px-4 py-3 text-left font-semibold">Date</th>
-                            <th className="px-4 py-3 text-left font-semibold">Type</th>
-                            <th className="px-4 py-3 text-left font-semibold">Amount</th>
-                            <th className="px-4 py-3 text-left font-semibold">Remarks</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {!extraDetails ? (
-                            <tr>
-                              <td
-                                colSpan={4}
-                                className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
-                              >
-                                Select an employee to view extras.
-                              </td>
-                            </tr>
-                          ) : extraDetails.records.length === 0 ? (
-                            <tr>
-                              <td
-                                colSpan={4}
-                                className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
-                              >
-                                No extras recorded for this period.
-                              </td>
-                            </tr>
-                          ) : (
-                            extraDetails.records.map((record) => (
-                              <tr
-                                key={record._id}
-                                className="border-t border-light-border/70 dark:border-dark-border/70"
-                              >
-                                <td className="px-4 py-3">
-                                  {record.transactionDate
-                                    ? new Date(record.transactionDate).toLocaleDateString('en-IN', {
-                                        timeZone: 'Asia/Kolkata',
-                                      })
-                                    : 'N/A'}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <div className="flex flex-col">
-                                    <span>{getExtraSourceLabel(record)}</span>
-                                    <span className="text-[11px] text-light-text/50 dark:text-dark-text/50">
-                                      {getExtraSourcePeriodLabel(record)}
-                                    </span>
+                              {sourceSummary.manual.count > 0 ? (
+                                <div className="rounded-lg border border-light-border/70 dark:border-dark-border/70 bg-white/70 dark:bg-dark-card/70 px-4 py-3 space-y-2">
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                      <p className="text-sm font-semibold text-light-text dark:text-dark-text">
+                                        Manual Extras
+                                      </p>
+                                      <p className="text-xs text-light-text/60 dark:text-dark-text/60">
+                                        Added manually by payroll/admin.
+                                      </p>
+                                      <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-1">
+                                        {manualTypes.map(([label, item]) => (
+                                          <span key={label} className="mr-3 inline-block">
+                                            {label}: {getRecordMonthLabel(item.records[0])}
+                                          </span>
+                                        ))}
+                                      </p>
+                                    </div>
+                                    <p className="text-lg font-semibold text-warning">
+                                      ₹{sourceSummary.manual.amount.toFixed(2)}
+                                    </p>
                                   </div>
-                                </td>
-                                <td className="px-4 py-3">₹{Number(record.amount || 0).toFixed(2)}</td>
-                                <td className="px-4 py-3">
-                                  {record.reference === 'Compensation'
-                                    ? `${record.comment || 'Sunday attendance'}`
-                                    : record.comment || '—'}
+                                  <div className="space-y-1 text-xs text-light-text/70 dark:text-dark-text/70">
+                                    {manualTypes.map(([label, item]) => (
+                                      <div
+                                        key={label}
+                                        className="flex items-center justify-between gap-3"
+                                      >
+                                        <span>{label}</span>
+                                        <span>
+                                          ₹{Number(item.amount || 0).toFixed(2)} · {item.count}{' '}
+                                          item(s)
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
+                        <table className="min-w-full text-sm">
+                          <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
+                            <tr>
+                              <th className="px-4 py-3 text-left font-semibold">Date</th>
+                              <th className="px-4 py-3 text-left font-semibold">Type</th>
+                              <th className="px-4 py-3 text-left font-semibold">Amount</th>
+                              <th className="px-4 py-3 text-left font-semibold">Remarks</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {!extraDetails ? (
+                              <tr>
+                                <td
+                                  colSpan={4}
+                                  className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
+                                >
+                                  Select an employee to view extras.
                                 </td>
                               </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
+                            ) : extraDetails.records.length === 0 ? (
+                              <tr>
+                                <td
+                                  colSpan={4}
+                                  className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
+                                >
+                                  No extras recorded for this period.
+                                </td>
+                              </tr>
+                            ) : (
+                              extraDetails.records.map(record => (
+                                <tr
+                                  key={record._id}
+                                  className="border-t border-light-border/70 dark:border-dark-border/70"
+                                >
+                                  <td className="px-4 py-3">
+                                    {record.transactionDate
+                                      ? new Date(record.transactionDate).toLocaleDateString(
+                                          'en-IN',
+                                          {
+                                            timeZone: 'Asia/Kolkata',
+                                          }
+                                        )
+                                      : 'N/A'}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex flex-col">
+                                      <span>{getExtraSourceLabel(record)}</span>
+                                      <span className="text-[11px] text-light-text/50 dark:text-dark-text/50">
+                                        {getExtraSourcePeriodLabel(record)}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    ₹{Number(record.amount || 0).toFixed(2)}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    {record.reference === 'Compensation'
+                                      ? `${record.comment || 'Sunday attendance'}`
+                                      : record.comment || '—'}
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-end">
-              {settingsPanel === 'loans' || settingsPanel === 'extras' ? (
-                <>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                {settingsPanel === 'loans' || settingsPanel === 'extras' ? (
+                  <>
+                    <button
+                      onClick={() => setSettingsPanel(null)}
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-light-border dark:border-dark-border"
+                    >
+                      Close
+                    </button>
+                    <button
+                      onClick={saveSettingsPanel}
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-white"
+                    >
+                      Save Details
+                    </button>
+                  </>
+                ) : settingsPanel === 'paidLeaves' ? (
                   <button
                     onClick={() => setSettingsPanel(null)}
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-light-border dark:border-dark-border"
                   >
                     Close
                   </button>
+                ) : (
                   <button
                     onClick={saveSettingsPanel}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-white"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-white"
                   >
-                    Save Details
+                    Save
                   </button>
-                </>
-              ) : settingsPanel === 'paidLeaves' ? (
-                <button
-                  onClick={() => setSettingsPanel(null)}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-light-border dark:border-dark-border"
-                >
-                  Close
-                </button>
-              ) : (
-                <button
-                  onClick={saveSettingsPanel}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-white"
-                >
-                  Save
-                </button>
-              )}
-            </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -3737,7 +3798,10 @@ const SalaryDashboardSkeleton = () => (
             </thead>
             <tbody>
               {[...Array(7)].map((_, rowIndex) => (
-                <tr key={rowIndex} className="border-t border-light-border/70 dark:border-dark-border/70">
+                <tr
+                  key={rowIndex}
+                  className="border-t border-light-border/70 dark:border-dark-border/70"
+                >
                   {[...Array(16)].map((__, colIndex) => (
                     <td key={colIndex} className="px-4 py-4">
                       <div className="h-4 rounded bg-light-bg dark:bg-dark-bg" />
@@ -3765,7 +3829,7 @@ const PanelSkeleton = ({ showClose = false }) => (
     </div>
 
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      {['Overtime', 'Penalties', 'Loan', 'Extras'].map((label) => (
+      {['Overtime', 'Penalties', 'Loan', 'Extras'].map(label => (
         <div
           key={label}
           className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3 bg-light-card/40 dark:bg-dark-card/40"
@@ -3784,7 +3848,10 @@ const PanelSkeleton = ({ showClose = false }) => (
     </div>
 
     {[...Array(4)].map((_, index) => (
-      <div key={index} className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3">
+      <div
+        key={index}
+        className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3"
+      >
         <div className="h-3 w-28 rounded bg-light-card dark:bg-dark-card" />
         {[...Array(4)].map((__, rowIndex) => (
           <div key={rowIndex} className="flex items-center justify-between gap-4">

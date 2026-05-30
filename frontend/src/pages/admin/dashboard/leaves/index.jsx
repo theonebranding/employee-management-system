@@ -270,7 +270,7 @@ const AdminLeaveManagement = () => {
     }
   };
 
-  const deleteTemplate = async (templateId) => {
+  const deleteTemplate = async templateId => {
     try {
       const response = await fetch(`${BASE_URL}/leave-templates/templates/${templateId}`, {
         method: 'DELETE',
@@ -286,7 +286,7 @@ const AdminLeaveManagement = () => {
     }
   };
 
-  const createTemplate = async (payload) => {
+  const createTemplate = async payload => {
     try {
       const response = await fetch(`${BASE_URL}/leave-templates/templates`, {
         method: 'POST',
@@ -627,7 +627,7 @@ const AdminLeaveManagement = () => {
                   </td>
                 </tr>
               ) : templates.length > 0 ? (
-                templates.map((template) => (
+                templates.map(template => (
                   <tr key={template._id} className="text-light-text dark:text-dark-text">
                     <td className="px-4 py-3 font-medium">{template.name}</td>
                     <td className="px-4 py-3">
@@ -641,7 +641,10 @@ const AdminLeaveManagement = () => {
                         : `End Of Every Month ${template.carryForwardCount || 0}`}
                     </td>
                     <td className="px-4 py-3">
-                      {format(new Date(template.effectiveDate || template.createdAt), 'dd MMM yyyy')}
+                      {format(
+                        new Date(template.effectiveDate || template.createdAt),
+                        'dd MMM yyyy'
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {template.encashmentAllowed ? 'Allowed' : 'Not Allowed'}
@@ -709,7 +712,7 @@ const AdminLeaveManagement = () => {
 
         <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card p-4 mb-4 mt-4">
           <div className="flex flex-wrap gap-2">
-            {tabs.map((tabItem) => {
+            {tabs.map(tabItem => {
               const isActive = activeTab === tabItem.id;
               return (
                 <button
@@ -941,7 +944,9 @@ const AdminLeaveManagement = () => {
                         </div>
                         <div className="rounded-lg bg-success/10 p-2">
                           <p className="text-xs text-success">Remaining</p>
-                          <p className="font-semibold text-success">{templateQuota.balance.remaining}</p>
+                          <p className="font-semibold text-success">
+                            {templateQuota.balance.remaining}
+                          </p>
                         </div>
                       </div>
                       <label className="inline-flex items-center gap-2 mt-2 text-sm text-light-text dark:text-dark-text">
@@ -1163,7 +1168,8 @@ const LeaveTemplatePanel = ({ isOpen, onClose, onCreate, onUpdate, initialData }
           .split('T')[0],
         encashmentAllowed: Boolean(initialData.encashmentAllowed),
         requiresDocument: Boolean(initialData.requiresDocument),
-        autoApprove: initialData.autoApprove === undefined ? true : Boolean(initialData.autoApprove),
+        autoApprove:
+          initialData.autoApprove === undefined ? true : Boolean(initialData.autoApprove),
         countAsPaidLeave:
           initialData.countAsPaidLeave === undefined ? true : Boolean(initialData.countAsPaidLeave),
       });
@@ -1185,7 +1191,7 @@ const LeaveTemplatePanel = ({ isOpen, onClose, onCreate, onUpdate, initialData }
   }, [initialData, isOpen]);
 
   const updateForm = (key, value) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
+    setFormData(prev => ({ ...prev, [key]: value }));
   };
 
   // Mount-with-animation pattern (mirrors the payroll snapshot panel in
@@ -1252,9 +1258,7 @@ const LeaveTemplatePanel = ({ isOpen, onClose, onCreate, onUpdate, initialData }
       carryForwardCount: Number(formData.carryForwardCount || 0),
     };
 
-    const success = initialData
-      ? await handler(initialData._id, payload)
-      : await handler(payload);
+    const success = initialData ? await handler(initialData._id, payload) : await handler(payload);
     setIsSaving(false);
 
     if (success) {
@@ -1272,7 +1276,7 @@ const LeaveTemplatePanel = ({ isOpen, onClose, onCreate, onUpdate, initialData }
     >
       <div
         className={`absolute right-0 top-0 h-full w-full max-w-md bg-light-card dark:bg-dark-card shadow-2xl border-l border-light-border dark:border-dark-border flex flex-col transform-gpu transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${visible ? 'translate-x-0' : 'translate-x-full'}`}
-        onClick={(event) => event.stopPropagation()}
+        onClick={event => event.stopPropagation()}
         role="presentation"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-light-border dark:border-dark-border bg-light-bg/70 dark:bg-dark-bg/70 shrink-0">
@@ -1290,46 +1294,56 @@ const LeaveTemplatePanel = ({ isOpen, onClose, onCreate, onUpdate, initialData }
         </div>
         <div className="p-6 space-y-4 overflow-y-auto">
           <div>
-            <label className="block text-sm text-light-text dark:text-dark-text mb-2">Leave Name *</label>
+            <label className="block text-sm text-light-text dark:text-dark-text mb-2">
+              Leave Name *
+            </label>
             <input
               type="text"
               placeholder="e.g. Sick Leave"
               value={formData.name}
-              onChange={(event) => updateForm('name', event.target.value)}
+              onChange={event => updateForm('name', event.target.value)}
               className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-sm"
             />
           </div>
           <div>
-            <label className="block text-sm text-light-text dark:text-dark-text mb-2">Description</label>
+            <label className="block text-sm text-light-text dark:text-dark-text mb-2">
+              Description
+            </label>
             <input
               type="text"
               placeholder="Description"
               value={formData.description}
-              onChange={(event) => updateForm('description', event.target.value)}
+              onChange={event => updateForm('description', event.target.value)}
               className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-sm"
             />
           </div>
           <div>
-            <label className="block text-sm text-light-text dark:text-dark-text mb-2">Effective Date *</label>
+            <label className="block text-sm text-light-text dark:text-dark-text mb-2">
+              Effective Date *
+            </label>
             <input
               type="date"
               value={formData.effectiveDate}
-              onChange={(event) => updateForm('effectiveDate', event.target.value)}
+              onChange={event => updateForm('effectiveDate', event.target.value)}
               className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-sm"
             />
           </div>
           <div>
-            <label className="block text-sm text-light-text dark:text-dark-text mb-2">Number Of Auto Allocation Leaves *</label>
+            <label className="block text-sm text-light-text dark:text-dark-text mb-2">
+              Number Of Auto Allocation Leaves *
+            </label>
             <input
               type="number"
               placeholder="Enter number of leaves"
               value={formData.autoAllocationCount}
-              onChange={(event) => updateForm('autoAllocationCount', event.target.value)}
+              onChange={event => updateForm('autoAllocationCount', event.target.value)}
               className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-sm"
             />
           </div>
           <div>
-            <label className="block text-sm text-light-text dark:text-dark-text mb-2">Auto Allocation *</label>
+            <label className="block text-sm text-light-text dark:text-dark-text mb-2">
+              Auto Allocation *
+            </label>
             <div className="flex items-center gap-4 text-sm text-light-text dark:text-dark-text">
               <label className="inline-flex items-center gap-2">
                 <input
@@ -1352,12 +1366,14 @@ const LeaveTemplatePanel = ({ isOpen, onClose, onCreate, onUpdate, initialData }
             </div>
           </div>
           <div>
-            <label className="block text-sm text-light-text dark:text-dark-text mb-2">Carry Forward *</label>
+            <label className="block text-sm text-light-text dark:text-dark-text mb-2">
+              Carry Forward *
+            </label>
             <input
               type="number"
               placeholder="Enter number of leaves"
               value={formData.carryForwardCount}
-              onChange={(event) => updateForm('carryForwardCount', event.target.value)}
+              onChange={event => updateForm('carryForwardCount', event.target.value)}
               className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-sm"
             />
           </div>
@@ -1387,7 +1403,7 @@ const LeaveTemplatePanel = ({ isOpen, onClose, onCreate, onUpdate, initialData }
             <input
               type="checkbox"
               checked={formData.encashmentAllowed}
-              onChange={(event) => updateForm('encashmentAllowed', event.target.checked)}
+              onChange={event => updateForm('encashmentAllowed', event.target.checked)}
             />
             Convert extra available leaves into cash if they exceed the carry-forward limit.
           </label>
@@ -1395,7 +1411,7 @@ const LeaveTemplatePanel = ({ isOpen, onClose, onCreate, onUpdate, initialData }
             <input
               type="checkbox"
               checked={formData.autoApprove}
-              onChange={(event) => updateForm('autoApprove', event.target.checked)}
+              onChange={event => updateForm('autoApprove', event.target.checked)}
             />
             Auto-approve leave requests created from this template.
           </label>
@@ -1403,7 +1419,7 @@ const LeaveTemplatePanel = ({ isOpen, onClose, onCreate, onUpdate, initialData }
             <input
               type="checkbox"
               checked={formData.countAsPaidLeave}
-              onChange={(event) => updateForm('countAsPaidLeave', event.target.checked)}
+              onChange={event => updateForm('countAsPaidLeave', event.target.checked)}
             />
             Count approved leave from this template as paid leave.
           </label>
@@ -1411,7 +1427,7 @@ const LeaveTemplatePanel = ({ isOpen, onClose, onCreate, onUpdate, initialData }
             <input
               type="checkbox"
               checked={formData.requiresDocument}
-              onChange={(event) => updateForm('requiresDocument', event.target.checked)}
+              onChange={event => updateForm('requiresDocument', event.target.checked)}
             />
             Require supporting documents for this template.
           </label>

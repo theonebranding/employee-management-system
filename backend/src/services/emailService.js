@@ -53,7 +53,13 @@ const sendInvitationRequestEmail = async (email) => {
   await sendEmail(email, 'Invitation Request', htmlContent);
 };
 
-const sendDailyReportSubmittedEmail = async ({ name, email, employeeCode, reportDate, reportText }) => {
+const sendDailyReportSubmittedEmail = async ({
+  name,
+  email,
+  employeeCode,
+  reportDate,
+  reportText,
+}) => {
   const templatePath = path.join(__dirname, 'templates', 'dailyReportSubmitted.html');
   const template = fs.readFileSync(templatePath, 'utf-8');
 

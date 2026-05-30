@@ -3,12 +3,11 @@ import Leave from '../models/leaveSchema.js';
 import { sendLeaveRequestEmail, sendLeaveStatusEmail } from '../services/emailService.js';
 import Employee from '../models/employeeSchema.js';
 import LeaveTemplateAssignment from '../models/leaveTemplateAssignmentSchema.js';
+import { getPayrollLeaveDaysForRange, getTemplateBalance } from '../utils/leaveTemplateUtils.js';
 import {
-  getInclusiveDayCount,
-  getPayrollLeaveDaysForRange,
-  getTemplateBalance,
-} from '../utils/leaveTemplateUtils.js';
-import { clearLeaveAttendanceMaster, syncLeaveAttendanceMaster } from '../utils/attendanceLeaveSync.js';
+  clearLeaveAttendanceMaster,
+  syncLeaveAttendanceMaster,
+} from '../utils/attendanceLeaveSync.js';
 import { recomputePayrollForAttendanceChange } from './payrollController.js';
 export const createLeave = async (req, res) => {
   try {
@@ -68,11 +67,15 @@ export const createLeave = async (req, res) => {
       }
     } else {
       if (!leaveCategory) {
-        return res.status(400).json({ message: 'Leave category is required for special leave requests' });
+        return res
+          .status(400)
+          .json({ message: 'Leave category is required for special leave requests' });
       }
 
       if (!documentName || !documentType || !documentData) {
-        return res.status(400).json({ message: 'Supporting document is required for special leave requests' });
+        return res
+          .status(400)
+          .json({ message: 'Supporting document is required for special leave requests' });
       }
     }
 
@@ -117,7 +120,9 @@ export const createLeave = async (req, res) => {
       const cursor = new Date(leave.startDate);
       const rangeEnd = new Date(leave.endDate);
       while (cursor <= rangeEnd) {
-        touchedMonths.add(`${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}`);
+        touchedMonths.add(
+          `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}`
+        );
         cursor.setUTCDate(cursor.getUTCDate() + 1);
       }
 
@@ -137,7 +142,9 @@ export const createLeave = async (req, res) => {
     }
 
     res.status(201).json({
-      message: template?.autoApprove ? 'Leave created and auto-approved successfully' : 'Leave created successfully',
+      message: template?.autoApprove
+        ? 'Leave created and auto-approved successfully'
+        : 'Leave created successfully',
       leave,
     });
   } catch (err) {
@@ -163,7 +170,10 @@ export const getAllLeaves = async (req, res) => {
 
     const leaves = await Leave.find(filters)
       .populate('employee', 'email name')
-      .populate('template', 'name autoAllocationCount autoAllocationPeriod countAsPaidLeave autoApprove')
+      .populate(
+        'template',
+        'name autoAllocationCount autoAllocationPeriod countAsPaidLeave autoApprove'
+      )
       .skip((page - 1) * limit)
       .limit(Number(limit))
       .sort({ startDate: -1 });
@@ -312,7 +322,9 @@ export const updateLeaveStatus = async (req, res) => {
     const cursor = new Date(leave.startDate);
     const rangeEnd = new Date(leave.endDate);
     while (cursor <= rangeEnd) {
-      touchedMonths.add(`${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}`);
+      touchedMonths.add(
+        `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}`
+      );
       cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
 

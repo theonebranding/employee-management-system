@@ -8,12 +8,12 @@ import { forfeitEmployeeCredits } from '../services/holidayCreditService.js';
 // transitions into one of these states (or is hard-deleted), all of their
 // `available` floating holiday credits must be forfeited (Requirement 12).
 const TERMINATED_STATUSES = ['terminated', 'inactive'];
-const isTerminatedStatus = status => TERMINATED_STATUSES.includes(status);
+const isTerminatedStatus = (status) => TERMINATED_STATUSES.includes(status);
 
 // Wrap forfeitEmployeeCredits so a forfeit failure never rolls back the
 // underlying employee mutation. The service is idempotent (safe to call again
 // later), so logging-and-continuing is the correct behaviour here.
-const safeForfeitEmployeeCredits = async employeeId => {
+const safeForfeitEmployeeCredits = async (employeeId) => {
   try {
     await forfeitEmployeeCredits(employeeId);
   } catch (err) {
@@ -36,12 +36,13 @@ const NAME_REGEX = /^[A-Za-z][A-Za-z\s.'-]{1,99}$/;
 const ALLOWED_ONBOARDING_STATUS = ['draft', 'onboarding_complete', 'payroll_ready', 'active'];
 const ALLOWED_EMPLOYMENT_TYPES = ['Full Time', 'Part Time', 'Contract', 'Intern'];
 
-const normalizeText = value => (value === undefined || value === null ? value : String(value).trim());
+const normalizeText = (value) =>
+  value === undefined || value === null ? value : String(value).trim();
 
 const validateEmployeeFields = (payload, { isUpdate = false } = {}) => {
   const errors = [];
   const normalized = { ...payload };
-  const has = field => payload[field] !== undefined;
+  const has = (field) => payload[field] !== undefined;
 
   if (!isUpdate || has('name')) {
     const value = normalizeText(payload.name);
@@ -161,7 +162,7 @@ const validateEmployeeFields = (payload, { isUpdate = false } = {}) => {
     'city',
     'district',
     'emergencyContactName',
-  ].forEach(field => {
+  ].forEach((field) => {
     if (has(field)) normalized[field] = normalizeText(payload[field]) || '';
   });
 
@@ -236,7 +237,8 @@ export const addEmployee = async (req, res) => {
     const duplicateChecks = [{ email: normalized.email }, { phoneNumber: normalized.phoneNumber }];
     if (normalized.panNumber) duplicateChecks.push({ panNumber: normalized.panNumber });
     if (normalized.aadharNumber) duplicateChecks.push({ aadharNumber: normalized.aadharNumber });
-    if (normalized.bankAccountNumber) duplicateChecks.push({ bankAccountNumber: normalized.bankAccountNumber });
+    if (normalized.bankAccountNumber)
+      duplicateChecks.push({ bankAccountNumber: normalized.bankAccountNumber });
 
     const employeeExists = await Employee.findOne({
       $or: duplicateChecks,
@@ -256,7 +258,7 @@ export const addEmployee = async (req, res) => {
     const initials = normalizedName
       .split(' ')
       .filter(Boolean)
-      .map(part => part[0].toUpperCase())
+      .map((part) => part[0].toUpperCase())
       .join('')
       .slice(0, 3);
     const yearSuffix = new Date().getFullYear().toString().slice(-2);
@@ -352,7 +354,8 @@ export const updateEmployee = async (req, res) => {
     if (normalized.phoneNumber) duplicateChecks.push({ phoneNumber: normalized.phoneNumber });
     if (normalized.panNumber) duplicateChecks.push({ panNumber: normalized.panNumber });
     if (normalized.aadharNumber) duplicateChecks.push({ aadharNumber: normalized.aadharNumber });
-    if (normalized.bankAccountNumber) duplicateChecks.push({ bankAccountNumber: normalized.bankAccountNumber });
+    if (normalized.bankAccountNumber)
+      duplicateChecks.push({ bankAccountNumber: normalized.bankAccountNumber });
 
     if (duplicateChecks.length) {
       const existingEmployee = await Employee.findOne({
@@ -360,7 +363,9 @@ export const updateEmployee = async (req, res) => {
         $or: duplicateChecks,
       }).select('_id');
       if (existingEmployee) {
-        return res.status(400).json({ message: 'Another employee already uses one of these details' });
+        return res
+          .status(400)
+          .json({ message: 'Another employee already uses one of these details' });
       }
     }
 
@@ -451,7 +456,9 @@ export const deleteEmployeeByCode = async (req, res) => {
     // (Requirement 12.1).
     await safeForfeitEmployeeCredits(deletedEmployee._id);
 
-    return res.status(200).json({ message: 'Employee deleted successfully', employee: deletedEmployee });
+    return res
+      .status(200)
+      .json({ message: 'Employee deleted successfully', employee: deletedEmployee });
   } catch (error) {
     return res.status(500).json({ message: 'Error deleting employee', error: error.message });
   }
@@ -617,7 +624,7 @@ export const deleteEmployeeDocument = async (req, res) => {
       return res.status(404).json({ message: 'Employee not found' });
     }
 
-    employee.documents = employee.documents.filter(doc => doc._id.toString() !== documentId);
+    employee.documents = employee.documents.filter((doc) => doc._id.toString() !== documentId);
     await employee.save();
 
     return res.status(200).json({

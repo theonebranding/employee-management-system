@@ -98,8 +98,7 @@ export async function redeemCredit({ creditId, employeeId, targetDate }) {
   });
   if (
     attendance &&
-    (attendance.manualPayrollStatus === 'absent' ||
-      attendance.manualPayrollStatus === 'leave')
+    (attendance.manualPayrollStatus === 'absent' || attendance.manualPayrollStatus === 'leave')
   ) {
     throw makeError(
       422,
@@ -115,18 +114,12 @@ export async function redeemCredit({ creditId, employeeId, targetDate }) {
     endDate: { $gte: normalizedStart },
   });
   if (overlappingLeave) {
-    throw makeError(
-      422,
-      'REDEEM_DATE_ABSENT_OR_LEAVE',
-      'Target date overlaps an approved leave'
-    );
+    throw makeError(422, 'REDEEM_DATE_ABSENT_OR_LEAVE', 'Target date overlaps an approved leave');
   }
 
   // Rule 5: target date must not collide with any fixed-template holiday
   // assigned to the employee.
-  const assignments = await TemplateAssignment.find({ employee: employeeId }).populate(
-    'template'
-  );
+  const assignments = await TemplateAssignment.find({ employee: employeeId }).populate('template');
   const targetKey = getIstDayKey(normalizedStart);
   for (const assignment of assignments) {
     const template = assignment.template;

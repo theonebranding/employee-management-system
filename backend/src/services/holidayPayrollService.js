@@ -69,8 +69,7 @@ const getEmployeeHolidayDateSet = async ({ employeeId, month, year }) => {
     if (!template || template.type !== 'fixed') continue;
     const holidays = Array.isArray(template.holidays) ? template.holidays : [];
     for (const holiday of holidays) {
-      const holidayDate =
-        holiday.date instanceof Date ? holiday.date : new Date(holiday.date);
+      const holidayDate = holiday.date instanceof Date ? holiday.date : new Date(holiday.date);
       if (Number.isNaN(holidayDate.getTime())) continue;
       if (holidayDate < start || holidayDate > end) continue;
       const dateKey = getIstDayKey(holidayDate);
@@ -92,9 +91,7 @@ const getEmployeeHolidayDateSet = async ({ employeeId, month, year }) => {
   for (const credit of credits) {
     if (!credit.redeemedOn) continue;
     const redeemedDate =
-      credit.redeemedOn instanceof Date
-        ? credit.redeemedOn
-        : new Date(credit.redeemedOn);
+      credit.redeemedOn instanceof Date ? credit.redeemedOn : new Date(credit.redeemedOn);
     if (Number.isNaN(redeemedDate.getTime())) continue;
     const dateKey = getIstDayKey(redeemedDate);
     floatingDates.set(dateKey, { creditId: credit._id, date: redeemedDate });
@@ -204,14 +201,10 @@ const getEmployeesOnHoliday = async ({
 } = {}) => {
   const { start, end } = resolveDateRange({ date, startDate, endDate, month, year });
 
-  const employeeFilterId = employeeId
-    ? new mongoose.Types.ObjectId(String(employeeId))
-    : null;
+  const employeeFilterId = employeeId ? new mongoose.Types.ObjectId(String(employeeId)) : null;
 
   // ---- fixed-template holidays via TemplateAssignment ----------------
-  const fixedMatchStage = employeeFilterId
-    ? [{ $match: { employee: employeeFilterId } }]
-    : [];
+  const fixedMatchStage = employeeFilterId ? [{ $match: { employee: employeeFilterId } }] : [];
 
   const fixedRows = await TemplateAssignment.aggregate([
     ...fixedMatchStage,
@@ -323,8 +316,4 @@ const getEmployeesOnHoliday = async ({
   }));
 };
 
-export {
-  getEmployeeHolidayDateSet,
-  isEmployeeOnHoliday,
-  getEmployeesOnHoliday,
-};
+export { getEmployeeHolidayDateSet, isEmployeeOnHoliday, getEmployeesOnHoliday };

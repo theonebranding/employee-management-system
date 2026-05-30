@@ -3,8 +3,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Slide, toast, ToastContainer } from 'react-toastify';
 
-import Header from '../../../../components/pageHeader';
 import Modal from '../../../../components/Modal';
+import Header from '../../../../components/pageHeader';
 
 const EmployeeDailyWork = () => {
   const navigate = useNavigate();
@@ -44,14 +44,16 @@ const EmployeeDailyWork = () => {
       );
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.message || data.errors?.[0]?.message || 'Failed to fetch daily reports');
+        throw new Error(
+          data.message || data.errors?.[0]?.message || 'Failed to fetch daily reports'
+        );
       }
       const list = data.reports || [];
       setReports(list);
 
       const todayKey = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
       const todayReport = list.find(
-        (report) =>
+        report =>
           new Date(report.reportDate).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) ===
           todayKey
       );
@@ -116,7 +118,7 @@ const EmployeeDailyWork = () => {
     }
   };
 
-  const openReport = (record) => {
+  const openReport = record => {
     const text = record.reportText || '';
     if (text.startsWith('Subject:')) {
       const parts = text.split(/\n\n/);
@@ -155,7 +157,7 @@ const EmployeeDailyWork = () => {
   const filteredReports = useMemo(() => {
     const sorted = [...reports].sort((a, b) => new Date(b.reportDate) - new Date(a.reportDate));
     if (!searchDate.trim()) return sorted;
-    return sorted.filter((item) =>
+    return sorted.filter(item =>
       new Date(item.reportDate).toLocaleDateString().includes(searchDate)
     );
   }, [reports, searchDate]);
@@ -195,7 +197,7 @@ const EmployeeDailyWork = () => {
               </label>
               <select
                 value={month}
-                onChange={(e) => setMonth(Number(e.target.value))}
+                onChange={e => setMonth(Number(e.target.value))}
                 className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text text-sm"
               >
                 {[...Array(12)].map((_, i) => (
@@ -211,10 +213,10 @@ const EmployeeDailyWork = () => {
               </label>
               <select
                 value={year}
-                onChange={(e) => setYear(Number(e.target.value))}
+                onChange={e => setYear(Number(e.target.value))}
                 className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text text-sm"
               >
-                {[2024, 2025, 2026].map((item) => (
+                {[2024, 2025, 2026].map(item => (
                   <option key={item} value={item}>
                     {item}
                   </option>
@@ -228,7 +230,7 @@ const EmployeeDailyWork = () => {
               <input
                 type="text"
                 value={searchDate}
-                onChange={(e) => setSearchDate(e.target.value)}
+                onChange={e => setSearchDate(e.target.value)}
                 placeholder="Search date..."
                 className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text text-sm"
               />
@@ -245,7 +247,7 @@ const EmployeeDailyWork = () => {
                 <input
                   type="text"
                   value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
+                  onChange={e => setSubject(e.target.value)}
                   placeholder="Subject (e.g. Today's progress on Project X)"
                   className="w-full rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-card px-3 py-2 text-sm text-light-text dark:text-dark-text"
                 />
@@ -254,7 +256,7 @@ const EmployeeDailyWork = () => {
               <div className="flex items-center gap-2">
                 <select
                   value={template}
-                  onChange={(e) => {
+                  onChange={e => {
                     setTemplate(e.target.value);
                     if (e.target.value) {
                       // small templates for quick drafting
@@ -279,7 +281,7 @@ const EmployeeDailyWork = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setShowPreview((p) => !p);
+                  setShowPreview(p => !p);
                 }}
                 className="px-3 py-1 rounded-md bg-white/90 dark:bg-dark-card border border-light-border dark:border-dark-border text-sm"
               >
@@ -291,7 +293,7 @@ const EmployeeDailyWork = () => {
               <textarea
                 rows={6}
                 value={todayReportText}
-                onChange={(e) => setTodayReportText(e.target.value)}
+                onChange={e => setTodayReportText(e.target.value)}
                 placeholder="Write your work summary for today..."
                 className="w-full rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-card px-3 py-2 text-sm text-light-text dark:text-dark-text"
               />
@@ -300,7 +302,8 @@ const EmployeeDailyWork = () => {
                 {/* simple markdown-ish preview: **bold**, *italic*, and line breaks */}
                 <div
                   dangerouslySetInnerHTML={{
-                    __html: (subject ? `<strong>${subject}</strong><br/><br/>` : '') +
+                    __html:
+                      (subject ? `<strong>${subject}</strong><br/><br/>` : '') +
                       todayReportText
                         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                         .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -336,39 +339,54 @@ const EmployeeDailyWork = () => {
           <div className="relative group/table">
             <div ref={reportsTableScrollRef} className="overflow-x-auto">
               {loading ? (
-              <p className="text-sm text-light-text/70 dark:text-dark-text/70">Loading daily reports...</p>
-            ) : filteredReports.length > 0 ? (
-              <table className="min-w-full text-sm">
-                <thead className="bg-light-bg dark:bg-dark-bg">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">Date</th>
-                    <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">View</th>
-                    <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">Admin Comment</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredReports.map((item) => (
-                    <tr key={item._id} className="border-t border-light-border/70 dark:border-dark-border/70">
-                      <td className="px-4 py-3 text-light-text dark:text-dark-text">
-                        {new Date(item.reportDate).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3 text-light-text dark:text-dark-text">
-                        <button
-                          type="button"
-                          onClick={() => openReport(item)}
-                          className="px-2 py-1 rounded-md text-xs border border-light-border dark:border-dark-border bg-white/90 dark:bg-dark-card"
-                        >
-                          View
-                        </button>
-                      </td>
-                      <td className="px-4 py-3 text-light-text dark:text-dark-text">{item.adminComment || '—'}</td>
+                <p className="text-sm text-light-text/70 dark:text-dark-text/70">
+                  Loading daily reports...
+                </p>
+              ) : filteredReports.length > 0 ? (
+                <table className="min-w-full text-sm">
+                  <thead className="bg-light-bg dark:bg-dark-bg">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
+                        Date
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
+                        View
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
+                        Admin Comment
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <p className="text-sm text-light-text/70 dark:text-dark-text/70">No daily reports found.</p>
-            )}
+                  </thead>
+                  <tbody>
+                    {filteredReports.map(item => (
+                      <tr
+                        key={item._id}
+                        className="border-t border-light-border/70 dark:border-dark-border/70"
+                      >
+                        <td className="px-4 py-3 text-light-text dark:text-dark-text">
+                          {new Date(item.reportDate).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-3 text-light-text dark:text-dark-text">
+                          <button
+                            type="button"
+                            onClick={() => openReport(item)}
+                            className="px-2 py-1 rounded-md text-xs border border-light-border dark:border-dark-border bg-white/90 dark:bg-dark-card"
+                          >
+                            View
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 text-light-text dark:text-dark-text">
+                          {item.adminComment || '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-sm text-light-text/70 dark:text-dark-text/70">
+                  No daily reports found.
+                </p>
+              )}
             </div>
             <div
               className="absolute left-0 top-0 bottom-0 z-10 w-12 cursor-w-resize"
@@ -393,7 +411,12 @@ const EmployeeDailyWork = () => {
         autoClose={1600}
         transition={Slide}
       />
-      <Modal isOpen={openReportModal} onClose={() => setOpenReportModal(false)} title={`Report${modalSubject ? ` - ${modalSubject}` : ''}`} size="2xl">
+      <Modal
+        isOpen={openReportModal}
+        onClose={() => setOpenReportModal(false)}
+        title={`Report${modalSubject ? ` - ${modalSubject}` : ''}`}
+        size="2xl"
+      >
         <div className="flex flex-col gap-4">
           <input
             type="text"
@@ -411,7 +434,9 @@ const EmployeeDailyWork = () => {
           />
 
           <div>
-            <label className="block text-xs text-light-text/70 dark:text-dark-text/70 mb-2">Admin Comment</label>
+            <label className="block text-xs text-light-text/70 dark:text-dark-text/70 mb-2">
+              Admin Comment
+            </label>
             <textarea
               rows={3}
               value={modalAdminComment}

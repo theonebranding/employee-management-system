@@ -61,7 +61,7 @@ const AdminAttendance = () => {
       );
 
       // Helper: compute realtime resolved status for a record
-      const computeRealtimeStatus = (rec) => {
+      const computeRealtimeStatus = rec => {
         if (!rec) return 'Unknown';
         // Holiday wins regardless of check-in. The backend now stamps
         // resolvedStatus='holiday' (and a "Holiday (Name)" currentStatus
@@ -86,7 +86,9 @@ const AdminAttendance = () => {
         // Calculate working minutes (use live elapsed if currently checked-in)
         let workingMinutes = Number(rec.totalWorkTime || 0);
         if (rec.hasCheckInPunch && rec.originalCheckInTime && rec.originalCheckInTime !== 'N/A') {
-          const elapsed = Math.floor((currentTime.getTime() - new Date(rec.originalCheckInTime).getTime()) / 60000);
+          const elapsed = Math.floor(
+            (currentTime.getTime() - new Date(rec.originalCheckInTime).getTime()) / 60000
+          );
           workingMinutes = Math.max(elapsed, workingMinutes);
         }
 
@@ -103,7 +105,7 @@ const AdminAttendance = () => {
       };
 
       // Filter: show the live attendance view, including explicit leave rows
-      const filteredData = uniqueData.filter((item) => {
+      const filteredData = uniqueData.filter(item => {
         const status = computeRealtimeStatus(item);
         // show if checked-in now or evaluated as not Absent
         if (item.hasCheckInPunch && !item.hasCheckOutPunch) return true;
@@ -111,7 +113,10 @@ const AdminAttendance = () => {
       });
 
       // Attach realtime status for rendering
-      const withRealtime = filteredData.map(item => ({ ...item, realtimeStatus: computeRealtimeStatus(item) }));
+      const withRealtime = filteredData.map(item => ({
+        ...item,
+        realtimeStatus: computeRealtimeStatus(item),
+      }));
       setAttendanceData(withRealtime);
       toast.success('Attendance data fetched successfully.');
     } catch (error) {
@@ -203,7 +208,6 @@ const AdminAttendance = () => {
 
   useEffect(() => () => stopAttendanceTableAutoScroll(), []);
 
-
   return (
     <div className="min-h-screen px-6 py-6 lg:ml-16 bg-light-bg dark:bg-dark-bg">
       <div className="max-w-7xl mx-auto">
@@ -293,7 +297,6 @@ const AdminAttendance = () => {
               </button>
             </div>
 
-
             {/* Table */}
             {loading ? (
               <div className="flex justify-center items-center py-12">
@@ -345,10 +348,8 @@ const AdminAttendance = () => {
 
                           {/* Check-in Time */}
                           <td className="px-6 py-4 text-light-text dark:text-dark-text">
-                            {(
-                              (record.checkInTime && record.checkInTime !== 'N/A') ||
-                              (record.originalCheckInTime && record.originalCheckInTime !== 'N/A')
-                            ) ? (
+                            {(record.checkInTime && record.checkInTime !== 'N/A') ||
+                            (record.originalCheckInTime && record.originalCheckInTime !== 'N/A') ? (
                               <div className="flex items-center gap-2">
                                 <Clock className="w-4 h-4 text-success" />
                                 {format(

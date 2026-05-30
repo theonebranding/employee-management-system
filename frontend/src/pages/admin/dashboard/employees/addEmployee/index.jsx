@@ -123,9 +123,7 @@ const AdminAddEmployee = () => {
 
     switch (field) {
       case 'name':
-        return NAME_REGEX.test(trimmed)
-          ? ''
-          : 'Enter a valid full name (letters/spaces only).';
+        return NAME_REGEX.test(trimmed) ? '' : 'Enter a valid full name (letters/spaces only).';
       case 'email':
         return EMAIL_REGEX.test(trimmed) ? '' : 'Enter a valid email address.';
       case 'phoneNumber':
@@ -136,7 +134,9 @@ const AdminAddEmployee = () => {
       case 'panNumber':
         return PAN_REGEX.test(trimmed.toUpperCase()) ? '' : 'PAN format should be ABCDE1234F.';
       case 'ifscCode':
-        return IFSC_REGEX.test(trimmed.toUpperCase()) ? '' : 'IFSC format should be like HDFC0001234.';
+        return IFSC_REGEX.test(trimmed.toUpperCase())
+          ? ''
+          : 'IFSC format should be like HDFC0001234.';
       case 'pinCode':
         return PIN_REGEX.test(trimmed) ? '' : 'PIN code must be exactly 6 digits.';
       case 'bankAccountNumber':
@@ -291,7 +291,9 @@ const AdminAddEmployee = () => {
     }
     const list = getManagerList();
     if (
-      list.some((item, idx) => idx !== editingIndex && item.toLowerCase() === nextValue.toLowerCase())
+      list.some(
+        (item, idx) => idx !== editingIndex && item.toLowerCase() === nextValue.toLowerCase()
+      )
     ) {
       toast.error('This value already exists.');
       return;
@@ -351,7 +353,9 @@ const AdminAddEmployee = () => {
       return;
     }
 
-    const hasMissingCreateFields = REQUIRED_FOR_CREATE.some(field => !String(form[field] || '').trim());
+    const hasMissingCreateFields = REQUIRED_FOR_CREATE.some(
+      field => !String(form[field] || '').trim()
+    );
     if (hasMissingCreateFields) {
       toast.error('Please complete all mandatory employee fields.');
       if (stepIndex !== 0) setStepIndex(0);
@@ -385,7 +389,10 @@ const AdminAddEmployee = () => {
 
     if (onboardingComplete && (!form.baseSalary || Number(form.baseSalary) <= 0)) {
       setStepIndex(3);
-      setStepErrors(prev => ({ ...prev, baseSalary: 'Base salary is required for completed onboarding' }));
+      setStepErrors(prev => ({
+        ...prev,
+        baseSalary: 'Base salary is required for completed onboarding',
+      }));
       toast.error('Base salary is required when onboarding is complete.');
       return;
     }
@@ -491,10 +498,14 @@ const AdminAddEmployee = () => {
                   >
                     {isDone ? <Check className="w-4 h-4" /> : index + 1}
                   </div>
-                  <span className={`text-sm ${isActive ? 'text-primary font-semibold' : 'text-light-text dark:text-dark-text'}`}>
+                  <span
+                    className={`text-sm ${isActive ? 'text-primary font-semibold' : 'text-light-text dark:text-dark-text'}`}
+                  >
                     {step.label}
                   </span>
-                  {index < STEPS.length - 1 && <ChevronRight className="w-4 h-4 text-light-text/50" />}
+                  {index < STEPS.length - 1 && (
+                    <ChevronRight className="w-4 h-4 text-light-text/50" />
+                  )}
                 </div>
               );
             })}
@@ -504,10 +515,43 @@ const AdminAddEmployee = () => {
         <div className="bg-light-card dark:bg-dark-card rounded-xl p-6 border border-light-border dark:border-dark-border space-y-6">
           {stepIndex === 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input label="Full Name *" name="name" value={form.name} onChange={handleChange} placeholder="John Doe" required error={stepErrors.name} />
-              <Input label="Email *" name="email" type="email" value={form.email} onChange={handleChange} placeholder="john@company.com" required error={stepErrors.email} />
-              <Input label="Phone Number *" name="phoneNumber" value={form.phoneNumber} onChange={handleChange} placeholder="9876543210" required error={stepErrors.phoneNumber} inputMode="numeric" maxLength={15} />
-              <Input label="Date of Birth (Optional)" name="dateofBirth" type="date" value={form.dateofBirth} onChange={handleChange} />
+              <Input
+                label="Full Name *"
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                placeholder="John Doe"
+                required
+                error={stepErrors.name}
+              />
+              <Input
+                label="Email *"
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={handleChange}
+                placeholder="john@company.com"
+                required
+                error={stepErrors.email}
+              />
+              <Input
+                label="Phone Number *"
+                name="phoneNumber"
+                value={form.phoneNumber}
+                onChange={handleChange}
+                placeholder="9876543210"
+                required
+                error={stepErrors.phoneNumber}
+                inputMode="numeric"
+                maxLength={15}
+              />
+              <Input
+                label="Date of Birth (Optional)"
+                name="dateofBirth"
+                type="date"
+                value={form.dateofBirth}
+                onChange={handleChange}
+              />
             </div>
           )}
 
@@ -515,7 +559,9 @@ const AdminAddEmployee = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-light-text dark:text-dark-text">Department *</label>
+                  <label className="block text-sm font-medium text-light-text dark:text-dark-text">
+                    Department *
+                  </label>
                   <button
                     type="button"
                     onClick={() => openManager('departments')}
@@ -547,7 +593,9 @@ const AdminAddEmployee = () => {
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-light-text dark:text-dark-text">Designation *</label>
+                  <label className="block text-sm font-medium text-light-text dark:text-dark-text">
+                    Designation *
+                  </label>
                   <button
                     type="button"
                     onClick={() => openManager('designations')}
@@ -577,36 +625,162 @@ const AdminAddEmployee = () => {
                   <p className="text-xs text-danger mt-1">{stepErrors.designation}</p>
                 )}
               </div>
-              <Select label="Employment Type *" name="employmentType" value={form.employmentType} onChange={handleChange} options={['Full Time', 'Part Time', 'Contract', 'Intern']} error={stepErrors.employmentType} />
-              <Input label="Work Location *" name="workLocation" value={form.workLocation} onChange={handleChange} placeholder="Mumbai" error={stepErrors.workLocation} />
-              <Input label="Joining Date *" name="joinedDate" type="date" value={form.joinedDate} onChange={handleChange} error={stepErrors.joinedDate} />
+              <Select
+                label="Employment Type *"
+                name="employmentType"
+                value={form.employmentType}
+                onChange={handleChange}
+                options={['Full Time', 'Part Time', 'Contract', 'Intern']}
+                error={stepErrors.employmentType}
+              />
+              <Input
+                label="Work Location *"
+                name="workLocation"
+                value={form.workLocation}
+                onChange={handleChange}
+                placeholder="Mumbai"
+                error={stepErrors.workLocation}
+              />
+              <Input
+                label="Joining Date *"
+                name="joinedDate"
+                type="date"
+                value={form.joinedDate}
+                onChange={handleChange}
+                error={stepErrors.joinedDate}
+              />
             </div>
           )}
 
           {stepIndex === 2 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input label="Aadhar Number (Optional)" name="aadharNumber" value={form.aadharNumber} onChange={handleChange} error={stepErrors.aadharNumber} inputMode="numeric" maxLength={12} />
-              <Input label="PAN Number (Optional)" name="panNumber" value={form.panNumber} onChange={handleChange} error={stepErrors.panNumber} maxLength={10} />
-              <Input label="Emergency Contact Name (Optional)" name="emergencyContactName" value={form.emergencyContactName} onChange={handleChange} />
-              <Input label="Emergency Contact Phone (Optional)" name="emergencyContactPhone" value={form.emergencyContactPhone} onChange={handleChange} error={stepErrors.emergencyContactPhone} inputMode="numeric" maxLength={15} />
-              <Input label="Address (Optional)" name="address" value={form.address} onChange={handleChange} />
-              <Input label="State (Optional)" name="state" value={form.state} onChange={handleChange} />
-              <Input label="City (Optional)" name="city" value={form.city} onChange={handleChange} />
-              <Input label="District (Optional)" name="district" value={form.district} onChange={handleChange} />
-              <Input label="Pin Code (Optional)" name="pinCode" value={form.pinCode} onChange={handleChange} error={stepErrors.pinCode} inputMode="numeric" maxLength={6} />
+              <Input
+                label="Aadhar Number (Optional)"
+                name="aadharNumber"
+                value={form.aadharNumber}
+                onChange={handleChange}
+                error={stepErrors.aadharNumber}
+                inputMode="numeric"
+                maxLength={12}
+              />
+              <Input
+                label="PAN Number (Optional)"
+                name="panNumber"
+                value={form.panNumber}
+                onChange={handleChange}
+                error={stepErrors.panNumber}
+                maxLength={10}
+              />
+              <Input
+                label="Emergency Contact Name (Optional)"
+                name="emergencyContactName"
+                value={form.emergencyContactName}
+                onChange={handleChange}
+              />
+              <Input
+                label="Emergency Contact Phone (Optional)"
+                name="emergencyContactPhone"
+                value={form.emergencyContactPhone}
+                onChange={handleChange}
+                error={stepErrors.emergencyContactPhone}
+                inputMode="numeric"
+                maxLength={15}
+              />
+              <Input
+                label="Address (Optional)"
+                name="address"
+                value={form.address}
+                onChange={handleChange}
+              />
+              <Input
+                label="State (Optional)"
+                name="state"
+                value={form.state}
+                onChange={handleChange}
+              />
+              <Input
+                label="City (Optional)"
+                name="city"
+                value={form.city}
+                onChange={handleChange}
+              />
+              <Input
+                label="District (Optional)"
+                name="district"
+                value={form.district}
+                onChange={handleChange}
+              />
+              <Input
+                label="Pin Code (Optional)"
+                name="pinCode"
+                value={form.pinCode}
+                onChange={handleChange}
+                error={stepErrors.pinCode}
+                inputMode="numeric"
+                maxLength={6}
+              />
             </div>
           )}
 
           {stepIndex === 3 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input label="Bank Name *" name="bankName" value={form.bankName} onChange={handleChange} placeholder="HDFC Bank" error={stepErrors.bankName} />
-              <Input label="Branch Name *" name="branchName" value={form.branchName} onChange={handleChange} placeholder="Andheri East" error={stepErrors.branchName} />
-              <Input label="Bank Account Number *" name="bankAccountNumber" value={form.bankAccountNumber} onChange={handleChange} error={stepErrors.bankAccountNumber} inputMode="numeric" maxLength={20} />
-              <Input label="IFSC Code *" name="ifscCode" value={form.ifscCode} onChange={handleChange} placeholder="HDFC0000001" error={stepErrors.ifscCode} />
-              <Input label="Base Salary (required when onboarding is complete)" name="baseSalary" type="number" min="0" value={form.baseSalary} onChange={handleChange} placeholder="50000" error={stepErrors.baseSalary} />
-              <Input label="Salary Effective From (Optional)" name="salaryEffectiveFrom" type="date" value={form.salaryEffectiveFrom} onChange={handleChange} />
+              <Input
+                label="Bank Name *"
+                name="bankName"
+                value={form.bankName}
+                onChange={handleChange}
+                placeholder="HDFC Bank"
+                error={stepErrors.bankName}
+              />
+              <Input
+                label="Branch Name *"
+                name="branchName"
+                value={form.branchName}
+                onChange={handleChange}
+                placeholder="Andheri East"
+                error={stepErrors.branchName}
+              />
+              <Input
+                label="Bank Account Number *"
+                name="bankAccountNumber"
+                value={form.bankAccountNumber}
+                onChange={handleChange}
+                error={stepErrors.bankAccountNumber}
+                inputMode="numeric"
+                maxLength={20}
+              />
+              <Input
+                label="IFSC Code *"
+                name="ifscCode"
+                value={form.ifscCode}
+                onChange={handleChange}
+                placeholder="HDFC0000001"
+                error={stepErrors.ifscCode}
+              />
+              <Input
+                label="Base Salary (required when onboarding is complete)"
+                name="baseSalary"
+                type="number"
+                min="0"
+                value={form.baseSalary}
+                onChange={handleChange}
+                placeholder="50000"
+                error={stepErrors.baseSalary}
+              />
+              <Input
+                label="Salary Effective From (Optional)"
+                name="salaryEffectiveFrom"
+                type="date"
+                value={form.salaryEffectiveFrom}
+                onChange={handleChange}
+              />
               <div className="md:col-span-2">
-                <Input label="Salary Reason (Optional)" name="salaryRevisionReason" value={form.salaryRevisionReason} onChange={handleChange} />
+                <Input
+                  label="Salary Reason (Optional)"
+                  name="salaryRevisionReason"
+                  value={form.salaryRevisionReason}
+                  onChange={handleChange}
+                />
               </div>
             </div>
           )}
@@ -615,10 +789,16 @@ const AdminAddEmployee = () => {
             <div className="space-y-4">
               <div className="bg-light-bg dark:bg-dark-bg rounded-lg p-4 border border-light-border dark:border-dark-border">
                 <p className="text-sm text-light-text dark:text-dark-text">
-                  Onboarding completion: <span className="font-semibold">{completionCount}/{REQUIRED_FOR_ONBOARDING.length}</span>
+                  Onboarding completion:{' '}
+                  <span className="font-semibold">
+                    {completionCount}/{REQUIRED_FOR_ONBOARDING.length}
+                  </span>
                 </p>
                 <p className="text-sm text-light-text/70 dark:text-dark-text/70 mt-1">
-                  Status on create: <span className="font-semibold">{onboardingComplete ? 'Onboarding Complete' : 'Draft'}</span>
+                  Status on create:{' '}
+                  <span className="font-semibold">
+                    {onboardingComplete ? 'Onboarding Complete' : 'Draft'}
+                  </span>
                 </p>
                 <p className="text-sm text-light-text/70 dark:text-dark-text/70 mt-1">
                   Employee code stays auto-generated by existing settings.
@@ -674,7 +854,6 @@ const AdminAddEmployee = () => {
               </button>
             )}
           </div>
-
         </div>
       </div>
       {showManagerModal && (
@@ -731,7 +910,9 @@ const AdminAddEmployee = () => {
 
 const Input = ({ label, error, ...props }) => (
   <div>
-    <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1">{label}</label>
+    <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1">
+      {label}
+    </label>
     <input
       {...props}
       className={`w-full px-4 py-2.5 bg-light-bg dark:bg-dark-bg border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-light-text dark:text-dark-text ${
@@ -744,7 +925,9 @@ const Input = ({ label, error, ...props }) => (
 
 const Select = ({ label, options = [], error, ...props }) => (
   <div>
-    <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1">{label}</label>
+    <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1">
+      {label}
+    </label>
     <select
       {...props}
       className={`w-full px-4 py-2.5 bg-light-bg dark:bg-dark-bg border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-light-text dark:text-dark-text ${
@@ -784,13 +967,20 @@ const InlineManager = ({
         placeholder={`Add ${title}`}
         className="w-full px-3 py-2 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-light-text dark:text-dark-text text-sm"
       />
-      <button type="button" onClick={onAdd} className="px-3 py-2 bg-success text-white rounded-lg inline-flex items-center gap-1 text-sm">
+      <button
+        type="button"
+        onClick={onAdd}
+        className="px-3 py-2 bg-success text-white rounded-lg inline-flex items-center gap-1 text-sm"
+      >
         <Plus className="w-4 h-4" /> Add
       </button>
     </div>
     <div className="space-y-1 flex-1 overflow-y-auto">
       {items.map((item, index) => (
-        <div key={`${item}-${index}`} className="flex items-center justify-between gap-2 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg p-2">
+        <div
+          key={`${item}-${index}`}
+          className="flex items-center justify-between gap-2 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg p-2"
+        >
           {editingIndex === index ? (
             <input
               type="text"
@@ -803,15 +993,27 @@ const InlineManager = ({
           )}
           <div className="flex items-center gap-1">
             {editingIndex === index ? (
-              <button type="button" onClick={onEditSave} className="px-2 py-1 rounded bg-primary text-white text-xs">
+              <button
+                type="button"
+                onClick={onEditSave}
+                className="px-2 py-1 rounded bg-primary text-white text-xs"
+              >
                 Save
               </button>
             ) : (
-              <button type="button" onClick={() => onEditStart(index, item)} className="p-1.5 rounded bg-info text-white">
+              <button
+                type="button"
+                onClick={() => onEditStart(index, item)}
+                className="p-1.5 rounded bg-info text-white"
+              >
                 <Pencil className="w-3.5 h-3.5" />
               </button>
             )}
-            <button type="button" onClick={() => onDelete(index)} className="p-1.5 rounded bg-danger text-white">
+            <button
+              type="button"
+              onClick={() => onDelete(index)}
+              className="p-1.5 rounded bg-danger text-white"
+            >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>

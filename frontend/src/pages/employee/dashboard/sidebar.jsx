@@ -1,11 +1,11 @@
 import {
-  ClipboardList,
   CalendarOff,
   CalendarPlus,
+  ClipboardList,
   FileText,
-  ListChecks,
   HistoryIcon,
   Home as HomeIcon,
+  ListChecks,
   LogOut,
   Menu,
   Settings,
@@ -70,7 +70,7 @@ const EmployeeSidebar = () => {
   };
 
   const toggleSidebar = () => {
-    setIsSidebarOpen((prev) => !prev);
+    setIsSidebarOpen(prev => !prev);
   };
 
   return (

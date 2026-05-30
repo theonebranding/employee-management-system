@@ -74,12 +74,7 @@ router.get('/templates/:templateId', verifyToken, checkRole(['admin']), getTempl
 router.put('/templates/:templateId', verifyToken, checkRole(['admin']), updateTemplate); // Update Holiday_Template fields (rejects type change once assignments/credits exist)
 router.delete('/templates/:templateId', verifyToken, checkRole(['admin']), deleteTemplate); // Delete a Holiday_Template (rejects when active assignments exist)
 
-router.post(
-  '/templates/:templateId/assign',
-  verifyToken,
-  checkRole(['admin']),
-  assignTemplate
-); // Bulk-assign a template to a list of employee ids; idempotent on duplicates
+router.post('/templates/:templateId/assign', verifyToken, checkRole(['admin']), assignTemplate); // Bulk-assign a template to a list of employee ids; idempotent on duplicates
 router.get(
   '/templates/:templateId/assignments',
   verifyToken,

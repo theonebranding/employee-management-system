@@ -9,14 +9,14 @@ const CheckedInEmployees = ({ selectedDate }) => {
 
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
-  const formatDate = (date) => {
+  const formatDate = date => {
     if (date instanceof Date) {
       return date.toISOString().split('T')[0];
     }
     return date;
   };
 
-  const formatTime = (timeString) => {
+  const formatTime = timeString => {
     if (!timeString || timeString === 'N/A') return 'N/A';
     try {
       return new Date(timeString).toLocaleTimeString('en-IN', {
@@ -33,12 +33,9 @@ const CheckedInEmployees = ({ selectedDate }) => {
     setLoading(true);
     try {
       const formattedDate = formatDate(selectedDate);
-      const response = await fetch(
-        `${BASE_URL}/attendance-summary/date?date=${formattedDate}`,
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        }
-      );
+      const response = await fetch(`${BASE_URL}/attendance-summary/date?date=${formattedDate}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
 
       if (!response.ok) throw new Error('Failed to fetch attendance data.');
 
@@ -51,7 +48,7 @@ const CheckedInEmployees = ({ selectedDate }) => {
       // - resolvedStatus is NOT leave/holiday/absent (a leave-marked
       //   employee should never appear here even if they punched earlier).
       const checkedIn = summary.filter(
-        (emp) =>
+        emp =>
           emp.hasCheckInPunch &&
           !emp.hasCheckOutPunch &&
           !['leave', 'holiday', 'absent'].includes(emp.resolvedStatus)
@@ -81,7 +78,7 @@ const CheckedInEmployees = ({ selectedDate }) => {
     return () => clearInterval(timerId);
   }, []);
 
-  const getRemainingToPresentSeconds = (employee) => {
+  const getRemainingToPresentSeconds = employee => {
     const threshold = Number(employee.fullDayThresholdMinutes || 470);
     if (!employee.originalCheckInTime || employee.originalCheckInTime === 'N/A') {
       return threshold * 60;
@@ -96,7 +93,7 @@ const CheckedInEmployees = ({ selectedDate }) => {
     return Math.max(threshold * 60 - elapsedSeconds, 0);
   };
 
-  const getRemainingToHalfSeconds = (employee) => {
+  const getRemainingToHalfSeconds = employee => {
     const threshold = Number(employee.halfDayThresholdMinutes || employee.halfDayThreshold || 240);
     if (!employee.originalCheckInTime || employee.originalCheckInTime === 'N/A') {
       return threshold * 60;
@@ -111,7 +108,7 @@ const CheckedInEmployees = ({ selectedDate }) => {
     return Math.max(threshold * 60 - elapsedSeconds, 0);
   };
 
-  const formatRemainingStatus = (employee) => {
+  const formatRemainingStatus = employee => {
     const toPresent = getRemainingToPresentSeconds(employee);
     const toHalf = getRemainingToHalfSeconds(employee);
 
@@ -157,7 +154,7 @@ const CheckedInEmployees = ({ selectedDate }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-light-border dark:divide-dark-border">
-              {checkedInList.map((employee) => (
+              {checkedInList.map(employee => (
                 <tr
                   key={`${employee.employeeId}_${employee.date}`}
                   className="hover:bg-light-bg/50 dark:hover:bg-dark-bg/50 transition-colors"

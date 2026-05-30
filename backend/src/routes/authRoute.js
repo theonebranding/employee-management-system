@@ -21,7 +21,12 @@ const router = express.Router();
 
 router.post('/login', strictAuthLimiter, validateZod(loginSchema), login);
 
-router.post('/forgot-password', strictAuthLimiter, validateZod(forgotPasswordSchema), forgotPassword);
+router.post(
+  '/forgot-password',
+  strictAuthLimiter,
+  validateZod(forgotPasswordSchema),
+  forgotPassword
+);
 router.post('/verify-otp', strictAuthLimiter, validateZod(verifyOtpSchema), verifyOtp);
 router.post('/reset-password', strictAuthLimiter, validateZod(resetPasswordSchema), resetPassword);
 

@@ -5,23 +5,18 @@
 ### **Naming Conventions:**
 
 - **Controllers:** camelCase and end with `Controller.js`
-
   - e.g., `userController.js`, `authController.js`
 
 - **Models:** camelCase
-
   - e.g., `userSchema.js`, `orderSchema.js`
 
 - **Routes:** camelCase
-
   - e.g., `userRoutes.js`, `authRoutes.js`
 
 - **Services:** camelCase
-
   - e.g., `authService.js`, `emailService.js`
 
 - **Utilities:** camelCase
-
   - e.g., `jwtHelper.js`, `dateHelper.js`
 
 - **Environment Variables:** `UPPER_SNAKE_CASE`
@@ -88,28 +83,23 @@ backend/
 ### ✅ **Best Practices:**
 
 - **Security:**
-
   - Sanitize inputs to prevent SQL injection and XSS.
   - Use HTTPS for secure data transfer.
   - Implement JWT for authentication.
 
 - **Error Handling:**
-
   - Use a global error handler (`errorHandler.js`).
   - Standardize error responses with status codes and messages.
 
 - **Environment Management:**
-
   - Store secrets in `.env` file.
   - Use `dotenv` to access environment variables.
 
 - **Code Quality:**
-
   - Use ESLint for linting.
   - Use Prettier for formatting.
   - Run tests before committing.
 
 - **Logging:**
-
   - Use `winston` or `pino` for structured logging.
   - Avoid using `console.log()` in production.

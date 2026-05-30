@@ -23,7 +23,9 @@ const main = async () => {
 
   await mongoose.connect(mongoUri);
 
-  const records = await Attendance.find({ manualPayrollStatus: { $in: ['full-day', 'half-day', 'leave', 'absent'] } });
+  const records = await Attendance.find({
+    manualPayrollStatus: { $in: ['full-day', 'half-day', 'leave', 'absent'] },
+  });
   let updated = 0;
 
   for (const record of records) {

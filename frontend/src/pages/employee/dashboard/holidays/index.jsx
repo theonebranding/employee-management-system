@@ -1,14 +1,6 @@
 import 'react-toastify/dist/ReactToastify.css';
 
-import {
-  Calendar,
-  CalendarDays,
-  Check,
-  Clock,
-  Lock,
-  Star,
-  X,
-} from 'lucide-react';
+import { Calendar, CalendarDays, Check, Clock, Lock, Star, X } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 
@@ -71,14 +63,10 @@ const CANCEL_ERROR_MESSAGES = {
 };
 
 const STATUS_BADGE_STYLE = {
-  available:
-    'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/20',
-  redeemed:
-    'bg-primary/10 text-primary ring-1 ring-primary/20',
-  expired:
-    'bg-gray-500/10 text-gray-500 dark:text-gray-400 ring-1 ring-gray-500/20',
-  forfeited:
-    'bg-rose-500/10 text-rose-500 ring-1 ring-rose-500/20',
+  available: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/20',
+  redeemed: 'bg-primary/10 text-primary ring-1 ring-primary/20',
+  expired: 'bg-gray-500/10 text-gray-500 dark:text-gray-400 ring-1 ring-gray-500/20',
+  forfeited: 'bg-rose-500/10 text-rose-500 ring-1 ring-rose-500/20',
 };
 
 const Holidays = () => {
@@ -114,17 +102,13 @@ const Holidays = () => {
 
   useEffect(() => {
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // -------------------------------------------------------------------------
   // Derived data — separate fixed templates and build the fixed-date set used
   // by the redemption date picker to disable known clashes client-side.
   // -------------------------------------------------------------------------
-  const fixedTemplates = useMemo(
-    () => templates.filter(t => t && t.type === 'fixed'),
-    [templates]
-  );
+  const fixedTemplates = useMemo(() => templates.filter(t => t && t.type === 'fixed'), [templates]);
 
   const floatingTemplates = useMemo(
     () => templates.filter(t => t && t.type === 'floating'),
@@ -215,7 +199,8 @@ const Holidays = () => {
       );
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const message = REDEEM_ERROR_MESSAGES[data.code] || data.message || 'Failed to redeem credit.';
+        const message =
+          REDEEM_ERROR_MESSAGES[data.code] || data.message || 'Failed to redeem credit.';
         toast.error(message);
         return;
       }
@@ -295,10 +280,7 @@ const Holidays = () => {
         {holidays.length > 0 ? (
           <ul className="divide-y divide-light-border dark:divide-dark-border">
             {holidays.map(holiday => (
-              <li
-                key={holiday._id}
-                className="py-3 flex items-center justify-between gap-4"
-              >
+              <li key={holiday._id} className="py-3 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
                   <CalendarDays className="w-4 h-4 text-primary flex-shrink-0" />
                   <span className="text-light-text dark:text-dark-text font-medium truncate">
@@ -376,8 +358,7 @@ const Holidays = () => {
         ) : (
           <ul className="divide-y divide-light-border dark:divide-dark-border">
             {credits.map(credit => {
-              const holiday =
-                floatingHolidayMap.get(String(credit.sourceHolidayId)) || {};
+              const holiday = floatingHolidayMap.get(String(credit.sourceHolidayId)) || {};
               return (
                 <li
                   key={credit._id}
@@ -517,9 +498,7 @@ const Holidays = () => {
                   </p>
                 </div>
               ) : (
-                <div className="grid gap-4 grid-cols-1">
-                  {creditGroups.map(renderFloatingCard)}
-                </div>
+                <div className="grid gap-4 grid-cols-1">{creditGroups.map(renderFloatingCard)}</div>
               )}
             </section>
           </>

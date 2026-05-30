@@ -1,6 +1,6 @@
+import { X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
 
 const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
   const [mounted, setMounted] = useState(isOpen);
@@ -50,9 +50,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-light-border/70 dark:border-dark-border p-6 shrink-0">
-          <h2 className="text-xl font-semibold text-light-text dark:text-dark-text">
-            {title}
-          </h2>
+          <h2 className="text-xl font-semibold text-light-text dark:text-dark-text">{title}</h2>
           <button
             onClick={onClose}
             className="p-1 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg transition-colors"

@@ -3,14 +3,8 @@ import Employee from '../models/employeeSchema.js';
 import LateCheckIn from '../models/lateCheckInSchema.js';
 import AdminAttendanceSettings from '../models/adminAttendanceSettingsSchema.js';
 import DailyReport from '../models/dailyReportSchema.js';
-import {
-  getStartOfIstDay,
-  getEndOfIstDay,
-  getIstDayKey,
-} from '../utils/dailyReportUtils.js';
-import {
-  syncSundayCompensationForAttendanceChange,
-} from './payrollController.js';
+import { getStartOfIstDay, getEndOfIstDay, getIstDayKey } from '../utils/dailyReportUtils.js';
+import { syncSundayCompensationForAttendanceChange } from './payrollController.js';
 
 const triggerPayrollRecomputeForDay = async (employeeId, dayStart, processedBy) => {
   if (!employeeId || !dayStart) return;

@@ -22,14 +22,14 @@ import Login from '../pages/auth/login';
 import ResetPassword from '../pages/auth/resetPassword';
 import VerifyOtp from '../pages/auth/verifyOtp';
 import Attendance from '../pages/employee/dashboard/attendance';
+import EmployeeDailyWork from '../pages/employee/dashboard/dailyWork';
 import History from '../pages/employee/dashboard/history';
 import Holidays from '../pages/employee/dashboard/holidays';
 import DashboardHome from '../pages/employee/dashboard/home';
 import Leaves from '../pages/employee/dashboard/leaves';
 import Settings from '../pages/employee/dashboard/settings';
-import EmployeeTasks from '../pages/employee/dashboard/tasks';
 import EmployeeSidebar from '../pages/employee/dashboard/sidebar';
-import EmployeeDailyWork from '../pages/employee/dashboard/dailyWork';
+import EmployeeTasks from '../pages/employee/dashboard/tasks';
 import Home from '../pages/home';
 import ProtectedRoute from '../routes/protectedRoute';
 

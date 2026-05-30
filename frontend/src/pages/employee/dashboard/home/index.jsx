@@ -37,7 +37,7 @@ ChartJS.register(
 // with how employees experience the calendar.
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 
-const toIstParts = (iso) => {
+const toIstParts = iso => {
   if (!iso) return null;
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
@@ -114,9 +114,7 @@ const computeStats = (records, monthIndex, year) => {
   const dailyHoursThisWeek = WEEK_LABELS.map((_, idx) => {
     const cursor = new Date(weekStart.getTime());
     cursor.setUTCDate(cursor.getUTCDate() + idx);
-    const sameMonth =
-      cursor.getUTCFullYear() === year &&
-      cursor.getUTCMonth() + 1 === monthIndex;
+    const sameMonth = cursor.getUTCFullYear() === year && cursor.getUTCMonth() + 1 === monthIndex;
     if (!sameMonth) return 0;
     const minutes = minutesByDay.get(cursor.getUTCDate()) || 0;
     return Number((minutes / 60).toFixed(2));
@@ -125,7 +123,7 @@ const computeStats = (records, monthIndex, year) => {
   const totalHoursThisWeek = Number(
     dailyHoursThisWeek.reduce((sum, hours) => sum + hours, 0).toFixed(2)
   );
-  const activeDaysThisWeek = dailyHoursThisWeek.filter((h) => h > 0).length;
+  const activeDaysThisWeek = dailyHoursThisWeek.filter(h => h > 0).length;
 
   // Weekly buckets across the calendar month (1-7, 8-14, 15-21, 22-end).
   const daysInMonth = new Date(year, monthIndex, 0).getDate();
@@ -142,9 +140,7 @@ const computeStats = (records, monthIndex, year) => {
     }
     return Number((minutes / 60).toFixed(2));
   });
-  const weeklyLabels = weekRanges.map(
-    ([start, end], idx) => `Week ${idx + 1} (${start}-${end})`
-  );
+  const weeklyLabels = weekRanges.map(([start, end], idx) => `Week ${idx + 1} (${start}-${end})`);
 
   // Attendance percentage = (present + half*0.5) / countable days, where
   // countable days = present + half + absent. Leaves/holidays are excluded
@@ -226,15 +222,11 @@ const DashboardHome = () => {
     };
   }, [BASE_URL, employeeId, monthIndex, year]);
 
-  const stats = useMemo(
-    () => computeStats(records, monthIndex, year),
-    [records, monthIndex, year]
-  );
+  const stats = useMemo(() => computeStats(records, monthIndex, year), [records, monthIndex, year]);
 
   useEffect(() => {
     const textColor = theme === 'dark' ? '#E5E7EB' : '#1F2937';
-    const gridColor =
-      theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+    const gridColor = theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
 
     if (lineChartInstanceRef.current) {
       lineChartInstanceRef.current.destroy();
@@ -376,9 +368,7 @@ const DashboardHome = () => {
           </div>
         </div>
 
-        {error && !loading ? (
-          <p className="mt-4 text-sm text-danger">{error}</p>
-        ) : null}
+        {error && !loading ? <p className="mt-4 text-sm text-danger">{error}</p> : null}
       </div>
 
       <ToastContainer

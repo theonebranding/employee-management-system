@@ -75,7 +75,7 @@ export const validateHolidayDatesAgainstYear = (year, holidays = []) => {
  *
  * Validates: Requirements 1.2
  */
-export const assertTypeChangeAllowed = async (templateId, _nextType) => {
+export const assertTypeChangeAllowed = async (templateId) => {
   const [hasAssignment, hasCredit] = await Promise.all([
     TemplateAssignment.exists({ template: templateId }),
     HolidayCredit.exists({ template: templateId }),
@@ -97,14 +97,7 @@ export const assertTypeChangeAllowed = async (templateId, _nextType) => {
  *
  * Validates: Requirements 1.1, 1.2, 1.3
  */
-export const createTemplate = async ({
-  name,
-  description,
-  year,
-  type,
-  holidays = [],
-  adminId,
-}) => {
+export const createTemplate = async ({ name, description, year, type, holidays = [], adminId }) => {
   assertValidTemplateType(type);
   validateHolidayDatesAgainstYear(year, holidays);
 
@@ -142,7 +135,7 @@ export const updateTemplate = async (
   validateHolidayDatesAgainstYear(year, holidays);
 
   if (existing.type !== type) {
-    await assertTypeChangeAllowed(templateId, type);
+    await assertTypeChangeAllowed(templateId);
   }
 
   existing.name = name;

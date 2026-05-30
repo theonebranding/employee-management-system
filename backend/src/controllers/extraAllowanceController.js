@@ -133,7 +133,9 @@ export const updateExtraAllowance = async (req, res) => {
       });
     }
 
-    const extraAllowance = await ExtraAllowance.findByIdAndUpdate(allowanceId, updates, { new: true });
+    const extraAllowance = await ExtraAllowance.findByIdAndUpdate(allowanceId, updates, {
+      new: true,
+    });
 
     res.status(200).json({ message: 'Extra allowance updated successfully', extraAllowance });
   } catch (error) {
@@ -152,7 +154,10 @@ export const deleteExtraAllowance = async (req, res) => {
     }
 
     if (
-      await isPayrollPaidForTransactionMonth(existingAllowance.employee, existingAllowance.transactionDate)
+      await isPayrollPaidForTransactionMonth(
+        existingAllowance.employee,
+        existingAllowance.transactionDate
+      )
     ) {
       return res.status(409).json({
         message: 'Cannot delete extra allowance: payroll is already paid for this month',

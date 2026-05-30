@@ -22,12 +22,7 @@ router.get('/employee-absentee-list', verifyToken, checkRole(['admin']), getEmpl
 // Employee-scoped absent-days lookup used by the history page. Admins may
 // pass ?employeeId= to target another employee; everyone else falls back to
 // the authenticated user.
-router.get(
-  '/my-absent-days',
-  verifyToken,
-  checkRole(['admin', 'employee']),
-  getEmployeeAbsentDays
-);
+router.get('/my-absent-days', verifyToken, checkRole(['admin', 'employee']), getEmployeeAbsentDays);
 router.get('/employee-halfdays-list', verifyToken, checkRole(['admin']), getEmployeeHalfDays);
 router.get(
   '/average-working-hours',

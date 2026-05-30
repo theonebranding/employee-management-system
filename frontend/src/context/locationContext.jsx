@@ -1,4 +1,3 @@
-/* global navigator*/
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 
@@ -207,7 +206,6 @@ export const LocationProvider = ({ children }) => {
         watchIdRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const value = {

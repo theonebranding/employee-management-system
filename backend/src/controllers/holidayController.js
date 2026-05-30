@@ -198,9 +198,7 @@ export const listTemplateAssignments = async (req, res) => {
  */
 export const listEmployeeCredits = async (req, res) => {
   try {
-    const creditGroups = await holidayCreditService.listCreditsForEmployee(
-      req.params.employeeId
-    );
+    const creditGroups = await holidayCreditService.listCreditsForEmployee(req.params.employeeId);
     return res.status(200).json({
       message: 'Employee holiday credits fetched successfully',
       creditGroups,

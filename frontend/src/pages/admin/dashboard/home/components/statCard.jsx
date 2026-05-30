@@ -45,29 +45,25 @@ const StatCard = () => {
         const summary = Array.isArray(data.summary) ? data.summary : [];
         const NON_WORKING = ['leave', 'holiday', 'absent'];
         const fallbackCheckedOut = summary.filter(
-          (emp) =>
-            emp.hasCheckInPunch &&
-            emp.hasCheckOutPunch &&
-            !NON_WORKING.includes(emp.resolvedStatus)
+          emp =>
+            emp.hasCheckInPunch && emp.hasCheckOutPunch && !NON_WORKING.includes(emp.resolvedStatus)
         ).length;
         const fallbackCheckedIn = summary.filter(
-          (emp) =>
+          emp =>
             emp.hasCheckInPunch &&
             !emp.hasCheckOutPunch &&
             !NON_WORKING.includes(emp.resolvedStatus)
         ).length;
-        const fallbackOnLeave = summary.filter((emp) => emp.resolvedStatus === 'leave').length;
+        const fallbackOnLeave = summary.filter(emp => emp.resolvedStatus === 'leave').length;
 
         setStats({
           totalEmployees: data.totalEmployees || 0,
           presentToday: data.present || 0,
           absentToday: data.absent || 0,
-          checkedInToday:
-            typeof data.checkedIn === 'number' ? data.checkedIn : fallbackCheckedIn,
+          checkedInToday: typeof data.checkedIn === 'number' ? data.checkedIn : fallbackCheckedIn,
           checkedOutToday:
             typeof data.checkedOut === 'number' ? data.checkedOut : fallbackCheckedOut,
-          onLeaveToday:
-            typeof data.onLeave === 'number' ? data.onLeave : fallbackOnLeave,
+          onLeaveToday: typeof data.onLeave === 'number' ? data.onLeave : fallbackOnLeave,
           onHolidayToday: data.onHoliday || 0,
           lateArrivals: data.late || 0,
         });
