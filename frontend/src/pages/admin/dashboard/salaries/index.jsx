@@ -904,6 +904,25 @@ const AdminSalaryManagement = () => {
     setSettingsPanel('loans');
   };
 
+  const openAttendanceMasterForEmployee = employee => {
+    if (!employee?._id) return;
+    const today = new Date();
+    const selectedMonthStart = new Date(year, month - 1, 1);
+    const selectedMonthEnd = new Date(year, month, 0);
+    const isCurrentSelectedMonth =
+      today.getFullYear() === year && today.getMonth() + 1 === month;
+    const formatDateInput = date => toIstInputDate(date);
+
+    const params = new URLSearchParams({
+      tab: 'attendance-master',
+      employee: employee._id,
+      attendanceFrom: formatDateInput(selectedMonthStart),
+      attendanceTo: formatDateInput(isCurrentSelectedMonth ? today : selectedMonthEnd),
+    });
+
+    navigate(`/admin/dashboard/reports?${params.toString()}`);
+  };
+
   const closePanel = () => {
     setIsPanelOpen(false);
     setIsPanelVisible(false);
@@ -2393,8 +2412,26 @@ const AdminSalaryManagement = () => {
                       <td className="px-4 py-3 text-light-text/70 dark:text-dark-text/70">
                         {employee.designation || 'N/A'}
                       </td>
-                      <td className="px-4 py-3">{payroll.fullDays || 0}</td>
-                      <td className="px-4 py-3">{payroll.halfDays || 0}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => openAttendanceMasterForEmployee(employee)}
+                          className="text-left underline decoration-dotted"
+                          aria-label={`Open attendance master for ${employee.name} full days`}
+                        >
+                          {payroll.fullDays || 0}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => openAttendanceMasterForEmployee(employee)}
+                          className="text-left underline decoration-dotted"
+                          aria-label={`Open attendance master for ${employee.name} half days`}
+                        >
+                          {payroll.halfDays || 0}
+                        </button>
+                      </td>
                       <td className="px-4 py-3">
                         <button
                           type="button"

@@ -45,13 +45,15 @@ const CheckedInEmployees = ({ selectedDate }) => {
       // Filter for checked-in employees:
       // - hasCheckInPunch=true (original checkInTime exists before masking)
       // - hasCheckOutPunch=false (no checkout yet, still in office)
-      // - resolvedStatus is NOT leave/holiday/absent (a leave-marked
-      //   employee should never appear here even if they punched earlier).
+      // - resolvedStatus is not leave/holiday. We intentionally do not
+      //   exclude "absent" here because the backend can mark a currently
+      //   checked-in employee as absent until they cross the minimum work
+      //   threshold.
       const checkedIn = summary.filter(
         emp =>
           emp.hasCheckInPunch &&
           !emp.hasCheckOutPunch &&
-          !['leave', 'holiday', 'absent'].includes(emp.resolvedStatus)
+          !['leave', 'holiday'].includes(emp.resolvedStatus)
       );
 
       setCheckedInList(checkedIn);

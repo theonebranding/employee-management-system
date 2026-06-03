@@ -180,6 +180,8 @@ const AdminReports = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get('tab') || 'attendance';
   const employeeParam = searchParams.get('employee') || 'all';
+  const attendanceFromParam = searchParams.get('attendanceFrom');
+  const attendanceToParam = searchParams.get('attendanceTo');
   const auth = useAuth();
   const adminEmail = auth?.email ?? 'Unknown';
   const [loading, setLoading] = useState(false);
@@ -210,10 +212,10 @@ const AdminReports = () => {
   });
   const [isLogPanelVisible, setIsLogPanelVisible] = useState(false);
   const [attendanceMasterFromDate, setAttendanceMasterFromDate] = useState(
-    () => new Date().toISOString().split('T')[0]
+    () => attendanceFromParam || new Date().toISOString().split('T')[0]
   );
   const [attendanceMasterToDate, setAttendanceMasterToDate] = useState(
-    () => new Date().toISOString().split('T')[0]
+    () => attendanceToParam || new Date().toISOString().split('T')[0]
   );
   const attendanceMasterTableScrollRef = useRef(null);
   const attendanceMasterScrollIntervalRef = useRef(null);

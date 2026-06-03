@@ -61,14 +61,14 @@ const CheckedOutEmployees = ({ selectedDate }) => {
       // Filter for checked-out employees:
       // - hasCheckInPunch=true (checked in)
       // - hasCheckOutPunch=true (already checked out)
-      // - resolvedStatus is NOT leave/holiday/absent (an employee marked on
-      //   leave should never surface their punch times in the checked-out
-      //   list, even if they punched earlier before the leave was applied).
+      // - resolvedStatus is not leave/holiday. We intentionally do not
+      //   exclude "absent" here because a short shift can still be a valid
+      //   checked-out punch pair even if payroll later classifies it as absent.
       const checkedOut = summary.filter(
         emp =>
           emp.hasCheckInPunch &&
           emp.hasCheckOutPunch &&
-          !['leave', 'holiday', 'absent'].includes(emp.resolvedStatus)
+          !['leave', 'holiday'].includes(emp.resolvedStatus)
       );
 
       setCheckedOutList(checkedOut);
