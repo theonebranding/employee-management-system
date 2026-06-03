@@ -1,6 +1,6 @@
 import { Building, ChevronLeft, Mail, Pencil, PlusCircle, Save } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 
 import { useTheme } from '../../../../../context/themeContext';
@@ -16,6 +16,7 @@ const EMPTY_SALARY_FORM = {
 const AdminEmployeeSalaryProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { theme } = useTheme();
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -74,6 +75,16 @@ const AdminEmployeeSalaryProfile = () => {
   }, [id]);
 
   const latestSalary = salaryData[0] || null;
+  const isFromEmployeeInformation =
+    location.state?.source === 'employee-information' && Boolean(location.state?.returnTo);
+
+  const handleBack = () => {
+    if (isFromEmployeeInformation) {
+      navigate(location.state.returnTo);
+      return;
+    }
+    navigate(-1);
+  };
 
   const openEdit = salary => {
     setEditData({
@@ -163,12 +174,18 @@ const AdminEmployeeSalaryProfile = () => {
     <div className="ml-10 p-6 min-h-screen bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text">
       <div className="max-w-5xl mx-auto p-6 space-y-6">
         <button
-          onClick={() => navigate(-1)}
+          onClick={handleBack}
           className="px-4 py-2 bg-light-card dark:bg-dark-card rounded-lg hover:bg-light-card/80 dark:hover:bg-dark-card/80 transition-all flex items-center gap-2"
-          aria-label="Back to salary management"
+          aria-label={
+            isFromEmployeeInformation ? 'Back to employee information' : 'Back to salary management'
+          }
         >
           <ChevronLeft className="w-5 h-5" />
-          <span className="font-medium">Back to Salary Management</span>
+          <span className="font-medium">
+            {isFromEmployeeInformation
+              ? 'Back to Employee Information'
+              : 'Back to Salary Management'}
+          </span>
         </button>
 
         <div className="bg-light-card dark:bg-dark-card rounded-xl p-6 shadow-lg">

@@ -1,7 +1,9 @@
 import {
+  Banknote,
   Briefcase,
   Building,
   Calendar,
+  ChevronRight,
   Clock,
   Edit,
   FileText,
@@ -18,7 +20,7 @@ import {
   User,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 
 const DEPARTMENT_OPTIONS = [
@@ -67,6 +69,7 @@ const InfoCard = ({
   inputType = 'text',
   options = [],
   onManage,
+  onClick,
 }) => (
   <div className="flex items-center gap-3 p-4 rounded-lg bg-light-card/50 dark:bg-dark-card/50 border border-light-border/50 dark:border-dark-border/50 hover:border-light-border/80 dark:hover:border-dark-border/80 transition-all">
     <div className={`p-2 rounded-lg ${color}`}>
@@ -105,6 +108,20 @@ const InfoCard = ({
           value={value || ''}
           onChange={e => onChange(e.target.value)}
         />
+      ) : onClick ? (
+        <button
+          type="button"
+          onClick={onClick}
+          className="mt-1 w-full inline-flex items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-left transition-colors hover:bg-primary/10"
+        >
+          <span className="flex flex-col gap-0.5">
+            <span className="text-sm font-semibold text-primary">View Salary Details</span>
+            <span className="text-xs font-medium text-light-text/70 dark:text-dark-text/70">
+              {value || 'Not Provided'}
+            </span>
+          </span>
+          <ChevronRight className="w-4 h-4 text-primary shrink-0" />
+        </button>
       ) : (
         <p className="text-sm font-medium text-light-text dark:text-dark-text">
           {value || 'Not Provided'}
@@ -194,9 +211,11 @@ const InlineManager = ({
 
 const InformationTab = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [employeeDetails, setEmployeeDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
+  const [latestSalary, setLatestSalary] = useState(null);
   const [masterOptions, setMasterOptions] = useState({
     departments: DEPARTMENT_OPTIONS,
     designations: DESIGNATION_OPTIONS,
@@ -237,6 +256,7 @@ const InformationTab = () => {
       title: 'Professional Information',
       icon: Briefcase,
       fields: {
+        baseSalaryMaster: { icon: Banknote, color: fieldStyle.workInfoStyle },
         onboardingStatus: { icon: FileText, color: fieldStyle.workInfoStyle },
         department: { icon: Building, color: fieldStyle.workInfoStyle },
         designation: { icon: Briefcase, color: fieldStyle.workInfoStyle },
@@ -276,6 +296,22 @@ const InformationTab = () => {
       toast.error(error.message || 'Failed to fetch employee details.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchLatestSalary = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/salary/find/${id}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      if (!response.ok) {
+        setLatestSalary(null);
+        return;
+      }
+      const data = await response.json();
+      setLatestSalary((data.salaries || [])[0] || null);
+    } catch {
+      setLatestSalary(null);
     }
   };
 
@@ -435,6 +471,7 @@ const InformationTab = () => {
   useEffect(() => {
     fetchEmployeeData();
     fetchMasterOptions();
+    fetchLatestSalary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -496,6 +533,22 @@ const InformationTab = () => {
           <CategorySection key={category} title={title} icon={icon}>
             {Object.entries(fields).map(([field, { icon, color }]) => {
               let value = employeeDetails[field];
+              let onClick;
+              if (field === 'baseSalaryMaster') {
+                value = latestSalary
+                  ? `₹${Number(latestSalary.baseSalary || 0).toFixed(2)}`
+                  : 'Not Provided';
+                onClick =
+                  editing && latestSalary
+                    ? () =>
+                        navigate(`/admin/dashboard/salaries/${id}`, {
+                          state: {
+                            returnTo: `/admin/dashboard/employees/${id}`,
+                            source: 'employee-information',
+                          },
+                        })
+                    : undefined;
+              }
               if (field === 'dateofBirth' || field === 'joinedDate') {
                 value = formatDate(value);
               }
@@ -506,7 +559,7 @@ const InformationTab = () => {
                   label={field.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                   value={value}
                   color={color}
-                  editable={editing}
+                  editable={editing && field !== 'baseSalaryMaster'}
                   inputType={field === 'department' || field === 'designation' ? 'select' : 'text'}
                   options={
                     field === 'department'
@@ -522,6 +575,7 @@ const InformationTab = () => {
                         ? () => openManager('designations')
                         : undefined
                   }
+                  onClick={onClick}
                   onChange={val => setEmployeeDetails({ ...employeeDetails, [field]: val })}
                 />
               );
