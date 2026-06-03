@@ -394,7 +394,9 @@ const InformationTab = () => {
     }
     const list = getManagerList();
     if (
-      list.some((item, idx) => idx !== editingIndex && item.toLowerCase() === nextValue.toLowerCase())
+      list.some(
+        (item, idx) => idx !== editingIndex && item.toLowerCase() === nextValue.toLowerCase()
+      )
     ) {
       toast.error('This value already exists.');
       return;

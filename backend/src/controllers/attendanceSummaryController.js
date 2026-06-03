@@ -181,13 +181,13 @@ export const getDailyAttendance = async (req, res) => {
       (emp) =>
         emp.hasCheckInPunch &&
         !emp.hasCheckOutPunch &&
-        !['leave', 'holiday', 'absent'].includes(emp.resolvedStatus)
+        !['leave', 'holiday'].includes(emp.resolvedStatus)
     ).length;
     const checkedOut = normalizedSummary.filter(
       (emp) =>
         emp.hasCheckInPunch &&
         emp.hasCheckOutPunch &&
-        !['leave', 'holiday', 'absent'].includes(emp.resolvedStatus)
+        !['leave', 'holiday'].includes(emp.resolvedStatus)
     ).length;
     const onLeave = normalizedSummary.filter((emp) => emp.resolvedStatus === 'leave').length;
     const late = normalizedSummary.filter((emp) => emp.lateCheckIn).length;

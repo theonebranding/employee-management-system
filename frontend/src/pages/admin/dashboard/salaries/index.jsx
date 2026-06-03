@@ -909,8 +909,7 @@ const AdminSalaryManagement = () => {
     const today = new Date();
     const selectedMonthStart = new Date(year, month - 1, 1);
     const selectedMonthEnd = new Date(year, month, 0);
-    const isCurrentSelectedMonth =
-      today.getFullYear() === year && today.getMonth() + 1 === month;
+    const isCurrentSelectedMonth = today.getFullYear() === year && today.getMonth() + 1 === month;
     const formatDateInput = date => toIstInputDate(date);
 
     const params = new URLSearchParams({
