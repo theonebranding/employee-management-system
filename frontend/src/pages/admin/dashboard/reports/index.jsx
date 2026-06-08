@@ -88,16 +88,15 @@ const AnimatedStatusBadge = ({ status, label }) => {
     ? label.toLowerCase().replace('(', '').replace(')', '').replace(/\s+/g, '-')
     : null;
   const isCheckoutPendingLabel = normalizedFromLabel === 'checkout-pending';
-  const normalizedStatus =
-    isCheckoutPendingLabel
-      ? 'checkout-pending'
-      : status && statusConfig[status]
-        ? status
-        : normalizedFromLabel && statusConfig[normalizedFromLabel]
-          ? normalizedFromLabel
-          : normalizedFromLabel && normalizedFromLabel.startsWith('holiday')
-            ? 'holiday'
-            : status || normalizedFromLabel || 'absent';
+  const normalizedStatus = isCheckoutPendingLabel
+    ? 'checkout-pending'
+    : status && statusConfig[status]
+      ? status
+      : normalizedFromLabel && statusConfig[normalizedFromLabel]
+        ? normalizedFromLabel
+        : normalizedFromLabel && normalizedFromLabel.startsWith('holiday')
+          ? 'holiday'
+          : status || normalizedFromLabel || 'absent';
 
   const config = statusConfig[normalizedStatus] || statusConfig['absent'];
   const Icon = config.icon;
