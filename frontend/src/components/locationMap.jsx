@@ -49,7 +49,7 @@ const LocationMap = ({
   };
 
   return (
-    <div className="bg-gray-800/50 rounded-2xl p-6 backdrop-blur-sm ring-1 ring-white/10 relative">
+    <div className="bg-gray-800/50 rounded-2xl p-6 backdrop-blur-sm ring-1 ring-white/10 relative isolate z-0">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-200">Location Map</h3>
         <div className="flex items-center gap-2">
@@ -72,7 +72,7 @@ const LocationMap = ({
         center={getDefaultCenter()}
         zoom={13}
         style={{ height: '400px', width: '100%' }}
-        className="rounded-xl overflow-hidden"
+        className="relative z-0 rounded-xl overflow-hidden"
         attributionControl={true}
       >
         <TileLayer

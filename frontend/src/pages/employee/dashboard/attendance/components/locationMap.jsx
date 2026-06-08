@@ -11,11 +11,23 @@ import { FullscreenControl } from 'react-leaflet-fullscreen';
 const MapController = ({
   manualCenter,
   manualZoom,
+  manualBounds,
   showRoute,
   checkInLocation,
   checkOutLocation,
 }) => {
   const map = useMap();
+
+  useEffect(() => {
+    if (!manualBounds || manualBounds.length === 0) return;
+
+    if (manualBounds.length === 1) {
+      map.setView(manualBounds[0], manualZoom, { animate: true });
+      return;
+    }
+
+    map.fitBounds(L.latLngBounds(manualBounds), { padding: [50, 50], animate: true });
+  }, [map, manualBounds, manualZoom]);
 
   useEffect(() => {
     if (manualCenter && manualZoom !== undefined) {
@@ -74,6 +86,7 @@ const LocationMap = ({
   const [showRoute, setShowRoute] = useState(false);
   const [mapStyle, setMapStyle] = useState('standard');
   const [manualCenter, setManualCenter] = useState(null);
+  const [manualBounds, setManualBounds] = useState(null);
   const [manualZoom, setManualZoom] = useState(13);
 
   const mapStyles = useMapStyles('standard');
@@ -91,6 +104,30 @@ const LocationMap = ({
   const checkInIcon = createCustomIcon('#22c55e'); // success
   const checkOutIcon = createCustomIcon('#ef4444'); // danger
   const currentLocationIcon = createCustomIcon('#0ea5e9'); // info
+
+  const getLocationPoint = location => {
+    if (!location?.latitude || !location?.longitude) return null;
+    return [location.latitude, location.longitude];
+  };
+
+  const focusLocation = location => {
+    const point = getLocationPoint(location);
+    if (!point) return;
+    setManualBounds(null);
+    setManualCenter(point);
+    setManualZoom(16);
+  };
+
+  const focusAllPoints = () => {
+    const points = [checkInLocation, checkOutLocation, deviceLocation]
+      .map(getLocationPoint)
+      .filter(Boolean);
+
+    if (points.length === 0) return;
+    setManualCenter(null);
+    setManualBounds(points);
+    setManualZoom(16);
+  };
 
   const calculateDistance = useCallback(() => {
     if (!checkInLocation.latitude || !checkOutLocation.latitude) return null;
@@ -112,10 +149,7 @@ const LocationMap = ({
 
   const centerOnCurrentLocation = () => {
     requestLocation();
-    if (deviceLocation.latitude && deviceLocation.longitude) {
-      setManualCenter([deviceLocation.latitude, deviceLocation.longitude]);
-      setManualZoom(16);
-    }
+    focusLocation(deviceLocation);
   };
 
   const getDefaultCenter = () => {
@@ -132,7 +166,7 @@ const LocationMap = ({
   };
 
   return (
-    <div className="bg-light-card dark:bg-dark-card rounded-2xl p-6 shadow-card ring-1 ring-light-border dark:ring-dark-border relative">
+    <div className="bg-light-card dark:bg-dark-card rounded-2xl p-6 shadow-card ring-1 ring-light-border dark:ring-dark-border relative isolate z-0">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-3">
         <h3 className="text-lg font-semibold text-light-text dark:text-dark-text">
           Location Tracking
@@ -155,7 +189,10 @@ const LocationMap = ({
 
       <div className="flex flex-wrap items-center mb-4 gap-2">
         <button
-          onClick={() => setActiveView('checkIn')}
+          onClick={() => {
+            setActiveView('checkIn');
+            focusLocation(checkInLocation);
+          }}
           className={`px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 ${
             activeView === 'checkIn'
               ? 'bg-success/20 text-success ring-1 ring-success/50'
@@ -166,7 +203,10 @@ const LocationMap = ({
           Check-in
         </button>
         <button
-          onClick={() => setActiveView('checkOut')}
+          onClick={() => {
+            setActiveView('checkOut');
+            focusLocation(checkOutLocation);
+          }}
           className={`px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 ${
             activeView === 'checkOut'
               ? 'bg-danger/20 text-danger ring-1 ring-danger/50'
@@ -177,7 +217,10 @@ const LocationMap = ({
           Check-out
         </button>
         <button
-          onClick={() => setActiveView('all')}
+          onClick={() => {
+            setActiveView('all');
+            focusAllPoints();
+          }}
           className={`px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 ${
             activeView === 'all'
               ? 'bg-primary/20 text-primary ring-1 ring-primary/50'
@@ -187,7 +230,10 @@ const LocationMap = ({
           All points
         </button>
         <button
-          onClick={() => setActiveView('current')}
+          onClick={() => {
+            setActiveView('current');
+            centerOnCurrentLocation();
+          }}
           className={`px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 ${
             activeView === 'current'
               ? 'bg-info/20 text-info ring-1 ring-info/50'
@@ -260,8 +306,8 @@ const LocationMap = ({
           </button>
         </div>
       ) : (
-        <div className="relative">
-          <div className="bg-light-card dark:bg-dark-card p-3 rounded-lg absolute top-4 left-4 z-[1000] text-sm text-light-text dark:text-dark-text shadow-card">
+        <div className="relative isolate">
+          <div className="bg-light-card dark:bg-dark-card p-3 rounded-lg absolute top-4 left-4 z-20 text-sm text-light-text dark:text-dark-text shadow-card">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 bg-success rounded-full" />
@@ -296,7 +342,7 @@ const LocationMap = ({
 
           <button
             onClick={centerOnCurrentLocation}
-            className="absolute bottom-8 right-4 z-[1000] bg-light-card dark:bg-dark-card text-info p-2 rounded-full shadow-card hover:bg-info/10 transition"
+            className="absolute bottom-8 right-4 z-20 bg-light-card dark:bg-dark-card text-info p-2 rounded-full shadow-card hover:bg-info/10 transition"
             title="Center on my location"
           >
             <Locate size={22} />
@@ -306,7 +352,7 @@ const LocationMap = ({
             center={getDefaultCenter()}
             zoom={13}
             style={{ height: '60vh', width: '100%' }}
-            className="rounded-xl overflow-hidden"
+            className="relative z-0 rounded-xl overflow-hidden"
             attributionControl={true}
           >
             <TileLayer
@@ -357,6 +403,7 @@ const LocationMap = ({
             <MapController
               manualCenter={manualCenter}
               manualZoom={manualZoom}
+              manualBounds={manualBounds}
               showRoute={showRoute}
               checkInLocation={checkInLocation}
               checkOutLocation={checkOutLocation}

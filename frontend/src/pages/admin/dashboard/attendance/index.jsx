@@ -492,7 +492,7 @@ const AdminAttendance = () => {
 
         {/* Map Modal */}
         {showMapModal && selectedLocation && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
             <div className="bg-light-bg dark:bg-dark-bg rounded-2xl p-6 w-full max-w-3xl">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold text-light-text dark:text-dark-text">
