@@ -74,27 +74,30 @@ const AnimatedStatusBadge = ({ status, label }) => {
     'checkout-pending': {
       icon: Watch,
       color: 'text-gray-600 dark:text-gray-400',
+      iconColor: 'text-amber-600 dark:text-amber-400',
       bgColor: 'bg-gray-100/80 dark:bg-gray-900/30',
       borderColor: 'border-gray-300 dark:border-gray-700',
       animation: 'blink',
     },
   };
 
-  // Prefer the explicit `status` prop (lower-case enum from the backend) so
-  // composite labels like "Holiday (Diwali)" still resolve to the correct
-  // badge config; the label-based fallback remains for callers that only
-  // pass a display string.
+  // Prefer explicit checkout-pending labels first, then use the backend
+  // status so composite labels like "Holiday (Diwali)" still resolve to the
+  // correct badge config.
   const normalizedFromLabel = label
     ? label.toLowerCase().replace('(', '').replace(')', '').replace(/\s+/g, '-')
     : null;
+  const isCheckoutPendingLabel = normalizedFromLabel === 'checkout-pending';
   const normalizedStatus =
-    status && statusConfig[status]
-      ? status
-      : normalizedFromLabel && statusConfig[normalizedFromLabel]
-        ? normalizedFromLabel
-        : normalizedFromLabel && normalizedFromLabel.startsWith('holiday')
-          ? 'holiday'
-          : status || normalizedFromLabel || 'absent';
+    isCheckoutPendingLabel
+      ? 'checkout-pending'
+      : status && statusConfig[status]
+        ? status
+        : normalizedFromLabel && statusConfig[normalizedFromLabel]
+          ? normalizedFromLabel
+          : normalizedFromLabel && normalizedFromLabel.startsWith('holiday')
+            ? 'holiday'
+            : status || normalizedFromLabel || 'absent';
 
   const config = statusConfig[normalizedStatus] || statusConfig['absent'];
   const Icon = config.icon;
@@ -158,7 +161,7 @@ const AnimatedStatusBadge = ({ status, label }) => {
         {isCheckoutPending ? (
           <>
             <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <Icon className={`w-4 h-4 ${config.color} flex-shrink-0`} />
+              <Icon className={`w-4 h-4 ${config.iconColor || config.color} flex-shrink-0`} />
               <span className={`text-sm font-medium ${config.color} leading-none`}>Checkout</span>
             </div>
             <span className={`text-xs font-medium ${config.color} leading-none pl-5`}>Pending</span>
