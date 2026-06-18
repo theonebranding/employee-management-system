@@ -2,9 +2,16 @@ import Attendance from '../models/attendanceSchema.js';
 import Employee from '../models/employeeSchema.js';
 import LateCheckIn from '../models/lateCheckInSchema.js';
 import AdminAttendanceSettings from '../models/adminAttendanceSettingsSchema.js';
+import PayrollSettings from '../models/payrollSettingsSchema.js';
 import DailyReport from '../models/dailyReportSchema.js';
 import { getStartOfIstDay, getEndOfIstDay, getIstDayKey } from '../utils/dailyReportUtils.js';
 import { syncSundayCompensationForAttendanceChange } from './payrollController.js';
+
+const timeToMinutes = (time) => {
+  if (!time) return null;
+  const [hours = 0, minutes = 0] = String(time).split(':').map(Number);
+  return hours * 60 + minutes;
+};
 
 const triggerPayrollRecomputeForDay = async (employeeId, dayStart, processedBy) => {
   if (!employeeId || !dayStart) return;
@@ -148,13 +155,16 @@ export const checkIn = async (req, res) => {
     // Calculate delay in minutes
     const delayInMinutes = Math.floor((actualCheckInTimeUTC - predefinedTimeUTC) / (1000 * 60));
 
-    // Determine if the employee is late from AdminAttendanceSettings
+    // Determine if the employee is late using Salary Management grace minutes.
+    // Grace is a duration after each employee's predefined check-in time, not a clock time.
+    const payrollSettings = await PayrollSettings.findOne().lean();
     const settings = await AdminAttendanceSettings.findOne();
     if (!settings) {
       return res.status(400).json({ message: 'Admin attendance settings not found' });
     }
 
-    const lateByMinutes = settings.lateByMinutes || 20;
+    const salaryGraceMinutes = timeToMinutes(payrollSettings?.penalties?.graceTime);
+    const lateByMinutes = salaryGraceMinutes ?? settings.lateByMinutes ?? 20;
     const isLate = delayInMinutes > lateByMinutes;
 
     if (isLate) {

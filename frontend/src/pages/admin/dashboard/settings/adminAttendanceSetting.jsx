@@ -24,6 +24,12 @@ const hoursToMinutes = hours => {
   return hours ? Math.round(parseFloat(hours) * 60).toString() : '';
 };
 
+const timeToMinutes = time => {
+  if (!time) return '';
+  const [hours = 0, minutes = 0] = String(time).split(':').map(Number);
+  return String(hours * 60 + minutes);
+};
+
 const minutesToHoursDisplay = minutes => {
   if (!minutes && minutes !== 0) return { hours: '0 hrs', minutes: '0 mins' };
   const hours = Math.floor(minutes / 60);
@@ -34,6 +40,7 @@ const minutesToHoursDisplay = minutes => {
 };
 
 const AdminAttendanceSettings = () => {
+  const readOnlySettingNames = ['lateByMinutes', 'maxLateCheckIns'];
   const [settings, setSettings] = useState({
     lateByMinutes: '',
     totalWorkingHours: '',
@@ -53,17 +60,25 @@ const AdminAttendanceSettings = () => {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${BASE_URL}/admin/get-attendance-settings`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
-      if (!response.ok) throw new Error('Failed to fetch settings');
-      const data = await response.json();
+      const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+      const [attendanceResponse, payrollResponse] = await Promise.all([
+        fetch(`${BASE_URL}/admin/get-attendance-settings`, { headers }),
+        fetch(`${BASE_URL}/admin/payroll-settings`, { headers }),
+      ]);
+
+      if (!attendanceResponse.ok) throw new Error('Failed to fetch attendance settings');
+      if (!payrollResponse.ok) throw new Error('Failed to fetch salary management settings');
+
+      const attendanceData = await attendanceResponse.json();
+      const payrollData = await payrollResponse.json();
+      const attendanceSettings = attendanceData.settings || {};
+      const penaltySettings = payrollData.settings?.penalties || {};
       const convertedSettings = {
-        lateByMinutes: data.settings.lateByMinutes,
-        totalWorkingHours: minutesToHours(data.settings.totalWorkingHours),
-        halfDayHours: minutesToHours(data.settings.halfDayHours),
-        minAbsentHours: minutesToHours(data.settings.minAbsentHours),
-        maxLateCheckIns: data.settings.maxLateCheckIns,
+        lateByMinutes: timeToMinutes(penaltySettings.graceTime) || attendanceSettings.lateByMinutes,
+        totalWorkingHours: minutesToHours(attendanceSettings.totalWorkingHours),
+        halfDayHours: minutesToHours(attendanceSettings.halfDayHours),
+        minAbsentHours: minutesToHours(attendanceSettings.minAbsentHours),
+        maxLateCheckIns: penaltySettings.allowedDays ?? attendanceSettings.maxLateCheckIns,
       };
       setSettings(convertedSettings);
       setOriginalSettings(convertedSettings);
@@ -81,6 +96,7 @@ const AdminAttendanceSettings = () => {
   // Handle input changes
   const handleChange = e => {
     const { name, value } = e.target;
+    if (readOnlySettingNames.includes(name)) return;
     setSettings(prev => ({ ...prev, [name]: value }));
   };
 
@@ -91,11 +107,9 @@ const AdminAttendanceSettings = () => {
     setSaveStatus('saving');
 
     const settingsToSave = {
-      lateByMinutes: settings.lateByMinutes,
       totalWorkingHours: hoursToMinutes(settings.totalWorkingHours),
       halfDayHours: hoursToMinutes(settings.halfDayHours),
       minAbsentHours: hoursToMinutes(settings.minAbsentHours),
-      maxLateCheckIns: settings.maxLateCheckIns,
     };
 
     try {
@@ -141,6 +155,7 @@ const AdminAttendanceSettings = () => {
       placeholder: 'Enter minutes (e.g. 15)',
       unit: 'minutes',
       color: 'warning',
+      readOnly: true,
     },
     {
       name: 'totalWorkingHours',
@@ -181,6 +196,7 @@ const AdminAttendanceSettings = () => {
       placeholder: 'Enter number (e.g. 3)',
       unit: 'times',
       color: 'secondary',
+      readOnly: true,
     },
   ];
 
@@ -319,7 +335,9 @@ const AdminAttendanceSettings = () => {
                         name={section.name}
                         value={settings[section.name]}
                         onChange={handleChange}
-                        className={`w-full py-3 px-4 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-${section.color} transition-all text-light-text dark:text-dark-text`}
+                        readOnly={section.readOnly}
+                        aria-readonly={section.readOnly ? 'true' : undefined}
+                        className={`w-full py-3 px-4 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-${section.color} transition-all text-light-text dark:text-dark-text ${section.readOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                         placeholder={section.placeholder}
                         required
                         min="0"
@@ -351,6 +369,11 @@ const AdminAttendanceSettings = () => {
                               : hoursToMinutes(settings[section.name])
                           ).minutes
                         }
+                      </p>
+                    )}
+                    {section.readOnly && (
+                      <p className="text-xs text-light-text dark:text-dark-text opacity-70 mt-1">
+                        Managed from Salary Management.
                       </p>
                     )}
                   </div>

@@ -12,6 +12,20 @@ import { useTheme } from '../../../../context/themeContext';
 // String constants used across the file (avoid sonarjs/no-duplicate-string).
 const LEAVE_ENCASHMENT_LABEL = 'Leave Encashment';
 
+const timeToMinutes = time => {
+  if (!time) return '';
+  const [hours = 0, minutes = 0] = String(time).split(':').map(Number);
+  return String(hours * 60 + minutes);
+};
+
+const minutesToTime = value => {
+  if (value === '') return '';
+  const totalMinutes = Math.max(0, Number(value || 0));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
 // eslint-disable-next-line sonarjs/cognitive-complexity
 const AdminSalaryManagement = () => {
   const navigate = useNavigate();
@@ -2880,22 +2894,27 @@ const AdminSalaryManagement = () => {
 
                     <div>
                       <label className="text-sm font-medium text-light-text dark:text-dark-text">
-                        Grace Time
+                        Grace Minutes
                       </label>
                       <input
-                        type="time"
-                        value={penaltySettings.graceTime}
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={timeToMinutes(penaltySettings.graceTime)}
                         onChange={e =>
                           setPenaltySettings(prev => ({
                             ...prev,
-                            graceTime: e.target.value,
+                            graceTime: minutesToTime(e.target.value),
                           }))
                         }
                         disabled={!penaltySettings.enabled}
+                        onFocus={e => e.target.select()}
+                        onWheel={e => e.currentTarget.blur()}
                         className="mt-2 w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                       <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-2">
-                        Flexible window before employees are considered late
+                        Minutes after each employee&apos;s predefined check-in time before they are
+                        considered late
                       </p>
                     </div>
                   </>

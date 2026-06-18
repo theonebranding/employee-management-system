@@ -1,6 +1,7 @@
 import LateCheckIn from '../models/lateCheckInSchema.js';
 import Salary from '../models/salarySchema.js';
 import AdminAttendanceSettings from '../models/adminAttendanceSettingsSchema.js';
+import PayrollSettings from '../models/payrollSettingsSchema.js';
 
 // // get lateCheckins
 // export const getLateCheckIn = async (req, res) => {
@@ -88,7 +89,8 @@ export const getLateCheckInDeduction = async (req, res) => {
     const daysInMonth = new Date(year, month, 0).getDate();
     const dailySalary = monthlySalary / daysInMonth;
 
-    // Calculate deductions: 5 late check-ins = 1 half-day deduction fetch from AdminAttendanceSettings
+    // Calculate deductions from Salary Management's allowed late days, with attendance settings fallback.
+    const payrollSettings = await PayrollSettings.findOne().lean();
     const adminAttendanceSettings = await AdminAttendanceSettings.findOne();
     if (!adminAttendanceSettings) {
       return res.status(404).json({
@@ -96,7 +98,12 @@ export const getLateCheckInDeduction = async (req, res) => {
       });
     }
 
-    const maxLateCheckIns = adminAttendanceSettings.maxLateCheckIns || 5;
+    const maxLateCheckIns = Math.max(
+      1,
+      Number(payrollSettings?.penalties?.allowedDays) ||
+        adminAttendanceSettings.maxLateCheckIns ||
+        5
+    );
 
     const deductionUnits = Math.floor(totalLateCheckIns / maxLateCheckIns) * 0.5;
     const totalDeduction = deductionUnits * dailySalary;
