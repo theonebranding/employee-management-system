@@ -6,13 +6,13 @@ import EmployeeMasterOptions from '../models/employeeMasterOptionsSchema.js';
 import bcrypt from 'bcrypt';
 import { getDefaultPayslipSettings } from '../utils/payslipUtils.js';
 
-const timeToMinutes = time => {
+const timeToMinutes = (time) => {
   if (!time) return null;
   const [hours = 0, minutes = 0] = String(time).split(':').map(Number);
   return hours * 60 + minutes;
 };
 
-const minutesToTime = value => {
+const minutesToTime = (value) => {
   if (value === undefined || value === null || value === '') return undefined;
   const totalMinutes = Math.max(0, Number(value || 0));
   const hours = Math.floor(totalMinutes / 60);
