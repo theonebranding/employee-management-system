@@ -312,7 +312,7 @@ const AverageWorkingHours = () => {
             <ChevronLeft className="w-5 h-5" />
           </button>
           <span className="text-sm font-medium bg-light-bg dark:bg-dark-bg px-3 py-1.5 rounded-md text-light-text dark:text-dark-text">
-            {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
+            {format(weekStart, 'dd/MM/yyyy')} - {format(weekEnd, 'dd/MM/yyyy')}
           </span>
           <button
             onClick={handleNextWeek}
@@ -395,7 +395,7 @@ const AverageWorkingHours = () => {
           <span className="inline-block w-3 h-3 rounded-full bg-primary mr-1"></span>
           Average working hours per weekday
         </div>
-        <div>Updated {format(new Date(), 'MMM d, yyyy')}</div>
+        <div>Updated {format(new Date(), 'dd/MM/yyyy')}</div>
       </div>
     </div>
   );

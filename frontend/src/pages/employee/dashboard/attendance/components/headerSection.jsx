@@ -7,7 +7,7 @@ const HeaderSection = ({ status, currentTime, isLate, getStatusColor }) => (
       <div>
         <h1 className="text-xl font-bold text-light-text dark:text-dark-text">Current Status</h1>
         <p className="text-light-text dark:text-dark-text opacity-70">
-          {currentTime.toLocaleDateString()} • {currentTime.toLocaleTimeString()}
+          {currentTime.toLocaleDateString('en-GB')} • {currentTime.toLocaleTimeString()}
         </p>
       </div>
     </div>

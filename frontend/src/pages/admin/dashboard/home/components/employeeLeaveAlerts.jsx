@@ -44,9 +44,10 @@ const EmployeeLeaveAlerts = () => {
   }, []);
 
   const formatDate = date =>
-    new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
+    new Date(date).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
     });
 
   const LeaveItem = ({ leave }) => (

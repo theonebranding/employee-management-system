@@ -24,6 +24,29 @@ const attendanceSchema = new mongoose.Schema(
     // Recess Management
     recessStartTime: { type: Date },
     recessEndTime: { type: Date },
+    recessStartLocation: {
+      latitude: { type: Number },
+      longitude: { type: Number },
+    },
+    recessEndLocation: {
+      latitude: { type: Number },
+      longitude: { type: Number },
+    },
+    recessSessions: [
+      {
+        startTime: { type: Date },
+        endTime: { type: Date },
+        startLocation: {
+          latitude: { type: Number },
+          longitude: { type: Number },
+        },
+        endLocation: {
+          latitude: { type: Number },
+          longitude: { type: Number },
+        },
+        duration: { type: Number, default: 0 },
+      },
+    ],
     totalRecessDuration: { type: Number, default: 0 }, // In minutes
     isRecess: { type: Boolean, default: false },
 

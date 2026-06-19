@@ -133,7 +133,7 @@ const LateCheckinDeduction = ({ employeeId, onDataFetched, month, year }) => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-light-text dark:text-dark-text opacity-70">
+              <table className="admin-sticky-columns w-full text-left text-light-text dark:text-dark-text opacity-70">
                 <thead className="bg-light-card/50 dark:bg-dark-card/50">
                   <tr>
                     <th className="px-4 py-3 rounded-l-lg">Date</th>
@@ -149,10 +149,11 @@ const LateCheckinDeduction = ({ employeeId, onDataFetched, month, year }) => {
                       className="border-b border-light-border  dark:border-dark-border  hover:bg-light-card/50 dark:hover:bg-dark-card/50 transition-colors"
                     >
                       <td className="px-4 py-3">
-                        {new Date(entry.date).toLocaleDateString('en-US', {
+                        {new Date(entry.date).toLocaleDateString('en-GB', {
                           weekday: 'long',
-                          month: 'short',
-                          day: 'numeric',
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
                         })}
                       </td>
                       <td className="px-4 py-3">

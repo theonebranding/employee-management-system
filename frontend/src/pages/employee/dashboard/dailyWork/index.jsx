@@ -158,7 +158,7 @@ const EmployeeDailyWork = () => {
     const sorted = [...reports].sort((a, b) => new Date(b.reportDate) - new Date(a.reportDate));
     if (!searchDate.trim()) return sorted;
     return sorted.filter(item =>
-      new Date(item.reportDate).toLocaleDateString().includes(searchDate)
+      new Date(item.reportDate).toLocaleDateString('en-GB').includes(searchDate)
     );
   }, [reports, searchDate]);
 
@@ -364,7 +364,7 @@ const EmployeeDailyWork = () => {
                         className="border-t border-light-border/70 dark:border-dark-border/70"
                       >
                         <td className="px-4 py-3 text-light-text dark:text-dark-text">
-                          {new Date(item.reportDate).toLocaleDateString()}
+                          {new Date(item.reportDate).toLocaleDateString('en-GB')}
                         </td>
                         <td className="px-4 py-3 text-light-text dark:text-dark-text">
                           <button

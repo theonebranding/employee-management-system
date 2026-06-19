@@ -371,8 +371,7 @@ export const updateAttendanceMasterCheckout = async (req, res) => {
       });
     }
 
-    const checkoutDate = new Date(dayStart);
-    checkoutDate.setHours(checkoutHour, 0, 0, 0);
+    const checkoutDate = new Date(dayStart.getTime() + Number(checkoutHour) * 60 * 60 * 1000);
     attendance.checkOutTime = checkoutDate;
 
     // Calculate working time if check-in exists

@@ -238,7 +238,7 @@ const AdminEmployeeSalaryProfile = () => {
                 label="Effective From"
                 value={
                   latestSalary.effectiveFrom
-                    ? new Date(latestSalary.effectiveFrom).toLocaleDateString()
+                    ? new Date(latestSalary.effectiveFrom).toLocaleDateString('en-GB')
                     : 'Not Set'
                 }
               />

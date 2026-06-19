@@ -1,5 +1,6 @@
 import { Loader2, XCircle } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 
 const AbsentEmployees = ({ startDate, endDate }) => {
@@ -67,7 +68,7 @@ const AbsentEmployees = ({ startDate, endDate }) => {
         </div>
       ) : absentList.length > 0 ? (
         <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-light-text dark:text-dark-text">
+          <table className="admin-sticky-columns min-w-full text-left text-light-text dark:text-dark-text">
             <thead className="bg-light-bg/50 dark:bg-dark-bg/50">
               <tr>
                 <th className="px-4 py-2 font-medium">Employee ID</th>
@@ -81,8 +82,22 @@ const AbsentEmployees = ({ startDate, endDate }) => {
                   key={employee._id}
                   className="hover:bg-light-bg/50 dark:hover:bg-dark-bg/50 transition-colors"
                 >
-                  <td className="px-4 py-2">{employee.employeeCode || 'ID Pending'}</td>
-                  <td className="px-4 py-2">{employee.name || 'N/A'}</td>
+                  <td className="px-4 py-2">
+                    <Link
+                      to={`/admin/dashboard/employees/${employee._id}`}
+                      className="font-medium text-light-text dark:text-dark-text hover:text-primary transition-colors"
+                    >
+                      {employee.employeeCode || 'ID Pending'}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2">
+                    <Link
+                      to={`/admin/dashboard/employees/${employee._id}`}
+                      className="font-medium text-light-text dark:text-dark-text hover:text-primary transition-colors"
+                    >
+                      {employee.name || 'N/A'}
+                    </Link>
+                  </td>
                   <td className="px-4 py-2">{employee.email || 'N/A'}</td>
                 </tr>
               ))}

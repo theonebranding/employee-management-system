@@ -13,6 +13,7 @@ import validateZod from '../middleware/validateZod.js';
 import {
   attendanceCheckInSchema,
   attendanceCheckOutSchema,
+  attendanceRecessSchema,
   attendanceParamsSchema,
   updateAttendanceSchema,
 } from '../validations/attendanceValidation.js';
@@ -33,8 +34,20 @@ router.post(
   validateZod(attendanceCheckOutSchema),
   checkOut
 ); // Check-Out Route
-router.post('/start-recess', verifyToken, checkRole(['employee']), startRecess); // Start Recess Route
-router.post('/end-recess', verifyToken, checkRole(['employee']), endRecess); // End Recess Route
+router.post(
+  '/start-recess',
+  verifyToken,
+  checkRole(['employee']),
+  validateZod(attendanceRecessSchema),
+  startRecess
+); // Start Recess Route
+router.post(
+  '/end-recess',
+  verifyToken,
+  checkRole(['employee']),
+  validateZod(attendanceRecessSchema),
+  endRecess
+); // End Recess Route
 router.put(
   '/update-attendance/:attendanceId',
   verifyToken,

@@ -144,3 +144,89 @@ button.secondary {
     0 12px 32px rgba(0, 0, 0, 0.32),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
+
+.admin-sticky-columns {
+  --admin-sticky-col-1-width: 14rem;
+  --admin-sticky-col-2-width: 16rem;
+  --admin-sticky-body-bg: #f5f5f5;
+  --admin-sticky-head-bg: #f3f5f7;
+  --admin-sticky-hover-bg: #f1f5f9;
+  --admin-sticky-warning-bg: #f6eed2;
+}
+
+.admin-sticky-columns th:nth-child(1),
+.admin-sticky-columns td:nth-child(1) {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  min-width: var(--admin-sticky-col-1-width);
+  width: var(--admin-sticky-col-1-width);
+  max-width: var(--admin-sticky-col-1-width);
+  box-sizing: border-box;
+  background: var(--admin-sticky-body-bg);
+  background-clip: padding-box;
+  white-space: nowrap;
+}
+
+.admin-sticky-columns th:nth-child(2),
+.admin-sticky-columns td:nth-child(2) {
+  position: sticky;
+  left: var(--admin-sticky-col-1-width);
+  z-index: 10;
+  min-width: var(--admin-sticky-col-2-width);
+  width: var(--admin-sticky-col-2-width);
+  max-width: var(--admin-sticky-col-2-width);
+  box-sizing: border-box;
+  background: var(--admin-sticky-body-bg);
+  background-clip: padding-box;
+  white-space: nowrap;
+}
+
+.admin-sticky-columns thead th:nth-child(1),
+.admin-sticky-columns thead th:nth-child(2) {
+  background: var(--admin-sticky-head-bg);
+}
+
+.admin-sticky-columns tbody tr:hover td:nth-child(1),
+.admin-sticky-columns tbody tr:hover td:nth-child(2) {
+  background: var(--admin-sticky-hover-bg);
+}
+
+.admin-sticky-columns tbody tr.bg-warning\/20 td:nth-child(1),
+.admin-sticky-columns tbody tr.bg-warning\/20 td:nth-child(2) {
+  background: var(--admin-sticky-warning-bg);
+}
+
+.admin-sticky-columns thead th:nth-child(1),
+.admin-sticky-columns thead th:nth-child(2) {
+  z-index: 20;
+}
+
+.dark .admin-sticky-columns {
+  --admin-sticky-body-bg: #1e293b;
+  --admin-sticky-head-bg: #172033;
+  --admin-sticky-hover-bg: #0f172a;
+  --admin-sticky-warning-bg: #51451d;
+}
+
+.dark .admin-sticky-columns th:nth-child(1),
+.dark .admin-sticky-columns td:nth-child(1),
+.dark .admin-sticky-columns th:nth-child(2),
+.dark .admin-sticky-columns td:nth-child(2) {
+  background: var(--admin-sticky-body-bg);
+}
+
+.dark .admin-sticky-columns thead th:nth-child(1),
+.dark .admin-sticky-columns thead th:nth-child(2) {
+  background: var(--admin-sticky-head-bg);
+}
+
+.dark .admin-sticky-columns tbody tr:hover td:nth-child(1),
+.dark .admin-sticky-columns tbody tr:hover td:nth-child(2) {
+  background: var(--admin-sticky-hover-bg);
+}
+
+.dark .admin-sticky-columns tbody tr.bg-warning\/20 td:nth-child(1),
+.dark .admin-sticky-columns tbody tr.bg-warning\/20 td:nth-child(2) {
+  background: var(--admin-sticky-warning-bg);
+}

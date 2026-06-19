@@ -166,8 +166,64 @@ const AdminAttendance = () => {
   };
 
   const formatLocation = location => {
-    if (!location || Object.keys(location).length === 0) return 'N/A';
+    if (
+      !location ||
+      location === 'N/A' ||
+      Object.keys(location).length === 0 ||
+      !location.latitude ||
+      !location.longitude
+    )
+      return 'N/A';
     return `${location.latitude}, ${location.longitude}`;
+  };
+
+  const getLocationLabel = type => {
+    const labels = {
+      checkIn: 'Check-in',
+      checkOut: 'Check-out',
+      recessStart: 'Break Start',
+      recessEnd: 'Break End',
+    };
+    return labels[type] || 'Attendance';
+  };
+
+  const getBreakSessionLocations = (sessions = [], key) =>
+    sessions
+      .map((session, index) => ({
+        index,
+        location: session?.[key],
+      }))
+      .filter(({ location }) => formatLocation(location) !== 'N/A');
+
+  const formatBreakSessionTime = value => {
+    if (!value) return 'Time N/A';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Time N/A';
+    return format(date, 'hh:mm a');
+  };
+
+  const renderBreakLocations = (record, locationKey, timeKey, type, label) => {
+    const locations = getBreakSessionLocations(record.recessSessions || [], locationKey);
+    if (!locations.length) return 'N/A';
+
+    return (
+      <div className="space-y-1">
+        {locations.map(({ index, location }) => (
+          <div key={`${record._id}-${type}-${index}`} className="space-y-0.5">
+            <p className="text-light-text dark:text-dark-text">
+              Break {index + 1}: {formatBreakSessionTime(record.recessSessions[index]?.[timeKey])}
+            </p>
+            <button
+              onClick={() => handleLocationClick(location, type)}
+              className="block text-left text-primary hover:underline"
+              aria-label={`View ${label} location for break ${index + 1}`}
+            >
+              {formatLocation(location)}
+            </button>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   const handlePrevDay = () => {
@@ -223,7 +279,7 @@ const AdminAttendance = () => {
                 <h2 className="text-xl font-bold text-light-text dark:text-dark-text">
                   {format(selectedDate, 'EEEE')}
                 </h2>
-                <p className="text-primary-light">{format(selectedDate, 'MMMM d, yyyy')}</p>
+                <p className="text-primary-light">{format(selectedDate, 'dd/MM/yyyy')}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 bg-light-bg/10 dark:bg-dark-bg/10 px-4 py-2 rounded-lg backdrop-blur-sm mt-2 md:mt-0">
@@ -308,19 +364,20 @@ const AdminAttendance = () => {
             ) : attendanceData.length > 0 ? (
               <div className="relative group/table rounded-lg border border-light-border dark:border-dark-border overflow-hidden">
                 <div ref={attendanceTableScrollRef} className="overflow-x-auto">
-                  <table className="min-w-full text-sm text-left">
+                  <table className="admin-sticky-columns min-w-full text-sm text-left">
                     <thead className="bg-light-bg/50 dark:bg-dark-bg/50 text-light-text dark:text-dark-text">
                       <tr>
                         <th className="px-6 py-4 font-medium">Employee ID</th>
                         <th className="px-6 py-4 font-medium">Employee Name</th>
+                        <th className="px-6 py-4 font-medium">Status</th>
                         <th className="px-6 py-4 font-medium">Check-in</th>
                         <th className="px-6 py-4 font-medium">Check-in Location</th>
+                        <th className="px-6 py-4 font-medium">Break Time</th>
+                        <th className="px-6 py-4 font-medium">Start Break Location/Time</th>
+                        <th className="px-6 py-4 font-medium">End Break Location/Time</th>
                         <th className="px-6 py-4 font-medium">Check-out</th>
                         <th className="px-6 py-4 font-medium">Check-out Location</th>
                         <th className="px-6 py-4 font-medium">Work Hours</th>
-                        <th className="px-6 py-4 font-medium">Break Time</th>
-                        <th className="px-6 py-4 font-medium">Status</th>
-                        <th className="px-6 py-4 font-medium">Late Check-in</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-light-border dark:divide-dark-border">
@@ -335,7 +392,12 @@ const AdminAttendance = () => {
                         >
                           {/* Employee Name & Email */}
                           <td className="px-6 py-4 text-light-text dark:text-dark-text">
-                            {record.employeeCode || 'ID Pending'}
+                            <Link
+                              to={`/admin/dashboard/employees/${record.employeeId}`}
+                              className="font-medium text-light-text dark:text-dark-text hover:text-primary transition-colors"
+                            >
+                              {record.employeeCode || 'ID Pending'}
+                            </Link>
                           </td>
                           <td className="px-6 py-4">
                             <Link
@@ -346,19 +408,41 @@ const AdminAttendance = () => {
                             </Link>
                           </td>
 
+                          {/* Status */}
+                          <td className="px-6 py-4">
+                            <span
+                              className={`whitespace-nowrap px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
+                                record.realtimeStatus || record.currentStatus
+                              )}`}
+                            >
+                              {record.realtimeStatus || record.currentStatus || 'Unknown'}
+                            </span>
+                          </td>
+
                           {/* Check-in Time */}
                           <td className="px-6 py-4 text-light-text dark:text-dark-text">
                             {(record.checkInTime && record.checkInTime !== 'N/A') ||
                             (record.originalCheckInTime && record.originalCheckInTime !== 'N/A') ? (
-                              <div className="flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-success" />
-                                {format(
-                                  parseISO(
-                                    record.checkInTime && record.checkInTime !== 'N/A'
-                                      ? record.checkInTime
-                                      : record.originalCheckInTime
-                                  ),
-                                  'hh:mm a'
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <Clock
+                                    className={`w-4 h-4 ${
+                                      record.lateCheckIn ? 'text-warning' : 'text-success'
+                                    }`}
+                                  />
+                                  {format(
+                                    parseISO(
+                                      record.checkInTime && record.checkInTime !== 'N/A'
+                                        ? record.checkInTime
+                                        : record.originalCheckInTime
+                                    ),
+                                    'hh:mm a'
+                                  )}
+                                </div>
+                                {record.lateCheckIn && (
+                                  <span className="inline-flex w-max rounded-full bg-warning/20 px-2 py-0.5 text-xs font-medium text-warning">
+                                    Late Check-in
+                                  </span>
                                 )}
                               </div>
                             ) : (
@@ -380,6 +464,37 @@ const AdminAttendance = () => {
                               >
                                 {formatLocation(record.checkInLocation)}
                               </button>
+                            )}
+                          </td>
+
+                          {/* Break Time */}
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <Coffee className="w-4 h-4 text-warning" />
+                              <span className="text-light-text dark:text-dark-text">
+                                {Math.floor(record.totalRecessDuration / 3600000)}h{' '}
+                                {Math.floor((record.totalRecessDuration % 3600000) / 60000)}m
+                              </span>
+                            </div>
+                          </td>
+
+                          <td className="px-6 py-4 text-light-text dark:text-dark-text">
+                            {renderBreakLocations(
+                              record,
+                              'startLocation',
+                              'startTime',
+                              'recessStart',
+                              'break start'
+                            )}
+                          </td>
+
+                          <td className="px-6 py-4 text-light-text dark:text-dark-text">
+                            {renderBreakLocations(
+                              record,
+                              'endLocation',
+                              'endTime',
+                              'recessEnd',
+                              'break end'
                             )}
                           </td>
 
@@ -422,40 +537,6 @@ const AdminAttendance = () => {
                               </span>
                             </div>
                           </td>
-
-                          {/* Break Time */}
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <Coffee className="w-4 h-4 text-warning" />
-                              <span className="text-light-text dark:text-dark-text">
-                                {Math.floor(record.totalRecessDuration / 3600000)}h{' '}
-                                {Math.floor((record.totalRecessDuration % 3600000) / 60000)}m
-                              </span>
-                            </div>
-                          </td>
-
-                          {/* Status */}
-                          <td className="px-6 py-4">
-                            <span
-                              className={`whitespace-nowrap px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
-                                record.realtimeStatus || record.currentStatus
-                              )}`}
-                            >
-                              {record.realtimeStatus || record.currentStatus || 'Unknown'}
-                            </span>
-                          </td>
-
-                          {/* Late Check-in */}
-                          <td className="px-6 py-4 text-light-text dark:text-dark-text">
-                            {record.lateCheckIn ? (
-                              <div className="flex items-center gap-2">
-                                <Timer className="w-4 h-4 text-warning" />
-                                <span>Yes</span>
-                              </div>
-                            ) : (
-                              'No'
-                            )}
-                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -496,7 +577,7 @@ const AdminAttendance = () => {
             <div className="bg-light-bg dark:bg-dark-bg rounded-2xl p-6 w-full max-w-3xl">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold text-light-text dark:text-dark-text">
-                  {locationType === 'checkIn' ? 'Check-in' : 'Check-out'} Location
+                  {getLocationLabel(locationType)} Location
                 </h2>
                 <button
                   onClick={() => setShowMapModal(false)}
@@ -507,8 +588,16 @@ const AdminAttendance = () => {
                 </button>
               </div>
               <LocationMap
-                checkInLocation={locationType === 'checkIn' ? selectedLocation : {}}
-                checkOutLocation={locationType === 'checkOut' ? selectedLocation : {}}
+                checkInLocation={
+                  locationType === 'checkIn' || locationType === 'recessStart'
+                    ? selectedLocation
+                    : {}
+                }
+                checkOutLocation={
+                  locationType === 'checkOut' || locationType === 'recessEnd'
+                    ? selectedLocation
+                    : {}
+                }
                 isLocationPermissionGranted={true}
                 requestLocation={() => {}}
                 checkInTime={

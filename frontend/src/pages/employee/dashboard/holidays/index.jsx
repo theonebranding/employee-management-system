@@ -29,10 +29,10 @@ const formatHolidayDate = value => {
   if (!value) return '—';
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString('en-GB', {
     year: 'numeric',
-    month: 'short',
-    day: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
   });
 };
 

@@ -707,7 +707,7 @@ const AdminPayroll = () => {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px] gap-6">
             <div className="overflow-x-auto rounded-2xl border border-light-border dark:border-dark-border">
-              <table className="min-w-full text-sm">
+              <table className="admin-sticky-columns min-w-full text-sm">
                 <thead className="bg-light-bg dark:bg-dark-bg">
                   <tr>
                     <th className="px-4 py-3 text-left">Employee</th>

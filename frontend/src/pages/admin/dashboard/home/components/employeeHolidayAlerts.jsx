@@ -60,10 +60,11 @@ const EmployeeHolidayAlerts = () => {
   };
 
   const formatDate = dateString => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString('en-GB', {
       weekday: 'short',
-      month: 'short',
-      day: 'numeric',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
     });
   };
 
