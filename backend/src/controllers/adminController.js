@@ -6,6 +6,20 @@ import EmployeeMasterOptions from '../models/employeeMasterOptionsSchema.js';
 import bcrypt from 'bcrypt';
 import { getDefaultPayslipSettings } from '../utils/payslipUtils.js';
 
+const timeToMinutes = time => {
+  if (!time) return null;
+  const [hours = 0, minutes = 0] = String(time).split(':').map(Number);
+  return hours * 60 + minutes;
+};
+
+const minutesToTime = value => {
+  if (value === undefined || value === null || value === '') return undefined;
+  const totalMinutes = Math.max(0, Number(value || 0));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
 // Update Admin Profile
 export const updateAdminProfile = async (req, res) => {
   try {
@@ -115,7 +129,8 @@ export const getAttendanceSettings = async (req, res) => {
 
 export const updateAttendanceSettings = async (req, res) => {
   try {
-    const { lateByMinutes, totalWorkingHours, halfDayHours, minAbsentHours } = req.body;
+    const { lateByMinutes, totalWorkingHours, halfDayHours, minAbsentHours, maxLateCheckIns } =
+      req.body;
 
     let settings = await AdminAttendanceSettings.findOne();
 
@@ -128,8 +143,25 @@ export const updateAttendanceSettings = async (req, res) => {
     if (totalWorkingHours !== undefined) settings.totalWorkingHours = totalWorkingHours;
     if (halfDayHours !== undefined) settings.halfDayHours = halfDayHours;
     if (minAbsentHours !== undefined) settings.minAbsentHours = minAbsentHours;
+    if (maxLateCheckIns !== undefined) settings.maxLateCheckIns = maxLateCheckIns;
 
     await settings.save();
+
+    if (lateByMinutes !== undefined || maxLateCheckIns !== undefined) {
+      let payrollSettings = await PayrollSettings.findOne();
+      if (!payrollSettings) {
+        payrollSettings = new PayrollSettings();
+      }
+
+      const penaltyUpdates = {};
+      const graceTime = minutesToTime(lateByMinutes);
+      if (graceTime !== undefined) penaltyUpdates.graceTime = graceTime;
+      if (maxLateCheckIns !== undefined) penaltyUpdates.allowedDays = Number(maxLateCheckIns);
+
+      payrollSettings.penalties = { ...payrollSettings.penalties, ...penaltyUpdates };
+      await payrollSettings.save();
+    }
+
     res.status(200).json({ message: 'Attendance settings updated successfully', settings });
   } catch (error) {
     console.error('Error updating attendance settings:', error);
@@ -218,6 +250,21 @@ export const updatePayrollSettings = async (req, res) => {
         penaltyUpdates.method = 'percentage';
       }
       settings.penalties = { ...settings.penalties, ...penaltyUpdates };
+
+      if (penaltyUpdates.graceTime !== undefined || penaltyUpdates.allowedDays !== undefined) {
+        let attendanceSettings = await AdminAttendanceSettings.findOne();
+        if (!attendanceSettings) {
+          attendanceSettings = new AdminAttendanceSettings();
+        }
+
+        const graceMinutes = timeToMinutes(penaltyUpdates.graceTime);
+        if (graceMinutes !== null) attendanceSettings.lateByMinutes = graceMinutes;
+        if (penaltyUpdates.allowedDays !== undefined) {
+          attendanceSettings.maxLateCheckIns = Number(penaltyUpdates.allowedDays);
+        }
+
+        await attendanceSettings.save();
+      }
     }
 
     if (req.body.extras) {

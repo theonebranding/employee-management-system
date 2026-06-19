@@ -40,7 +40,6 @@ const minutesToHoursDisplay = minutes => {
 };
 
 const AdminAttendanceSettings = () => {
-  const readOnlySettingNames = ['lateByMinutes', 'maxLateCheckIns'];
   const [settings, setSettings] = useState({
     lateByMinutes: '',
     totalWorkingHours: '',
@@ -96,7 +95,6 @@ const AdminAttendanceSettings = () => {
   // Handle input changes
   const handleChange = e => {
     const { name, value } = e.target;
-    if (readOnlySettingNames.includes(name)) return;
     setSettings(prev => ({ ...prev, [name]: value }));
   };
 
@@ -107,9 +105,11 @@ const AdminAttendanceSettings = () => {
     setSaveStatus('saving');
 
     const settingsToSave = {
+      lateByMinutes: settings.lateByMinutes,
       totalWorkingHours: hoursToMinutes(settings.totalWorkingHours),
       halfDayHours: hoursToMinutes(settings.halfDayHours),
       minAbsentHours: hoursToMinutes(settings.minAbsentHours),
+      maxLateCheckIns: settings.maxLateCheckIns,
     };
 
     try {
@@ -155,7 +155,6 @@ const AdminAttendanceSettings = () => {
       placeholder: 'Enter minutes (e.g. 15)',
       unit: 'minutes',
       color: 'warning',
-      readOnly: true,
     },
     {
       name: 'totalWorkingHours',
@@ -196,7 +195,6 @@ const AdminAttendanceSettings = () => {
       placeholder: 'Enter number (e.g. 3)',
       unit: 'times',
       color: 'secondary',
-      readOnly: true,
     },
   ];
 
@@ -335,9 +333,7 @@ const AdminAttendanceSettings = () => {
                         name={section.name}
                         value={settings[section.name]}
                         onChange={handleChange}
-                        readOnly={section.readOnly}
-                        aria-readonly={section.readOnly ? 'true' : undefined}
-                        className={`w-full py-3 px-4 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-${section.color} transition-all text-light-text dark:text-dark-text ${section.readOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                        className={`w-full py-3 px-4 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-${section.color} transition-all text-light-text dark:text-dark-text`}
                         placeholder={section.placeholder}
                         required
                         min="0"
@@ -369,11 +365,6 @@ const AdminAttendanceSettings = () => {
                               : hoursToMinutes(settings[section.name])
                           ).minutes
                         }
-                      </p>
-                    )}
-                    {section.readOnly && (
-                      <p className="text-xs text-light-text dark:text-dark-text opacity-70 mt-1">
-                        Managed from Salary Management.
                       </p>
                     )}
                   </div>
