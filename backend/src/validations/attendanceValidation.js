@@ -17,6 +17,8 @@ const locationSchema = z
 
 export const attendanceCheckInSchema = locationSchema;
 
+export const attendanceRecessSchema = locationSchema;
+
 export const attendanceCheckOutSchema = locationSchema
   .extend({
     dailyReport: z

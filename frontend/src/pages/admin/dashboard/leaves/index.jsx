@@ -240,7 +240,7 @@ const AdminLeaveManagement = () => {
 
   const formatDate = dateString => {
     try {
-      return format(new Date(dateString), 'MMM d, yyyy');
+      return format(new Date(dateString), 'dd/MM/yyyy');
     } catch (error) {
       console.error('Error formatting date:', error);
       return { dateString };
@@ -604,7 +604,7 @@ const AdminLeaveManagement = () => {
           </button>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <table className="admin-sticky-columns min-w-full text-sm">
             <thead className="bg-sky-50 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/70 dark:text-dark-text/60">
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Leave Name</th>

@@ -84,13 +84,20 @@ const MonthlyAttendance = () => {
   const filterByDate = (data, searchText) => {
     if (!searchText.trim()) return data;
     return data.filter(item => {
-      const itemDate = new Date(item.date).toLocaleDateString();
+      const itemDate = new Date(item.date).toLocaleDateString('en-GB');
       return itemDate.toLowerCase().includes(searchText.toLowerCase());
     });
   };
 
   const formatLocation = (location, type) => {
-    if (!location || Object.keys(location).length === 0) return 'N/A';
+    if (
+      !location ||
+      location === 'N/A' ||
+      Object.keys(location).length === 0 ||
+      !location.latitude ||
+      !location.longitude
+    )
+      return 'N/A';
     return (
       <button
         onClick={() => {

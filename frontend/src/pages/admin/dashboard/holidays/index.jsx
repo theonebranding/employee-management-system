@@ -55,10 +55,10 @@ const formatDate = value => {
   if (!value) return '';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString('en-GB', {
     year: 'numeric',
-    month: 'short',
-    day: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
   });
 };
 
@@ -66,11 +66,11 @@ const formatDateLong = value => {
   if (!value) return '';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString('en-GB', {
     weekday: 'long',
     year: 'numeric',
-    month: 'long',
-    day: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
   });
 };
 
@@ -359,7 +359,7 @@ const AdminHolidays = () => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full">
+              <table className="admin-sticky-columns min-w-full">
                 <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/70 dark:text-dark-text/70">
                   <tr>
                     <th className="text-left py-3 px-4 font-semibold">Template Name</th>

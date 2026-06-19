@@ -42,7 +42,9 @@ const HalfDayEmployees = ({ startDate, endDate }) => {
         })
         .map(entry => ({
           date:
-            entry.checkInTime !== 'N/A' ? new Date(entry.checkInTime).toLocaleDateString() : 'N/A',
+            entry.checkInTime !== 'N/A'
+              ? new Date(entry.checkInTime).toLocaleDateString('en-GB')
+              : 'N/A',
           employeeName: entry.employeeName,
           employeeCode: entry.employeeCode,
           hoursWorked: formatHoursWorked(entry.totalWorkTime),
@@ -86,7 +88,7 @@ const HalfDayEmployees = ({ startDate, endDate }) => {
         </div>
       ) : halfDayList.length > 0 ? (
         <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-light-text dark:text-dark-text">
+          <table className="admin-sticky-columns min-w-full text-left text-light-text dark:text-dark-text">
             <thead className="bg-light-bg/50 dark:bg-dark-bg/50">
               <tr>
                 <th className="px-4 py-2 font-medium">Date</th>

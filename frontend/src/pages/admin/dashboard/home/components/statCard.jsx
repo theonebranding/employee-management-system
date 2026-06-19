@@ -79,18 +79,6 @@ const StatCard = () => {
 
   const statItems = [
     {
-      icon: Users,
-      label: 'Total Employees',
-      key: 'totalEmployees',
-      color: 'bg-primary/10 text-primary',
-    },
-    {
-      icon: UserCheck,
-      label: 'Present Today',
-      key: 'presentToday',
-      color: 'bg-success/10 text-success',
-    },
-    {
       icon: Clock,
       label: 'Checked In',
       key: 'checkedInToday',
@@ -101,6 +89,18 @@ const StatCard = () => {
       label: 'Checked Out',
       key: 'checkedOutToday',
       color: 'bg-green-500/10 text-green-500',
+    },
+    {
+      icon: Clock,
+      label: 'Late Arrivals',
+      key: 'lateArrivals',
+      color: 'bg-warning/10 text-warning',
+    },
+    {
+      icon: UserCheck,
+      label: 'Present Today',
+      key: 'presentToday',
+      color: 'bg-success/10 text-success',
     },
     {
       icon: UserX,
@@ -121,10 +121,10 @@ const StatCard = () => {
       color: 'bg-amber-500/10 text-amber-500',
     },
     {
-      icon: Clock,
-      label: 'Late Arrivals',
-      key: 'lateArrivals',
-      color: 'bg-warning/10 text-warning',
+      icon: Users,
+      label: 'Total Employees',
+      key: 'totalEmployees',
+      color: 'bg-primary/10 text-primary',
     },
   ];
 

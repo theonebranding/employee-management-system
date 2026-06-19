@@ -1761,7 +1761,7 @@ const AdminReports = () => {
     if (!value) return '—';
     return new Date(value).toLocaleDateString('en-IN', {
       day: '2-digit',
-      month: 'short',
+      month: '2-digit',
       year: 'numeric',
     });
   };
@@ -1999,7 +1999,7 @@ const AdminReports = () => {
               </div>
             ) : filteredAttendanceData.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
+                <table className="admin-sticky-columns min-w-full text-sm">
                   <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
                     <tr>
                       <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
@@ -2305,7 +2305,7 @@ const AdminReports = () => {
               </div>
             ) : filteredPunchData.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
+                <table className="admin-sticky-columns min-w-full text-sm">
                   <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
                     <tr>
                       <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
@@ -2602,7 +2602,7 @@ const AdminReports = () => {
               </div>
             ) : filteredReportData.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
+                <table className="admin-sticky-columns min-w-full text-sm">
                   <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
                     <tr>
                       <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
@@ -2936,7 +2936,7 @@ const AdminReports = () => {
               </div>
             ) : filteredHourlyData.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
+                <table className="admin-sticky-columns min-w-full text-sm">
                   <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
                     <tr>
                       <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
@@ -3126,7 +3126,7 @@ const AdminReports = () => {
                   ref={attendanceMasterTableScrollRef}
                   className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border"
                 >
-                  <table className="min-w-full text-sm">
+                  <table className="admin-sticky-columns min-w-full text-sm">
                     <thead className="bg-light-bg/70 dark:bg-dark-bg/70">
                       <tr>
                         <th className="px-4 py-3 text-left">Emp ID</th>

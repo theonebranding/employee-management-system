@@ -11,12 +11,19 @@ const MapModal = ({
 }) => {
   if (!showMapModal || !selectedLocation) return null;
 
+  const locationLabels = {
+    checkIn: 'Check-in',
+    checkOut: 'Check-out',
+    recessStart: 'Break Start',
+    recessEnd: 'Break End',
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
       <div className="bg-light-card dark:bg-dark-card rounded-2xl p-6 w-full max-w-3xl shadow-card ring-1 ring-light-border dark:ring-dark-border">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-light-text dark:text-dark-text">
-            {locationType === 'checkIn' ? 'Check-in' : 'Check-out'} Location
+            {locationLabels[locationType] || 'Attendance'} Location
           </h2>
           <button
             onClick={() => setShowMapModal(false)}
@@ -26,8 +33,12 @@ const MapModal = ({
           </button>
         </div>
         <LocationMap
-          checkInLocation={locationType === 'checkIn' ? selectedLocation : {}}
-          checkOutLocation={locationType === 'checkOut' ? selectedLocation : {}}
+          checkInLocation={
+            locationType === 'checkIn' || locationType === 'recessStart' ? selectedLocation : {}
+          }
+          checkOutLocation={
+            locationType === 'checkOut' || locationType === 'recessEnd' ? selectedLocation : {}
+          }
           isLocationPermissionGranted={true}
           requestLocation={() => {}}
           checkInTime={

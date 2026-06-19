@@ -24,6 +24,20 @@ const triggerPayrollRecomputeForDay = async (employeeId, dayStart, processedBy) 
   });
 };
 
+const parseLocation = ({ latitude, longitude }) => {
+  if (!latitude || !longitude) {
+    throw new Error('Latitude and longitude are required');
+  }
+
+  const lat = parseFloat(latitude);
+  const lng = parseFloat(longitude);
+  if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    throw new Error('Invalid latitude or longitude values');
+  }
+
+  return { latitude: lat, longitude: lng };
+};
+
 // Fetch Current Attendance Status
 export const getCurrentStatus = async (req, res) => {
   try {
@@ -49,6 +63,10 @@ export const getCurrentStatus = async (req, res) => {
     const { latitude, longitude } = attendance.checkInLocation || {};
     const { latitude: checkOutLatitude, longitude: checkOutLongitude } =
       attendance.checkOutLocation || {};
+    const { latitude: recessStartLatitude, longitude: recessStartLongitude } =
+      attendance.recessStartLocation || {};
+    const { latitude: recessEndLatitude, longitude: recessEndLongitude } =
+      attendance.recessEndLocation || {};
 
     // Calculate total working time live
     let liveWorkingTime = 0;
@@ -91,6 +109,15 @@ export const getCurrentStatus = async (req, res) => {
           ? { latitude: checkOutLatitude, longitude: checkOutLongitude }
           : null,
       recessStartTime: attendance.recessStartTime || null,
+      recessEndTime: attendance.recessEndTime || null,
+      recessStartLocation:
+        recessStartLatitude && recessStartLongitude
+          ? { latitude: recessStartLatitude, longitude: recessStartLongitude }
+          : null,
+      recessEndLocation:
+        recessEndLatitude && recessEndLongitude
+          ? { latitude: recessEndLatitude, longitude: recessEndLongitude }
+          : null,
       totalRecessDuration: formatTime(totalRecessDurationInMilliseconds),
       liveWorkingTime: formatTime(liveWorkingTime),
       lateCheckIn,
@@ -120,18 +147,7 @@ export const checkIn = async (req, res) => {
       return res.status(400).json({ message: 'Already checked in for today' });
     }
 
-    // Validate and extract latitude and longitude from request body
-    const { latitude, longitude } = req.body;
-    if (!latitude || !longitude) {
-      return res.status(400).json({ message: 'Latitude and longitude are required' });
-    }
-
-    // Verify latitude and longitude are within valid ranges
-    const lat = parseFloat(latitude);
-    const lng = parseFloat(longitude);
-    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      return res.status(400).json({ message: 'Invalid latitude or longitude values' });
-    }
+    const { latitude: lat, longitude: lng } = parseLocation(req.body);
 
     // Fetch employee's predefined check-in time (stored as HH:mm, treated as IST)
     const employee = await Employee.findById(employeeId);
@@ -228,8 +244,16 @@ export const startRecess = async (req, res) => {
       return res.status(400).json({ message: 'Recess is already ongoing' });
     }
 
+    const startLocation = parseLocation(req.body);
     attendance.isRecess = true;
     attendance.recessStartTime = new Date();
+    attendance.recessStartLocation = startLocation;
+    attendance.recessEndTime = null;
+    attendance.recessEndLocation = undefined;
+    attendance.recessSessions.push({
+      startTime: attendance.recessStartTime,
+      startLocation,
+    });
     attendance.currentStatus = 'In Recess';
 
     await attendance.save();
@@ -257,9 +281,21 @@ export const endRecess = async (req, res) => {
 
     const now = new Date();
     const recessDuration = now - new Date(attendance.recessStartTime);
+    const endLocation = parseLocation(req.body);
+    const activeSessionIndex = (attendance.recessSessions || [])
+      .map((session, index) => ({ session, index }))
+      .reverse()
+      .find(({ session }) => session.startTime && !session.endTime)?.index;
 
     attendance.totalRecessDuration = (attendance.totalRecessDuration || 0) + recessDuration;
     attendance.isRecess = false;
+    attendance.recessEndTime = now;
+    attendance.recessEndLocation = endLocation;
+    if (activeSessionIndex !== undefined) {
+      attendance.recessSessions[activeSessionIndex].endTime = now;
+      attendance.recessSessions[activeSessionIndex].endLocation = endLocation;
+      attendance.recessSessions[activeSessionIndex].duration = recessDuration;
+    }
     attendance.recessStartTime = null;
     attendance.currentStatus = 'Checked In';
 
@@ -290,18 +326,7 @@ export const checkOut = async (req, res) => {
       return res.status(400).json({ message: 'Cannot check out during an ongoing recess' });
     }
 
-    // Validate and extract latitude and longitude from request body
-    const { latitude, longitude } = req.body;
-    if (!latitude || !longitude) {
-      return res.status(400).json({ message: 'Latitude and longitude are required' });
-    }
-
-    // Verify latitude and longitude are within valid ranges
-    const lat = parseFloat(latitude);
-    const lng = parseFloat(longitude);
-    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      return res.status(400).json({ message: 'Invalid latitude or longitude values' });
-    }
+    const { latitude: lat, longitude: lng } = parseLocation(req.body);
 
     attendance.checkOutTime = new Date();
     attendance.currentStatus = 'Checked Out';

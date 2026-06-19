@@ -251,7 +251,7 @@ const EmployeeTasks = () => {
                         </td>
                         <td className="px-4 py-3 text-sm inline-flex items-center gap-2">
                           <Calendar className="w-4 h-4" />
-                          {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}
+                          {task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-GB') : '—'}
                         </td>
                         <td className="px-4 py-3">
                           <button

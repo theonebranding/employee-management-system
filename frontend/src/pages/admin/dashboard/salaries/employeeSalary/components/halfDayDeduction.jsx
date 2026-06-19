@@ -153,10 +153,11 @@ const HalfDayDeduction = ({ employeeId, onDataFetched, month, year }) => {
                   <div className="flex items-center gap-3">
                     <div className="w-2 h-2 rounded-full bg-secondary"></div>
                     <span className="text-light-text dark:text-dark-text">
-                      {new Date(entry.date).toLocaleDateString('en-US', {
+                      {new Date(entry.date).toLocaleDateString('en-GB', {
                         weekday: 'long',
-                        month: 'short',
-                        day: 'numeric',
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
                       })}
                     </span>
                   </div>

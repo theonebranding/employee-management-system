@@ -442,7 +442,7 @@ const AdminTasks = () => {
           ) : filteredTasks.length > 0 ? (
             <div className="relative group/table">
               <div ref={tasksTableScrollRef} className="overflow-x-auto">
-                <table className="min-w-full">
+                <table className="admin-sticky-columns min-w-full">
                   <thead className="bg-light-bg/70 dark:bg-dark-bg/70 border-b border-light-border dark:border-dark-border text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
                     <tr>
                       <th className="px-6 py-3 text-left font-semibold">Title</th>
@@ -484,7 +484,7 @@ const AdminTasks = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm">
-                          {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}
+                          {task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-GB') : '—'}
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex gap-2">

@@ -348,6 +348,23 @@ const AdminAddEmployee = () => {
   };
   const goBack = () => setStepIndex(prev => Math.max(prev - 1, 0));
 
+  const goToStep = targetIndex => {
+    if (targetIndex === stepIndex) return;
+    if (targetIndex < stepIndex) {
+      setStepIndex(targetIndex);
+      return;
+    }
+
+    for (let index = stepIndex; index < targetIndex; index += 1) {
+      if (!validateStep(index)) {
+        setStepIndex(index);
+        toast.error('Please complete required fields before moving ahead.');
+        return;
+      }
+    }
+    setStepIndex(targetIndex);
+  };
+
   const handleCreateEmployee = async () => {
     if (stepIndex < STEPS.length - 1) {
       return;
@@ -487,22 +504,29 @@ const AdminAddEmployee = () => {
               const isDone = index < stepIndex;
               return (
                 <div key={step.id} className="flex items-center gap-2 min-w-max">
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold ${
-                      isDone
-                        ? 'bg-success text-white'
-                        : isActive
-                          ? 'bg-primary text-white'
-                          : 'bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text'
-                    }`}
+                  <button
+                    type="button"
+                    onClick={() => goToStep(index)}
+                    className="flex items-center gap-2 focus:outline-none"
+                    aria-current={isActive ? 'step' : undefined}
                   >
-                    {isDone ? <Check className="w-4 h-4" /> : index + 1}
-                  </div>
-                  <span
-                    className={`text-sm ${isActive ? 'text-primary font-semibold' : 'text-light-text dark:text-dark-text'}`}
-                  >
-                    {step.label}
-                  </span>
+                    <span
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold ${
+                        isDone
+                          ? 'bg-success text-white'
+                          : isActive
+                            ? 'bg-primary text-white'
+                            : 'bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text'
+                      }`}
+                    >
+                      {isDone ? <Check className="w-4 h-4" /> : index + 1}
+                    </span>
+                    <span
+                      className={`text-sm ${isActive ? 'text-primary font-semibold' : 'text-light-text dark:text-dark-text'}`}
+                    >
+                      {step.label}
+                    </span>
+                  </button>
                   {index < STEPS.length - 1 && (
                     <ChevronRight className="w-4 h-4 text-light-text/50" />
                   )}
@@ -820,17 +844,17 @@ const AdminAddEmployee = () => {
             <div className="flex items-center gap-3">
               <Link
                 to="/admin/dashboard/employees"
-                className="px-4 py-2 rounded-lg border border-light-border dark:border-dark-border text-light-text dark:text-dark-text inline-flex items-center gap-2"
+                className="px-4 py-2 rounded-lg border border-danger bg-danger text-white hover:bg-danger/80 inline-flex items-center gap-2"
               >
-                <ArrowLeft className="w-4 h-4" /> Back
+                Exit
               </Link>
               {stepIndex > 0 && (
                 <button
                   type="button"
                   onClick={goBack}
-                  className="px-4 py-2 rounded-lg border border-light-border dark:border-dark-border text-light-text dark:text-dark-text"
+                  className="px-4 py-2 rounded-lg border border-light-border dark:border-dark-border text-light-text dark:text-dark-text inline-flex items-center gap-2"
                 >
-                  Previous
+                  <ArrowLeft className="w-4 h-4" /> Previous
                 </button>
               )}
             </div>

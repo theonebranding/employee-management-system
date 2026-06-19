@@ -377,23 +377,25 @@ const Leaves = () => {
                       <div className="flex items-center gap-2 text-light-text dark:text-dark-text opacity-70 text-sm">
                         <CalendarDays className="w-4 h-4" />
                         <span>
-                          {new Date(request.startDate).toLocaleDateString('en-US', {
+                          {new Date(request.startDate).toLocaleDateString('en-GB', {
                             weekday: 'short',
-                            month: 'short',
-                            day: 'numeric',
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
                           })}{' '}
                           -{' '}
-                          {new Date(request.endDate).toLocaleDateString('en-US', {
+                          {new Date(request.endDate).toLocaleDateString('en-GB', {
                             weekday: 'short',
-                            month: 'short',
-                            day: 'numeric',
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
                           })}
                         </span>
                       </div>
                     </div>
                     <div className="flex items-center text-sm text-light-text dark:text-dark-text opacity-70">
                       <Calendar className="w-4 h-4 mr-2" />
-                      Submitted on {new Date(request.createdAt).toLocaleDateString()}
+                      Submitted on {new Date(request.createdAt).toLocaleDateString('en-GB')}
                     </div>
                   </div>
                 </div>

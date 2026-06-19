@@ -52,7 +52,7 @@ const SearchBar = ({
             </div>
             <input
               type="text"
-              placeholder="Search by date (MM/DD/YYYY)"
+              placeholder="Search by date (DD/MM/YYYY)"
               value={searchDate}
               onChange={onSearchChange}
               className="p-3 pl-10 w-full rounded-xl bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text border border-light-border dark:border-dark-border focus:ring-2 focus:ring-primary focus:border-primary transition-all hover:bg-light-card dark:hover:bg-dark-card"
