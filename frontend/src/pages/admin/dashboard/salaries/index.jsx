@@ -1,7 +1,7 @@
 /* eslint-disable unused-imports/no-unused-vars */
-/* eslint-disable no-unused-vars */
+ 
 /* eslint-disable react-hooks/exhaustive-deps */
-import { Calculator, ChevronDown, Download, Filter, Search, X } from 'lucide-react';
+import { Calculator, ChevronDown, Download, FileSpreadsheet , Filter, Search, X } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
@@ -55,6 +55,12 @@ const AdminSalaryManagement = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
+  const [fromMonth, setFromMonth] = useState(new Date().getMonth() + 1);
+  const [fromYear, setFromYear] = useState(new Date().getFullYear());
+  const [toMonth, setToMonth] = useState(new Date().getMonth() + 1);
+  const [toYear, setToYear] = useState(new Date().getFullYear());
+  const [selectedExportEmployees, setSelectedExportEmployees] = useState([]);
+  const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [settingsPanel, setSettingsPanel] = useState(null);
   const [overtimeSettings, setOvertimeSettings] = useState({
@@ -431,6 +437,11 @@ const AdminSalaryManagement = () => {
     } catch (error) {
       toast.error(error.message || 'Failed to fetch payroll settings.');
     }
+  };
+
+  const handleSearch = () => {
+    setMonth(fromMonth);
+    setYear(fromYear);
   };
 
   useEffect(() => {
@@ -868,7 +879,10 @@ const AdminSalaryManagement = () => {
         fetchLatestPayrollForEmployee(employee._id),
         fetchPanelDeductions(employee._id),
       ]);
-      const preferredPayroll = latestPayroll || mergedPayrollMap[employee._id];
+      const preferredPayroll =
+        latestPayroll && latestPayroll.status === 'paid'
+          ? latestPayroll
+          : mergedPayrollMap[employee._id];
       if (preferredPayroll) {
         setSelectedEmployee(prev => (prev ? { ...prev, payroll: preferredPayroll } : prev));
         setFormState(prev => ({
@@ -1100,173 +1114,321 @@ const AdminSalaryManagement = () => {
     }
   };
 
-  const exportPayrollCsv = () => {
-    const headers = [
-      'Employee ID',
-      'Name',
-      'Department',
-      'Designation',
-      'Full Days',
-      'Half Days',
-      'Paid Leaves',
-      'Unpaid Days',
-      'Daily Wage',
-      'Gross Wage',
-      'Base Salary',
-      'Overtime',
-      'Penalties',
-      'Loan & Advance',
-      'Extras',
-      'Net Pay',
-      'Status',
-    ];
+  const exportPayrollCsv = async () => {
+    try {
+      const queryParams = {
+        startMonth: fromMonth,
+        startYear: fromYear,
+        endMonth: toMonth,
+        endYear: toYear,
+        all: 'true',
+      };
+      if (selectedExportEmployees && selectedExportEmployees.length > 0) {
+        queryParams.employeeIds = selectedExportEmployees.join(',');
+      }
+      const query = new URLSearchParams(queryParams);
+      const response = await fetch(`${BASE_URL}/payroll?${query.toString()}`, {
+        headers: authHeaders,
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.message || 'Failed to fetch payrolls for export.');
+      }
 
-    const rows = filteredEmployees.map(employee => {
-      const payroll = mergedPayrollMap[employee._id] || {};
-      const baseSalary = Number(payroll.baseSalary || getEmployeeSalary(employee.email) || 0);
-      const overtime = Number(payroll.overtimeAmount || 0);
-      const penalties = Number(
-        payroll.isPreview ? (autoPenaltyMap[employee._id] ?? 0) : payroll.penalties || 0
-      );
-      const loanAmount = Number(
-        payroll.isPreview
-          ? (loanAdvanceMap[employee._id] ?? payroll.computedLoanAmount ?? 0)
-          : payroll.loanAmount || 0
-      );
-      const extras = Number(getExtraAmountForEmployee(employee._id) || 0);
-      const grossWage =
-        Number(payroll.dailyWage || 0) *
-        (Number(payroll.fullDays || 0) + Number(payroll.halfDays || 0) * 0.5);
-      const netPay = Number(
-        payroll.isPreview ? getPreviewNetPay(employee._id, payroll) : payroll.totalSalary || 0
-      );
+      const payrollsToExport = data.payrolls || [];
+      if (payrollsToExport.length === 0) {
+        toast.info('No payroll records found for the selected period.');
+        return;
+      }
 
-      return [
-        employee.employeeCode || 'N/A',
-        employee.name,
-        employee.department || 'N/A',
-        employee.designation || 'N/A',
-        payroll.fullDays || 0,
-        payroll.halfDays || 0,
-        payroll.paidLeaves || 0,
-        payroll.unpaidDays || 0,
-        Number(payroll.dailyWage || 0).toFixed(2),
-        grossWage.toFixed(2),
-        baseSalary.toFixed(2),
-        overtime.toFixed(2),
-        penalties.toFixed(2),
-        loanAmount.toFixed(2),
-        extras.toFixed(2),
-        netPay.toFixed(2),
-        payroll.status || 'unpaid',
+      const headers = [
+        'Month/Year',
+        'Employee ID',
+        'Name',
+        'Department',
+        'Designation',
+        'Full Days',
+        'Half Days',
+        'Paid Leaves',
+        'Unpaid Days',
+        'Daily Wage',
+        'Gross Wage',
+        'Base Salary',
+        'Overtime',
+        'Penalties',
+        'Loan & Advance',
+        'Extras',
+        'Net Pay',
+        'Status',
       ];
-    });
 
-    const csv = [headers, ...rows]
-      .map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `payroll-${month}-${year}.csv`;
-    link.click();
-  };
+      let totalFullDays = 0;
+      let totalHalfDays = 0;
+      let totalPaidLeaves = 0;
+      let totalUnpaidDays = 0;
+      let totalGrossWage = 0;
+      let totalBaseSalary = 0;
+      let totalOvertime = 0;
+      let totalPenalties = 0;
+      let totalLoanAmount = 0;
+      let totalExtras = 0;
+      let totalNetPay = 0;
 
-  const exportPayrollPdf = () => {
-    const rowsHtml = filteredEmployees
-      .map(employee => {
-        const payroll = mergedPayrollMap[employee._id] || {};
-        const baseSalary = Number(payroll.baseSalary || getEmployeeSalary(employee.email) || 0);
+      const payrollRows = payrollsToExport.map(payroll => {
+        const employee = payroll.employee || {};
+        const baseSalary = Number(payroll.baseSalary || 0);
         const overtime = Number(payroll.overtimeAmount || 0);
-        const penalties = Number(
-          payroll.isPreview ? (autoPenaltyMap[employee._id] ?? 0) : payroll.penalties || 0
-        );
-        const loanAmount = Number(
-          payroll.isPreview
-            ? (loanAdvanceMap[employee._id] ?? payroll.computedLoanAmount ?? 0)
-            : payroll.loanAmount || 0
-        );
-        const extras = Number(getExtraAmountForEmployee(employee._id) || 0);
+        const penalties = Number(payroll.penalties || 0);
+        const loanAmount = Number(payroll.loanAmount || 0);
+        const extras = Number(payroll.extraAmount || 0);
         const grossWage =
           Number(payroll.dailyWage || 0) *
           (Number(payroll.fullDays || 0) + Number(payroll.halfDays || 0) * 0.5);
-        const netPay = Number(
-          payroll.isPreview ? getPreviewNetPay(employee._id, payroll) : payroll.totalSalary || 0
-        );
+        const netPay = Number(payroll.totalSalary || 0);
 
-        return `
-          <tr>
-            <td>${employee.employeeCode || 'N/A'}</td>
-            <td>${employee.name}</td>
-            <td>${employee.department || 'N/A'}</td>
-            <td>${employee.designation || 'N/A'}</td>
-            <td>${payroll.fullDays || 0}</td>
-            <td>${payroll.halfDays || 0}</td>
-            <td>${payroll.paidLeaves || 0}</td>
-            <td>${payroll.unpaidDays || 0}</td>
-            <td>${Number(payroll.dailyWage || 0).toFixed(2)}</td>
-            <td>${grossWage.toFixed(2)}</td>
-            <td>${baseSalary.toFixed(2)}</td>
-            <td>${overtime.toFixed(2)}</td>
-            <td>${penalties.toFixed(2)}</td>
-            <td>${loanAmount.toFixed(2)}</td>
-            <td>${extras.toFixed(2)}</td>
-            <td>${netPay.toFixed(2)}</td>
-            <td>${payroll.status || 'unpaid'}</td>
-          </tr>
-        `;
-      })
-      .join('');
+        totalFullDays += Number(payroll.fullDays || 0);
+        totalHalfDays += Number(payroll.halfDays || 0);
+        totalPaidLeaves += Number(payroll.paidLeaves || 0);
+        totalUnpaidDays += Number(payroll.unpaidDays || 0);
+        totalGrossWage += grossWage;
+        totalBaseSalary += baseSalary;
+        totalOvertime += overtime;
+        totalPenalties += penalties;
+        totalLoanAmount += loanAmount;
+        totalExtras += extras;
+        totalNetPay += netPay;
 
-    const html = `
-      <html>
-        <head>
-          <title>Payroll ${month}-${year}</title>
-          <style>
-            body { font-family: Sora, "Plus Jakarta Sans", Poppins, sans-serif; padding: 16px; }
-            table { width: 100%; border-collapse: collapse; font-size: 12px; }
-            th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
-            th { background: #f5f5f5; }
-          </style>
-        </head>
-        <body>
-          <h2>Payroll Report (${month}/${year})</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Emp ID</th>
-                <th>Name</th>
-                <th>Department</th>
-                <th>Designation</th>
-                <th>Full Days</th>
-                <th>Half Days</th>
-                <th>Paid Leaves</th>
-                <th>Unpaid Days</th>
-                <th>Daily Wage</th>
-                <th>Gross Wage</th>
-                <th>Base Salary</th>
-                <th>Overtime</th>
-                <th>Penalties</th>
-                <th>Loan & Advance</th>
-                <th>Extras</th>                
-                <th>Net Pay</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rowsHtml}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `;
+        return [
+          `${payroll.month}/${payroll.year}`,
+          employee.employeeCode || 'N/A',
+          employee.name || 'N/A',
+          employee.department || 'N/A',
+          employee.designation || 'N/A',
+          payroll.fullDays || 0,
+          payroll.halfDays || 0,
+          payroll.paidLeaves || 0,
+          payroll.unpaidDays || 0,
+          Number(payroll.dailyWage || 0).toFixed(2),
+          grossWage.toFixed(2),
+          baseSalary.toFixed(2),
+          overtime.toFixed(2),
+          penalties.toFixed(2),
+          loanAmount.toFixed(2),
+          extras.toFixed(2),
+          netPay.toFixed(2),
+          payroll.status || 'unpaid',
+        ];
+      });
 
-    const popup = window.open('', '_blank');
-    if (popup) {
-      popup.document.open();
-      popup.document.write(html);
-      popup.document.close();
-      popup.print();
+      const totalRow = [
+        'Total',
+        '', // Employee ID
+        '', // Name
+        '', // Department
+        '', // Designation
+        totalFullDays,
+        totalHalfDays,
+        totalPaidLeaves,
+        totalUnpaidDays,
+        '', // Daily Wage
+        totalGrossWage.toFixed(2),
+        totalBaseSalary.toFixed(2),
+        totalOvertime.toFixed(2),
+        totalPenalties.toFixed(2),
+        totalLoanAmount.toFixed(2),
+        totalExtras.toFixed(2),
+        totalNetPay.toFixed(2),
+        '', // Status
+      ];
+
+      const csv = [headers, ...payrollRows, totalRow]
+        .map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+
+      const rangeLabel = (fromMonth === toMonth && fromYear === toYear)
+        ? `${fromMonth}-${fromYear}`
+        : `${fromMonth}_${fromYear}_to_${toMonth}_${toYear}`;
+
+      link.download = `payroll-report-${rangeLabel}.csv`;
+      link.click();
+    } catch (error) {
+      toast.error(error.message || 'Failed to export CSV.');
+    }
+  };
+
+  const exportPayrollPdf = async () => {
+    try {
+      const queryParams = {
+        startMonth: fromMonth,
+        startYear: fromYear,
+        endMonth: toMonth,
+        endYear: toYear,
+        all: 'true',
+      };
+      if (selectedExportEmployees && selectedExportEmployees.length > 0) {
+        queryParams.employeeIds = selectedExportEmployees.join(',');
+      }
+      const query = new URLSearchParams(queryParams);
+      const response = await fetch(`${BASE_URL}/payroll?${query.toString()}`, {
+        headers: authHeaders,
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.message || 'Failed to fetch payrolls for export.');
+      }
+
+      const payrollsToExport = data.payrolls || [];
+      if (payrollsToExport.length === 0) {
+        toast.info('No payroll records found for the selected period.');
+        return;
+      }
+
+      let totalFullDays = 0;
+      let totalHalfDays = 0;
+      let totalPaidLeaves = 0;
+      let totalUnpaidDays = 0;
+      let totalGrossWage = 0;
+      let totalBaseSalary = 0;
+      let totalOvertime = 0;
+      let totalPenalties = 0;
+      let totalLoanAmount = 0;
+      let totalExtras = 0;
+      let totalNetPay = 0;
+
+      const rowsHtml = payrollsToExport
+        .map(payroll => {
+          const employee = payroll.employee || {};
+          const baseSalary = Number(payroll.baseSalary || 0);
+          const overtime = Number(payroll.overtimeAmount || 0);
+          const penalties = Number(payroll.penalties || 0);
+          const loanAmount = Number(payroll.loanAmount || 0);
+          const extras = Number(payroll.extraAmount || 0);
+          const grossWage =
+            Number(payroll.dailyWage || 0) *
+            (Number(payroll.fullDays || 0) + Number(payroll.halfDays || 0) * 0.5);
+          const netPay = Number(payroll.totalSalary || 0);
+
+          totalFullDays += Number(payroll.fullDays || 0);
+          totalHalfDays += Number(payroll.halfDays || 0);
+          totalPaidLeaves += Number(payroll.paidLeaves || 0);
+          totalUnpaidDays += Number(payroll.unpaidDays || 0);
+          totalGrossWage += grossWage;
+          totalBaseSalary += baseSalary;
+          totalOvertime += overtime;
+          totalPenalties += penalties;
+          totalLoanAmount += loanAmount;
+          totalExtras += extras;
+          totalNetPay += netPay;
+
+          return `
+            <tr>
+              <td>${payroll.month}/${payroll.year}</td>
+              <td>${employee.employeeCode || 'N/A'}</td>
+              <td>${employee.name || 'N/A'}</td>
+              <td>${employee.department || 'N/A'}</td>
+              <td>${employee.designation || 'N/A'}</td>
+              <td>${payroll.fullDays || 0}</td>
+              <td>${payroll.halfDays || 0}</td>
+              <td>${payroll.paidLeaves || 0}</td>
+              <td>${payroll.unpaidDays || 0}</td>
+              <td>${Number(payroll.dailyWage || 0).toFixed(2)}</td>
+              <td>${grossWage.toFixed(2)}</td>
+              <td>${baseSalary.toFixed(2)}</td>
+              <td>${overtime.toFixed(2)}</td>
+              <td>${penalties.toFixed(2)}</td>
+              <td>${loanAmount.toFixed(2)}</td>
+              <td>${extras.toFixed(2)}</td>
+              <td>${netPay.toFixed(2)}</td>
+              <td>${payroll.status || 'unpaid'}</td>
+            </tr>
+          `;
+        })
+        .join('');
+
+      const totalRowHtml = `
+        <tr style="font-weight: bold; background-color: #f5f5f5;">
+          <td>Total</td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td>${totalFullDays}</td>
+          <td>${totalHalfDays}</td>
+          <td>${totalPaidLeaves}</td>
+          <td>${totalUnpaidDays}</td>
+          <td></td>
+          <td>₹${totalGrossWage.toFixed(2)}</td>
+          <td>₹${totalBaseSalary.toFixed(2)}</td>
+          <td>₹${totalOvertime.toFixed(2)}</td>
+          <td>₹${totalPenalties.toFixed(2)}</td>
+          <td>₹${totalLoanAmount.toFixed(2)}</td>
+          <td>₹${totalExtras.toFixed(2)}</td>
+          <td>₹${totalNetPay.toFixed(2)}</td>
+          <td></td>
+        </tr>
+      `;
+
+      const rangeLabel = (fromMonth === toMonth && fromYear === toYear)
+        ? `${fromMonth}/${fromYear}`
+        : `${fromMonth}/${fromYear} to ${toMonth}/${toYear}`;
+
+      const html = `
+        <html>
+          <head>
+            <title>Payroll ${rangeLabel}</title>
+            <style>
+              body { font-family: Sora, "Plus Jakarta Sans", Poppins, sans-serif; padding: 16px; }
+              table { width: 100%; border-collapse: collapse; font-size: 12px; }
+              th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+              th { background: #f5f5f5; }
+            </style>
+          </head>
+          <body>
+            <h2>Payroll Report (${rangeLabel})</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Month/Yr</th>
+                  <th>Emp ID</th>
+                  <th>Name</th>
+                  <th>Department</th>
+                  <th>Designation</th>
+                  <th>Full Days</th>
+                  <th>Half Days</th>
+                  <th>Paid Leaves</th>
+                  <th>Unpaid Days</th>
+                  <th>Daily Wage</th>
+                  <th>Gross Wage</th>
+                  <th>Base Salary</th>
+                  <th>Overtime</th>
+                  <th>Penalties</th>
+                  <th>Loan & Advance</th>
+                  <th>Extras</th>                
+                  <th>Net Pay</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+                ${totalRowHtml}
+              </tbody>
+            </table>
+          </body>
+        </html>
+      `;
+
+      const popup = window.open('', '_blank');
+      if (popup) {
+        popup.document.open();
+        popup.document.write(html);
+        popup.document.close();
+        popup.print();
+      }
+    } catch (error) {
+      toast.error(error.message || 'Failed to export PDF.');
     }
   };
 
@@ -1774,268 +1936,298 @@ const AdminSalaryManagement = () => {
     const overtimeHours = Number(payroll?.overtimeHours || 0);
     const overtimeAmount = Number(payroll?.overtimeAmount || 0);
     const extraAmount = getExtraAmountForEmployee(selectedEmployee?._id);
+    const isPreviewOrUnpaid = payroll?.isPreview || payroll?.status !== 'paid';
     const snapshotPenaltyAmount = Number(
-      payroll?.isPreview ? (autoPenaltyMap[selectedEmployee?._id] ?? 0) : payroll?.penalties || 0
+      isPreviewOrUnpaid ? (autoPenaltyMap[selectedEmployee?._id] ?? 0) : payroll?.penalties || 0
     );
     const snapshotLoanAmount = Number(
-      payroll?.isPreview
+      isPreviewOrUnpaid
         ? (loanAdvanceMap[selectedEmployee?._id] ?? payroll?.computedLoanAmount ?? 0)
         : payroll?.loanAmount || 0
     );
     const showPenaltySummary = Boolean(penaltySettings.enabled);
 
+    const fullDays = Number(payroll?.fullDays || 0);
+    const halfDays = Number(payroll?.halfDays || 0);
+    const paidLeaves = Number(payroll?.paidLeaves || 0);
+    const unpaidDays = Number(payroll?.unpaidDays || 0);
+    const paidLeavesGross = paidLeaves * dailyWage;
+    const leaveEncashmentAmount = Number(
+      payroll?.leaveEncashmentAmount ?? payroll?.leaveEncashment?.total ?? 0
+    );
+    const grossPay =
+      fullDays * dailyWage +
+      halfDays * dailyWage * 0.5 +
+      paidLeaves * dailyWage +
+      overtimeAmount +
+      extraAmount +
+      leaveEncashmentAmount;
+    const deductions = snapshotPenaltyAmount + snapshotLoanAmount;
+    const totalSalary = isPreviewOrUnpaid
+      ? getPreviewNetPay(selectedEmployee?._id, payroll)
+      : Number(payroll?.totalSalary || 0);
+
     return (
-      <div>
-        <div className="flex items-center justify-between mb-6">
+      <div className="space-y-6">
+        <div className="sticky -top-6 bg-light-bg dark:bg-dark-bg z-10 pt-6 pb-4 -mx-6 px-6 border-b border-light-border dark:border-dark-border flex items-start justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-light-text/60 dark:text-dark-text/60">
+            <p className="text-xs uppercase tracking-[0.2em] font-medium text-light-text/55 dark:text-dark-text/55 mb-1">
               Payroll Snapshot
             </p>
-            <h2 className="text-xl font-semibold">{selectedEmployee?.name || 'Select Employee'}</h2>
-            {selectedEmployee ? (
-              <p className="text-sm text-light-text/60 dark:text-dark-text/60">
-                {selectedEmployee.email}
-              </p>
-            ) : null}
+            <h2 className="text-2xl font-bold text-light-text dark:text-dark-text tracking-tight">
+              {selectedEmployee?.name || 'Select Employee'}
+            </h2>
+            <div className="flex flex-wrap items-center gap-2 mt-1.5 text-sm text-light-text/60 dark:text-dark-text/60">
+              <span>{selectedEmployee?.email}</span>
+              {selectedEmployee?.employeeCode && (
+                <>
+                  <span className="text-light-text/30 dark:text-dark-text/30">•</span>
+                  <span className="font-mono text-xs px-2 py-0.5 rounded bg-light-bg dark:bg-dark-bg border border-light-border/60 dark:border-dark-border/60">
+                    {selectedEmployee.employeeCode}
+                  </span>
+                </>
+              )}
+            </div>
+
+            {/* Status Select Badge */}
+            <div className="flex items-center gap-2.5 mt-3">
+              <span className="text-xs font-semibold uppercase tracking-wider text-light-text/50 dark:text-dark-text/50">Status:</span>
+              <select
+                value={formState.status}
+                disabled={isPayrollPaidLocked}
+                onChange={e => setFormState(prev => ({ ...prev, status: e.target.value }))}
+                className={`px-3 py-1 text-xs rounded-full border bg-white dark:bg-dark-card font-semibold transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                  formState.status === 'paid'
+                    ? 'border-green-200 text-green-700 bg-green-50/50 dark:bg-green-950/20 dark:text-green-400 dark:border-green-900/50'
+                    : 'border-amber-200 text-amber-700 bg-amber-50/50 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/50'
+                }`}
+              >
+                <option value="unpaid">Unpaid</option>
+                <option value="paid">Paid</option>
+              </select>
+            </div>
           </div>
           {showClose ? (
-            <button onClick={closePanel} aria-label="Close payroll panel">
+            <button
+              onClick={closePanel}
+              className="p-1.5 rounded-lg hover:bg-light-bg dark:hover:bg-dark-bg text-light-text/60 dark:text-dark-text/60 hover:text-light-text dark:hover:text-dark-text transition-colors border border-transparent hover:border-light-border dark:hover:border-dark-border"
+              aria-label="Close payroll panel"
+            >
               <X className="w-5 h-5" />
             </button>
           ) : null}
         </div>
 
-        <div className="space-y-5">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-                Overtime Hours
-              </label>
-              <input
-                type="number"
-                step="1"
-                value={Number.isFinite(overtimeHours) ? overtimeHours : 0}
-                disabled
-                readOnly
-                className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
-              />
+        {/* 1. Attendance Summary */}
+        <div className="space-y-2.5">
+          <h3 className="text-xs font-bold uppercase tracking-[0.12em] text-light-text/50 dark:text-dark-text/50">
+            Attendance Summary
+          </h3>
+          <div className="grid grid-cols-4 gap-2 bg-light-card/40 dark:bg-dark-card/40 p-3.5 rounded-xl border border-light-border/80 dark:border-dark-border/80 shadow-sm">
+            <div className="text-center">
+              <span className="block text-xl font-bold text-primary">{fullDays}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-light-text/50 dark:text-dark-text/50">Full Days</span>
             </div>
-            <div>
-              <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-                Penalties
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={Number.isFinite(snapshotPenaltyAmount) ? snapshotPenaltyAmount : 0}
-                disabled
-                readOnly
-                className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
-              />
+            <div className="text-center border-l border-light-border/80 dark:border-dark-border/80">
+              <span className="block text-xl font-bold text-primary">{halfDays}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-light-text/50 dark:text-dark-text/50">Half Days</span>
             </div>
-            <div>
-              <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-                Loan Amount
-              </label>
-              <input
-                type="number"
-                step="1"
-                value={Number.isFinite(snapshotLoanAmount) ? snapshotLoanAmount : 0}
-                disabled
-                readOnly
-                className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
-              />
+            <div className="text-center border-l border-light-border/80 dark:border-dark-border/80">
+              <span className="block text-xl font-bold text-primary">{paidLeaves}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-light-text/50 dark:text-dark-text/50">Paid Leaves</span>
             </div>
-            <div>
-              <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-                Extra Amount
-              </label>
-              <input
-                type="number"
-                step="1"
-                value={Number.isFinite(extraAmount) ? extraAmount : 0}
-                disabled
-                readOnly
-                className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
-              />
+            <div className="text-center border-l border-light-border/80 dark:border-dark-border/80">
+              <span className="block text-xl font-bold text-red-500">{unpaidDays}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-light-text/50 dark:text-dark-text/50">Unpaid Days</span>
             </div>
           </div>
+        </div>
 
-          {showPenaltySummary ? (
-            <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
-              <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-                Penalty Summary
-              </p>
-              <div className="flex items-center justify-between text-sm">
-                <span>Late Check-ins</span>
-                <span>{lateCount}</span>
+        {/* 2. Earnings Details */}
+        <div className="space-y-2.5">
+          <h3 className="text-xs font-bold uppercase tracking-[0.12em] text-light-text/50 dark:text-dark-text/50">
+            Earnings & Additions
+          </h3>
+          <div className="rounded-xl border border-light-border/80 dark:border-dark-border/80 p-4 bg-light-card/25 dark:bg-dark-card/25 space-y-3 shadow-sm">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex flex-col">
+                <span className="font-medium">Base Salary (Worked Days)</span>
+                <span className="text-xs text-light-text/60 dark:text-dark-text/60 font-mono">
+                  {fullDays}d full + {halfDays}d half @ ₹{dailyWage}/day
+                </span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span>Allowed Days</span>
-                <span>{allowedLateDays}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span>Excess Days</span>
-                <span>{excessLateDays}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span>Per-day Penalty</span>
-                <span>₹{Number(perDayPenalty || 0).toFixed(2)}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span>Total Penalty</span>
-                <span>₹{Number(totalPenalty || 0).toFixed(2)}</span>
-              </div>
+              <span className="font-semibold text-light-text dark:text-dark-text">
+                ₹{((fullDays + halfDays * 0.5) * dailyWage).toFixed(2)}
+              </span>
             </div>
-          ) : null}
 
-          <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
-            <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-              Overtime Summary
+            {paidLeavesGross > 0 && (
+              <div className="flex items-center justify-between text-sm border-t border-light-border/40 dark:border-dark-border/40 pt-2.5">
+                <div className="flex flex-col">
+                  <span className="font-medium">Paid Leaves Gross</span>
+                  <span className="text-xs text-light-text/60 dark:text-dark-text/60 font-mono">
+                    {paidLeaves}d leaves @ ₹{dailyWage}/day
+                  </span>
+                </div>
+                <span className="font-semibold text-light-text dark:text-dark-text">
+                  ₹{paidLeavesGross.toFixed(2)}
+                </span>
+              </div>
+            )}
+
+            {overtimeHours > 0 && (
+              <div className="flex items-center justify-between text-sm border-t border-light-border/40 dark:border-dark-border/40 pt-2.5">
+                <div className="flex flex-col">
+                  <span className="font-medium">Overtime Amount</span>
+                  <span className="text-xs text-light-text/60 dark:text-dark-text/60 font-mono">
+                    {overtimeHours.toFixed(2)} hrs @ ₹{overtimeRate.toFixed(2)}/hr
+                  </span>
+                </div>
+                <span className="font-semibold text-light-text dark:text-dark-text">
+                  ₹{overtimeAmount.toFixed(2)}
+                </span>
+              </div>
+            )}
+
+            {extraAmount > 0 && (
+              <div className="flex items-center justify-between text-sm border-t border-light-border/40 dark:border-dark-border/40 pt-2.5">
+                <div className="flex flex-col">
+                  <span className="font-medium">Extra Allowances</span>
+                  <span className="text-xs text-light-text/60 dark:text-dark-text/60">
+                    Additional monthly adjustments
+                  </span>
+                </div>
+                <span className="font-semibold text-light-text dark:text-dark-text">
+                  ₹{extraAmount.toFixed(2)}
+                </span>
+              </div>
+            )}
+
+            {leaveEncashmentAmount > 0 && (
+              <div className="flex items-center justify-between text-sm border-t border-light-border/40 dark:border-dark-border/40 pt-2.5">
+                <div className="flex flex-col">
+                  <span className="font-medium">{LEAVE_ENCASHMENT_LABEL}</span>
+                  <span className="text-xs text-light-text/60 dark:text-dark-text/60">
+                    Encashment of accumulated leave
+                  </span>
+                </div>
+                <span className="font-semibold text-light-text dark:text-dark-text">
+                  ₹{leaveEncashmentAmount.toFixed(2)}
+                </span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between text-sm border-t border-light-border dark:border-dark-border pt-3 mt-1">
+              <span className="font-bold text-light-text dark:text-dark-text">Gross Pay</span>
+              <span className="font-bold text-primary text-base">₹{grossPay.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Deductions Details */}
+        <div className="space-y-2.5">
+          <h3 className="text-xs font-bold uppercase tracking-[0.12em] text-light-text/50 dark:text-dark-text/50">
+            Deductions & Adjustments
+          </h3>
+          <div className="rounded-xl border border-light-border/80 dark:border-dark-border/80 p-4 bg-light-card/25 dark:bg-dark-card/25 space-y-3 shadow-sm">
+            {snapshotPenaltyAmount > 0 ? (
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex flex-col">
+                  <span className="font-medium">Late Check-in Penalties</span>
+                  {showPenaltySummary && (
+                    <span className="text-xs text-light-text/60 dark:text-dark-text/60 font-mono">
+                      {lateCount} lates ({excessLateDays} excess) @ ₹{perDayPenalty.toFixed(2)}/day
+                    </span>
+                  )}
+                </div>
+                <span className="font-semibold text-red-500">
+                  ₹{snapshotPenaltyAmount.toFixed(2)}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between text-sm text-light-text/45 dark:text-dark-text/45">
+                <span>No Penalties Applied</span>
+                <span className="font-mono">₹0.00</span>
+              </div>
+            )}
+
+            {snapshotLoanAmount > 0 && (
+              <div className="flex items-center justify-between text-sm border-t border-light-border/40 dark:border-dark-border/40 pt-2.5">
+                <div className="flex flex-col">
+                  <span className="font-medium">Loan / Advance Repayments</span>
+                  <span className="text-xs text-light-text/60 dark:text-dark-text/60">
+                    Monthly installment deduction
+                  </span>
+                </div>
+                <span className="font-semibold text-red-500">
+                  ₹{snapshotLoanAmount.toFixed(2)}
+                </span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between text-sm border-t border-light-border dark:border-dark-border pt-3 mt-1">
+              <span className="font-bold text-light-text dark:text-dark-text">Total Deductions</span>
+              <span className="font-bold text-red-500 text-base">₹{deductions.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 4. Net Salary Summary Card */}
+        <div className="rounded-xl border border-primary/25 dark:border-primary/30 p-5 bg-primary/5 dark:bg-primary/5 shadow-inner space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-light-text/50 dark:text-dark-text/50">
+              <span>Gross Pay</span>
+              <span>Deductions</span>
+            </div>
+            <div className="flex items-center justify-between text-sm font-bold font-mono">
+              <span className="text-primary">₹{grossPay.toFixed(2)}</span>
+              <span className="text-red-500">- ₹{deductions.toFixed(2)}</span>
+            </div>
+          </div>
+          <div className="border-t border-primary/10 dark:border-primary/20 pt-4 flex items-center justify-between">
+            <div>
+              <span className="block text-xs font-bold uppercase tracking-widest text-light-text/60 dark:text-dark-text/60">
+                Net Pay / Total Salary
+              </span>
+              <span className="text-[10px] text-light-text/40 dark:text-dark-text/40">
+                Processed salary for the selected month
+              </span>
+            </div>
+            <span className="text-3xl font-extrabold text-primary font-mono tracking-tight">
+              ₹{totalSalary.toFixed(2)}
+            </span>
+          </div>
+        </div>
+
+        {/* 5. Payslip Branding Accordion */}
+        <details className="group border border-light-border dark:border-dark-border rounded-xl bg-light-card/40 dark:bg-dark-card/40 transition-all duration-300">
+          <summary className="flex items-center justify-between p-3.5 cursor-pointer select-none font-semibold text-sm text-light-text/80 dark:text-dark-text/80 hover:bg-light-bg/50 dark:hover:bg-dark-bg/50 rounded-xl focus:outline-none">
+            <div className="flex items-center gap-2.5">
+              <Calculator className="w-4 h-4 text-primary" />
+              <span>Payslip Branding Assets</span>
+            </div>
+            <ChevronDown className="w-4.5 h-4.5 text-light-text/55 dark:text-dark-text/55 transition-transform duration-200 group-open:rotate-180" />
+          </summary>
+          <div className="p-4 border-t border-light-border dark:border-dark-border space-y-4 bg-light-card/10 dark:bg-dark-card/10 rounded-b-xl">
+            <p className="text-xs text-light-text/60 dark:text-dark-text/60 leading-relaxed">
+              These assets apply globally to all generated payslips.
             </p>
-            <div className="flex items-center justify-between text-sm">
-              <span>Overtime Hours</span>
-              <span>{overtimeHours.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Overtime Rate</span>
-              <span>₹{Number(overtimeRate || 0).toFixed(2)} / hr</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Overtime Amount</span>
-              <span>₹{overtimeAmount.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Extras Amount</span>
-              <span>₹{extraAmount.toFixed(2)}</span>
-            </div>
-          </div>
 
-          <div>
-            <label className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-              Status
-            </label>
-            <select
-              value={formState.status}
-              disabled={isPayrollPaidLocked}
-              onChange={e => setFormState(prev => ({ ...prev, status: e.target.value }))}
-              className="w-full px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card disabled:opacity-60"
-            >
-              <option value="unpaid">Unpaid</option>
-              <option value="paid">Paid</option>
-            </select>
-          </div>
-
-          <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
-            <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-              Attendance Summary
-            </p>
-            <div className="flex items-center justify-between text-sm">
-              <span>Full Days</span>
-              <span>{selectedEmployee?.payroll?.fullDays || 0}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Half Days</span>
-              <span>{selectedEmployee?.payroll?.halfDays || 0}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Paid Leaves</span>
-              <span>{selectedEmployee?.payroll?.paidLeaves || 0}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Unpaid Days</span>
-              <span>{selectedEmployee?.payroll?.unpaidDays || 0}</span>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-2">
-            <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
-              Salary Breakdown
-            </p>
-            {(() => {
-              const payroll = selectedEmployee?.payroll;
-              const dailyWage = Number(payroll?.dailyWage || 0);
-              const fullDays = Number(payroll?.fullDays || 0);
-              const halfDays = Number(payroll?.halfDays || 0);
-              const paidLeaves = Number(payroll?.paidLeaves || 0);
-              const paidLeavesGross = paidLeaves * dailyWage;
-              const overtimeAmount = Number(payroll?.overtimeAmount || 0);
-              const leaveEncashmentAmount = Number(
-                payroll?.leaveEncashmentAmount ?? payroll?.leaveEncashment?.total ?? 0
-              );
-              const extraAmount = getExtraAmountForEmployee(selectedEmployee?._id);
-              const penalties = Number(
-                payroll?.isPreview
-                  ? (autoPenaltyMap[selectedEmployee?._id] ?? 0)
-                  : payroll?.penalties || 0
-              );
-              const loanAmount = payroll?.isPreview
-                ? Number(loanAdvanceMap[selectedEmployee?._id] ?? payroll?.computedLoanAmount ?? 0)
-                : Number(payroll?.loanAmount || 0);
-              const grossPay =
-                fullDays * dailyWage +
-                halfDays * dailyWage * 0.5 +
-                paidLeaves * dailyWage +
-                overtimeAmount +
-                extraAmount +
-                leaveEncashmentAmount;
-              const deductions = penalties + loanAmount;
-              const totalSalary = payroll?.isPreview
-                ? getPreviewNetPay(selectedEmployee?._id, payroll)
-                : Number(payroll?.totalSalary || 0);
-
-              return (
-                <>
-                  {paidLeavesGross > 0 ? (
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Paid Leaves Gross</span>
-                      <span>₹{paidLeavesGross.toFixed(2)}</span>
-                    </div>
-                  ) : null}
-                  {leaveEncashmentAmount > 0 ? (
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Leave Encashment</span>
-                      <span>₹{leaveEncashmentAmount.toFixed(2)}</span>
-                    </div>
-                  ) : null}
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Gross Pay</span>
-                    <span>₹{grossPay.toFixed(2)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Deductions</span>
-                    <span>₹{deductions.toFixed(2)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Total Salary</span>
-                    <span className="font-semibold">₹{totalSalary.toFixed(2)}</span>
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-
-          <div className="rounded-2xl border border-light-border/70 dark:border-dark-border/70 p-4 space-y-3">
-            <div>
-              <h3 className="text-sm font-semibold">Payslip Branding</h3>
-              <p className="text-xs text-light-text/60 dark:text-dark-text/60">
-                These assets apply to all generated payslips.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm">Company Logo</label>
+            <div className="space-y-2.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-light-text/60 dark:text-dark-text/60">
+                Company Logo
+              </label>
               {payslipSettings.logoData ? (
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center justify-between gap-3 p-2 border border-light-border dark:border-dark-border rounded-lg bg-white/50 dark:bg-black/10">
                   <img
                     src={payslipSettings.logoData}
                     alt="Company logo preview"
-                    className="h-12 max-w-[160px] rounded bg-white object-contain"
+                    className="h-10 max-w-[140px] rounded bg-white object-contain p-1 border"
                   />
                   <button
                     type="button"
                     onClick={() => setPayslipSettings(prev => ({ ...prev, logoData: '' }))}
-                    className="text-xs text-red-500"
+                    className="text-xs font-bold text-red-500 hover:text-red-600 transition-colors"
                   >
                     Remove
                   </button>
@@ -2045,23 +2237,25 @@ const AdminSalaryManagement = () => {
                 type="file"
                 accept="image/*"
                 onChange={handleLogoChange}
-                className="w-full text-xs"
+                className="w-full text-xs text-light-text/60 dark:text-dark-text/60 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 file:cursor-pointer"
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm">Authorized Signature</label>
+            <div className="space-y-2.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-light-text/60 dark:text-dark-text/60">
+                Authorized Signature
+              </label>
               {payslipSettings.signatureData ? (
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center justify-between gap-3 p-2 border border-light-border dark:border-dark-border rounded-lg bg-white/50 dark:bg-black/10">
                   <img
                     src={payslipSettings.signatureData}
                     alt="Signature preview"
-                    className="h-12 max-w-[160px] rounded bg-white object-contain"
+                    className="h-10 max-w-[140px] rounded bg-white object-contain p-1 border"
                   />
                   <button
                     type="button"
                     onClick={() => setPayslipSettings(prev => ({ ...prev, signatureData: '' }))}
-                    className="text-xs text-red-500"
+                    className="text-xs font-bold text-red-500 hover:text-red-600 transition-colors"
                   >
                     Remove
                   </button>
@@ -2071,54 +2265,57 @@ const AdminSalaryManagement = () => {
                 type="file"
                 accept="image/*"
                 onChange={handleSignatureChange}
-                className="w-full text-xs"
+                className="w-full text-xs text-light-text/60 dark:text-dark-text/60 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 file:cursor-pointer"
               />
             </div>
 
             <button
               type="button"
               onClick={savePayslipSettings}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-light-card dark:bg-dark-card border border-light-border dark:border-dark-border"
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-dark-card border border-light-border dark:border-dark-border text-sm font-semibold hover:bg-light-bg/50 dark:hover:bg-dark-bg/50 transition-colors shadow-sm"
               disabled={isSavingPayslipSettings}
             >
               {isSavingPayslipSettings ? 'Saving...' : 'Save Payslip Branding'}
             </button>
           </div>
-        </div>
+        </details>
 
-        <div className="mt-6 flex flex-col gap-3">
+        {/* 6. Action Buttons */}
+        <div className="mt-8 flex flex-col gap-3">
           <button
             onClick={processPayroll}
             disabled={!isSelectedMonthClosed || isPayrollPaidLocked}
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full inline-flex items-center justify-center gap-2.5 px-4 py-3 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-bold transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Calculator className="w-4 h-4" />
             Process Payroll
           </button>
           {isPayrollPaidLocked ? (
-            <p className="text-xs text-light-text/60 dark:text-dark-text/60">
-              Payroll is locked for this month because status is paid.
+            <p className="text-xs text-center font-medium text-light-text/50 dark:text-dark-text/50">
+              🔒 Payroll is locked for this month because the status is paid.
             </p>
           ) : null}
           {!isSelectedMonthClosed ? (
-            <p className="text-xs text-light-text/60 dark:text-dark-text/60">
-              Payroll unlocks after {selectedMonthLabel} {year} ends.
+            <p className="text-xs text-center font-medium text-light-text/50 dark:text-dark-text/50">
+              ⏳ Payroll unlocks after {selectedMonthLabel} {year} ends.
             </p>
           ) : null}
-          <button
-            onClick={generatePayslip}
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border"
-          >
-            <Download className="w-4 h-4" />
-            Generate Payslip
-          </button>
-          <button
-            onClick={downloadPayslipPdf}
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-light-card dark:bg-dark-card border border-light-border dark:border-dark-border"
-          >
-            <Download className="w-4 h-4" />
-            Print / Save PDF
-          </button>
+          <div className="grid grid-cols-2 gap-3 mt-1">
+            <button
+              onClick={generatePayslip}
+              className="inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-white dark:bg-dark-card border border-light-border dark:border-dark-border text-sm font-semibold hover:bg-light-bg/50 dark:hover:bg-dark-bg/50 transition-colors shadow-sm"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              Generate Payslip
+            </button>
+            <button
+              onClick={downloadPayslipPdf}
+              className="inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-white dark:bg-dark-card border border-light-border dark:border-dark-border text-sm font-semibold hover:bg-light-bg/50 dark:hover:bg-dark-bg/50 transition-colors shadow-sm"
+            >
+              <Download className="w-4 h-4" />
+              Print / Save PDF
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -2151,7 +2348,7 @@ const AdminSalaryManagement = () => {
           icon={<Calculator className="w-8 h-8 text-primary" />}
         />
 
-        <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card p-4 mb-6">
+        <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-card dark:bg-dark-card p-4 mb-6 relative z-30">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="flex flex-col">
@@ -2161,15 +2358,15 @@ const AdminSalaryManagement = () => {
                 <input
                   type="date"
                   value={toInputDate(
-                    rangeStart.getFullYear(),
-                    rangeStart.getMonth() + 1,
-                    rangeStart.getDate()
+                    fromYear,
+                    fromMonth,
+                    1
                   )}
                   onChange={e => {
                     const date = new Date(e.target.value);
                     if (!Number.isNaN(date.getTime())) {
-                      setMonth(date.getMonth() + 1);
-                      setYear(date.getFullYear());
+                      setFromMonth(date.getMonth() + 1);
+                      setFromYear(date.getFullYear());
                     }
                   }}
                   className="px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-white/90 dark:bg-dark-card"
@@ -2182,21 +2379,79 @@ const AdminSalaryManagement = () => {
                 <input
                   type="date"
                   value={toInputDate(
-                    rangeEnd.getFullYear(),
-                    rangeEnd.getMonth() + 1,
-                    rangeEnd.getDate()
+                    toYear,
+                    toMonth,
+                    new Date(toYear, toMonth, 0).getDate()
                   )}
                   onChange={e => {
                     const date = new Date(e.target.value);
                     if (!Number.isNaN(date.getTime())) {
-                      setMonth(date.getMonth() + 1);
-                      setYear(date.getFullYear());
+                      setToMonth(date.getMonth() + 1);
+                      setToYear(date.getFullYear());
                     }
                   }}
                   className="px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-white/90 dark:bg-dark-card"
                 />
               </div>
+              <div className="flex flex-col relative">
+                <label className="text-xs uppercase tracking-[0.2em] text-light-text/60 dark:text-dark-text/60">
+                  Employees
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsEmployeeDropdownOpen(prev => !prev)}
+                  className="px-4 py-2 rounded-lg border border-light-border dark:border-dark-border bg-white/90 dark:bg-dark-card flex items-center justify-between gap-2 min-w-[180px]"
+                >
+                  <span className="text-sm">
+                    {selectedExportEmployees.length === 0
+                      ? 'All Employees'
+                      : `${selectedExportEmployees.length} selected`}
+                  </span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${isEmployeeDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {isEmployeeDropdownOpen && (
+                  <div className="absolute top-full left-0 mt-2 w-64 max-h-60 overflow-y-auto rounded-lg border border-light-border dark:border-dark-border bg-white dark:bg-dark-card shadow-lg z-50 p-2 space-y-1">
+                    <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-light-bg/70 dark:hover:bg-dark-bg/70 rounded-md cursor-pointer text-sm">
+                      <input
+                        type="checkbox"
+                        checked={selectedExportEmployees.length === employees.length}
+                        onChange={e => {
+                          if (e.target.checked) {
+                            setSelectedExportEmployees(employees.map(emp => emp._id));
+                          } else {
+                            setSelectedExportEmployees([]);
+                          }
+                        }}
+                        className="rounded text-primary focus:ring-primary border-light-border dark:border-dark-border"
+                      />
+                      <span>Select All</span>
+                    </label>
+                    <hr className="border-light-border/70 dark:border-dark-border/70 my-1" />
+                    {employees.map(emp => (
+                      <label
+                        key={emp._id}
+                        className="flex items-center gap-2 px-2 py-1.5 hover:bg-light-bg/70 dark:hover:bg-dark-bg/70 rounded-md cursor-pointer text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedExportEmployees.includes(emp._id)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setSelectedExportEmployees(prev => [...prev, emp._id]);
+                            } else {
+                              setSelectedExportEmployees(prev => prev.filter(id => id !== emp._id));
+                            }
+                          }}
+                          className="rounded text-primary focus:ring-primary border-light-border dark:border-dark-border"
+                        />
+                        <span className="truncate">{emp.name} {emp.employeeCode ? `(${emp.employeeCode})` : ''}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button
+                onClick={handleSearch}
                 className="self-end px-5 py-2 rounded-lg bg-primary text-white"
                 aria-label="Search payroll range"
               >
@@ -2281,7 +2536,7 @@ const AdminSalaryManagement = () => {
                   />
                 </button>
                 {isFilterOpen && (
-                  <div className="absolute right-0 mt-2 w-56 rounded-lg border border-light-border dark:border-dark-border bg-white dark:bg-dark-card shadow-lg z-10">
+                  <div className="absolute right-0 mt-2 w-56 rounded-lg border border-light-border dark:border-dark-border bg-white dark:bg-dark-card shadow-lg z-50">
                     <button
                       type="button"
                       onClick={() => {
@@ -3201,7 +3456,7 @@ const AdminSalaryManagement = () => {
                       </div>
 
                       <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
-                        <table className="admin-sticky-columns min-w-full text-sm">
+                        <table className="min-w-full text-sm">
                           <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
                             <tr>
                               <th className="px-4 py-3 text-left font-semibold">Date</th>
@@ -3364,7 +3619,7 @@ const AdminSalaryManagement = () => {
                       </div>
 
                       <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
-                        <table className="admin-sticky-columns min-w-full text-sm">
+                        <table className="min-w-full text-sm">
                           <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
                             <tr>
                               <th className="px-4 py-3 text-left font-semibold">Date</th>
@@ -3425,7 +3680,7 @@ const AdminSalaryManagement = () => {
                     </div>
 
                     <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
-                      <table className="admin-sticky-columns min-w-full text-sm">
+                      <table className="min-w-full text-sm">
                         <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
                           <tr>
                             <th className="px-4 py-3 text-left font-semibold">Date</th>
@@ -3692,7 +3947,7 @@ const AdminSalaryManagement = () => {
                       </div>
 
                       <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
-                        <table className="admin-sticky-columns min-w-full text-sm">
+                        <table className="min-w-full text-sm">
                           <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
                             <tr>
                               <th className="px-4 py-3 text-left font-semibold">Date</th>

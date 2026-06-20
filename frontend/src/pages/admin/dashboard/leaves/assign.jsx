@@ -154,7 +154,7 @@ const AdminAssignLeaveTemplate = () => {
             </button>
           </div>
           <div className="overflow-x-auto">
-            <table className="admin-sticky-columns min-w-full text-sm">
+            <table className="min-w-full text-sm">
               <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
                 <tr>
                   <th className="px-4 py-3 text-left font-semibold">

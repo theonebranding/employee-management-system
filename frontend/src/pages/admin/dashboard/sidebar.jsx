@@ -72,9 +72,7 @@ const AdminSidebar = () => {
       key: 'reports',
       children: [
         { name: 'Attendance', path: '/admin/dashboard/reports?tab=attendance' },
-        { name: 'Daily Punch', path: '/admin/dashboard/reports?tab=daily-punch' },
         { name: 'Daily Work', path: '/admin/dashboard/reports?tab=daily-report' },
-        { name: 'Hourly', path: '/admin/dashboard/reports?tab=hourly' },
         { name: 'Attendance Master', path: '/admin/dashboard/reports?tab=attendance-master' },
       ],
     },

@@ -50,7 +50,7 @@ const AdminLeaveManagement = () => {
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [leaveToDelete, setLeaveToDelete] = useState(null);
-  // eslint-disable-next-line no-unused-vars, unused-imports/no-unused-vars
+  // eslint-disable-next-line unused-imports/no-unused-vars
   const [hoveredRequest, setHoveredRequest] = useState(null);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -604,7 +604,7 @@ const AdminLeaveManagement = () => {
           </button>
         </div>
         <div className="overflow-x-auto">
-          <table className="admin-sticky-columns min-w-full text-sm">
+          <table className="min-w-full text-sm">
             <thead className="bg-sky-50 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/70 dark:text-dark-text/60">
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Leave Name</th>
