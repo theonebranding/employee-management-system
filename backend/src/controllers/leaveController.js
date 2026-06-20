@@ -65,6 +65,13 @@ export const createLeave = async (req, res) => {
           message: `Requested ${requestedDays} day(s), but only ${balance.remaining} day(s) remain in this leave template period.`,
         });
       }
+      if (template.requiresDocument) {
+        if (!documentName || !documentType || !documentData) {
+          return res.status(400).json({
+            message: `Supporting document is required for requests under the ${template.name} template.`,
+          });
+        }
+      }
     } else {
       if (!leaveCategory) {
         return res
@@ -72,10 +79,12 @@ export const createLeave = async (req, res) => {
           .json({ message: 'Leave category is required for special leave requests' });
       }
 
-      if (!documentName || !documentType || !documentData) {
-        return res
-          .status(400)
-          .json({ message: 'Supporting document is required for special leave requests' });
+      if (leaveCategory !== 'other') {
+        if (!documentName || !documentType || !documentData) {
+          return res
+            .status(400)
+            .json({ message: 'Supporting document is required for special leave requests' });
+        }
       }
     }
 
@@ -94,9 +103,9 @@ export const createLeave = async (req, res) => {
       quotaDaysUsed: 0,
       paidDays: 0,
       unpaidDays: 0,
-      documentName: isTemplateFlow ? null : documentName,
-      documentType: isTemplateFlow ? null : documentType,
-      documentData: isTemplateFlow ? null : documentData,
+      documentName: isTemplateFlow && !template?.requiresDocument ? null : documentName,
+      documentType: isTemplateFlow && !template?.requiresDocument ? null : documentType,
+      documentData: isTemplateFlow && !template?.requiresDocument ? null : documentData,
       status: template?.autoApprove ? 'approved' : 'pending',
     });
 
@@ -217,7 +226,7 @@ export const getMyLeaves = async (req, res) => {
 export const updateLeaveStatus = async (req, res) => {
   try {
     const { leaveId } = req.params;
-    const { status, isPaidLeave, useTemplateQuota, templateId } = req.body;
+    const { status, isPaidLeave, useTemplateQuota, templateId, templateIds } = req.body;
 
     if (!['pending', 'approved', 'rejected'].includes(status)) {
       return res.status(400).json({ message: 'Invalid status' });
@@ -244,32 +253,84 @@ export const updateLeaveStatus = async (req, res) => {
       updatePayload.quotaDaysUsed = 0;
       updatePayload.paidDays = 0;
       updatePayload.unpaidDays = 0;
+      updatePayload.additionalTemplates = [];
 
-      if (useQuota) {
-        const assignment = await LeaveTemplateAssignment.findOne({
-          employee: existingLeave.employee,
-          template: templateId,
-        }).populate('template');
+      const tids = Array.isArray(templateIds) ? templateIds : templateId ? [templateId] : [];
 
-        if (!assignment?.template) {
-          return res.status(404).json({ message: 'Leave template not found for this employee' });
+      if (useQuota && tids.length > 0) {
+        let remainingDaysToDeduct = requestedDays;
+        let primaryProcessed = false;
+        const additionalTemplates = [];
+
+        for (const tid of tids) {
+          if (remainingDaysToDeduct <= 0) break;
+
+          const assignment = await LeaveTemplateAssignment.findOne({
+            employee: existingLeave.employee,
+            template: tid,
+          }).populate('template');
+
+          if (!assignment?.template) {
+            continue;
+          }
+
+          const balance = await getTemplateBalance({
+            employeeId: existingLeave.employee,
+            template: assignment.template,
+            referenceDate: existingLeave.startDate,
+          });
+
+          if (balance.remaining <= 0) {
+            continue;
+          }
+
+          const quotaDaysUsed = Math.min(remainingDaysToDeduct, balance.remaining);
+          remainingDaysToDeduct -= quotaDaysUsed;
+
+          if (!primaryProcessed) {
+            updatePayload.template = assignment.template._id;
+            updatePayload.templateName = assignment.template.name;
+            updatePayload.quotaDaysUsed = quotaDaysUsed;
+            primaryProcessed = true;
+          } else {
+            additionalTemplates.push({
+              template: assignment.template._id,
+              templateName: assignment.template.name,
+              quotaDaysUsed,
+            });
+          }
         }
 
-        const balance = await getTemplateBalance({
-          employeeId: existingLeave.employee,
-          template: assignment.template,
-          referenceDate: existingLeave.startDate,
-        });
-        const quotaDaysUsed = Math.min(requestedDays, balance.remaining);
-        const extraDays = Math.max(0, requestedDays - quotaDaysUsed);
+        if (!primaryProcessed) {
+          // If no template had quota, fall back to first selected template with 0 quotaDaysUsed
+          const firstTid = tids[0];
+          const assignment = await LeaveTemplateAssignment.findOne({
+            employee: existingLeave.employee,
+            template: firstTid,
+          }).populate('template');
 
-        updatePayload.template = assignment.template._id;
-        updatePayload.templateName = assignment.template.name;
+          if (!assignment?.template) {
+            return res
+              .status(404)
+              .json({ message: 'Selected leave template assignment not found' });
+          }
+
+          updatePayload.template = assignment.template._id;
+          updatePayload.templateName = assignment.template.name;
+          updatePayload.quotaDaysUsed = 0;
+          updatePayload.additionalTemplates = [];
+        } else {
+          updatePayload.additionalTemplates = additionalTemplates;
+        }
+
+        const totalQuotaUsed =
+          (updatePayload.quotaDaysUsed || 0) +
+          additionalTemplates.reduce((sum, t) => sum + t.quotaDaysUsed, 0);
+
         updatePayload.isTemplateBased = true;
         updatePayload.leaveMode = 'template';
-        updatePayload.quotaDaysUsed = quotaDaysUsed;
-        updatePayload.paidDays = wantsPaid ? requestedDays : quotaDaysUsed;
-        updatePayload.unpaidDays = wantsPaid ? 0 : extraDays;
+        updatePayload.paidDays = wantsPaid ? requestedDays : totalQuotaUsed;
+        updatePayload.unpaidDays = wantsPaid ? 0 : remainingDaysToDeduct;
         updatePayload.isPaidLeave = updatePayload.paidDays > 0;
       } else {
         updatePayload.isTemplateBased = false;
@@ -281,6 +342,7 @@ export const updateLeaveStatus = async (req, res) => {
         updatePayload.paidDays = wantsPaid ? requestedDays : 0;
         updatePayload.unpaidDays = wantsPaid ? 0 : requestedDays;
         updatePayload.isPaidLeave = updatePayload.paidDays > 0;
+        updatePayload.additionalTemplates = [];
       }
     }
 
@@ -294,6 +356,7 @@ export const updateLeaveStatus = async (req, res) => {
       updatePayload.paidDays = 0;
       updatePayload.unpaidDays = requestedDays;
       updatePayload.leaveCategory = existingLeave.leaveCategory || null;
+      updatePayload.additionalTemplates = [];
     }
 
     const leave = await Leave.findByIdAndUpdate(leaveId, updatePayload, {

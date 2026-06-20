@@ -1,6 +1,6 @@
 import 'react-toastify/dist/ReactToastify.css';
 
-import { ArrowLeft, CheckSquare } from 'lucide-react';
+import { ArrowLeft, CheckSquare, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
@@ -109,13 +109,40 @@ const AdminAssignLeaveTemplate = () => {
     }
   };
 
+  const handleUnassign = async (employeeId, templateId, templateName) => {
+    if (
+      !window.confirm(`Are you sure you want to unassign "${templateName}" from this employee?`)
+    ) {
+      return;
+    }
+    try {
+      const response = await fetch(`${BASE_URL}/leave-templates/unassign`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employeeId,
+          templateId,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || 'Failed to unassign template');
+      toast.success(data.message || `Unassigned "${templateName}" successfully.`);
+      await fetchEmployees();
+    } catch (error) {
+      toast.error(error.message || 'Failed to unassign template');
+    }
+  };
+
   return (
     <div className="min-h-screen px-6 py-6 lg:ml-16 bg-light-bg dark:bg-dark-bg transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center gap-3 mb-4">
           <button
             type="button"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/admin/dashboard/leaves?tab=create')}
             className="p-2 rounded-lg border border-light-border dark:border-dark-border hover:bg-light-bg dark:hover:bg-dark-bg transition-colors"
             aria-label="Back"
           >
@@ -154,7 +181,7 @@ const AdminAssignLeaveTemplate = () => {
             </button>
           </div>
           <div className="overflow-x-auto">
-            <table className="admin-sticky-columns min-w-full text-sm">
+            <table className="min-w-full text-sm">
               <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
                 <tr>
                   <th className="px-4 py-3 text-left font-semibold">
@@ -201,7 +228,30 @@ const AdminAssignLeaveTemplate = () => {
                         <td className="px-4 py-3">{emp.name}</td>
                         <td className="px-4 py-3">{emp.department}</td>
                         <td className="px-4 py-3">{emp.designation}</td>
-                        <td className="px-4 py-3">{emp.templateAssigned || '—'}</td>
+                        <td className="px-4 py-3">
+                          {emp.templates && emp.templates.length > 0 ? (
+                            <div className="flex flex-wrap gap-1.5">
+                              {emp.templates.map(temp => (
+                                <span
+                                  key={temp._id}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20"
+                                >
+                                  {temp.name}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUnassign(emp._id, temp._id, temp.name)}
+                                    className="p-0.5 rounded-full hover:bg-primary/20 transition-colors"
+                                    title={`Unassign ${temp.name}`}
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-light-text/40 dark:text-dark-text/40">—</span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })
