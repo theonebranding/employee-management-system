@@ -50,7 +50,7 @@ const AdminLeaveManagement = () => {
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [leaveToDelete, setLeaveToDelete] = useState(null);
-  // eslint-disable-next-line no-unused-vars, unused-imports/no-unused-vars
+  // eslint-disable-next-line unused-imports/no-unused-vars
   const [hoveredRequest, setHoveredRequest] = useState(null);
 
   const [currentPage, setCurrentPage] = useState(1);

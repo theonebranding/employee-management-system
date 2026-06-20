@@ -1,5 +1,5 @@
 /* eslint-disable unused-imports/no-unused-vars */
-/* eslint-disable no-unused-vars */
+
 import 'react-toastify/dist/ReactToastify.css';
 
 import {

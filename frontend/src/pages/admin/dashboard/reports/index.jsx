@@ -10,7 +10,7 @@ import {
   Watch,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 
 import Modal from '../../../../components/Modal';
@@ -221,6 +221,8 @@ const AdminReports = () => {
   );
   const attendanceMasterTableScrollRef = useRef(null);
   const attendanceMasterScrollIntervalRef = useRef(null);
+  const attendanceTableScrollRef = useRef(null);
+  const attendanceScrollIntervalRef = useRef(null);
   const [commentDrafts, setCommentDrafts] = useState({});
   const [openReportModal, setOpenReportModal] = useState(false);
   const [modalReportId, setModalReportId] = useState('');
@@ -238,9 +240,7 @@ const AdminReports = () => {
 
   const tabs = [
     { id: TAB_ATTENDANCE, label: 'Attendance' },
-    { id: TAB_DAILY_PUNCH, label: 'Daily Punch' },
     { id: TAB_DAILY_REPORT, label: 'Daily Work' },
-    { id: TAB_HOURLY, label: 'Hourly' },
     { id: TAB_ATTENDANCE_MASTER, label: 'Attendance Master' },
   ];
 
@@ -752,7 +752,29 @@ const AdminReports = () => {
     }, 16);
   };
 
-  useEffect(() => () => stopAttendanceMasterAutoScroll(), []);
+  const stopAttendanceAutoScroll = () => {
+    if (attendanceScrollIntervalRef.current) {
+      clearInterval(attendanceScrollIntervalRef.current);
+      attendanceScrollIntervalRef.current = null;
+    }
+  };
+
+  const startAttendanceAutoScroll = direction => {
+    if (!attendanceTableScrollRef.current) return;
+    stopAttendanceAutoScroll();
+    const step = direction === 'left' ? -18 : 18;
+    attendanceScrollIntervalRef.current = setInterval(() => {
+      attendanceTableScrollRef.current?.scrollBy({ left: step, behavior: 'auto' });
+    }, 16);
+  };
+
+  useEffect(
+    () => () => {
+      stopAttendanceMasterAutoScroll();
+      stopAttendanceAutoScroll();
+    },
+    []
+  );
 
   const formatHoursFromMinutes = minutes => {
     const mins = Number(minutes || 0);
@@ -1824,6 +1846,28 @@ const AdminReports = () => {
 
   const renderAttendanceTab = () => {
     const stats = calculateStats(filteredAttendanceData);
+
+    const totalBreakHours = (
+      filteredAttendanceData.reduce(
+        (sum, record) => sum + Number(record.totalRecessDuration || 0),
+        0
+      ) / 3600000
+    ).toFixed(2);
+
+    const hourlyDistribution = [
+      'Before 09:00',
+      '09:00 - 10:00',
+      '10:00 - 11:00',
+      '11:00 - 12:00',
+      'After 12:00',
+      'No Check-In',
+    ].map(label => ({
+      label,
+      count: filteredAttendanceData.filter(
+        record => getCheckInHourBucket(record.checkInTime) === label
+      ).length,
+    }));
+
     return (
       <div className="space-y-6 p-6">
         {/* Filters + Present Entries Card */}
@@ -1980,6 +2024,33 @@ const AdminReports = () => {
             ))}
           </div>
 
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-4">
+              <h4 className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60 mb-3">
+                Check-In Hour Distribution
+              </h4>
+              <div className="space-y-2">
+                {hourlyDistribution.map(slot => (
+                  <div key={slot.label} className="flex items-center justify-between text-sm">
+                    <span className="text-light-text/70 dark:text-dark-text/70">{slot.label}</span>
+                    <span className="font-semibold text-light-text dark:text-dark-text">
+                      {slot.count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-4">
+              <p className="text-xs text-light-text/70 dark:text-dark-text/70 mb-2">
+                Hourly working report highlights start-time patterns and day completeness.
+              </p>
+              <p className="text-sm text-light-text dark:text-dark-text">
+                Total break time this month:{' '}
+                <span className="font-semibold">{totalBreakHours}h</span>
+              </p>
+            </div>
+          </div>
+
           <div className="rounded-xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-4">
             <p className="text-xs text-light-text/70 dark:text-dark-text/70">
               Report format follows payroll-style muster: one row per employee-day with in/out time,
@@ -1989,8 +2060,11 @@ const AdminReports = () => {
         </div>
 
         {/* Table Card */}
-        <div>
-          <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
+        <div className="relative group/table">
+          <div
+            ref={attendanceTableScrollRef}
+            className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border"
+          >
             {loading ? (
               <div className="p-8 text-center">
                 <p className="text-light-text/60 dark:text-dark-text/60 text-sm">
@@ -1998,86 +2072,104 @@ const AdminReports = () => {
                 </p>
               </div>
             ) : filteredAttendanceData.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="admin-sticky-columns min-w-full text-sm">
-                  <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
-                        Employee
-                      </th>
-                      <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
-                        Emp Code
-                      </th>
-                      <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
-                        Date
-                      </th>
-                      <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
-                        Check In
-                      </th>
-                      <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
-                        Check Out
-                      </th>
-                      <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
-                        Break
-                      </th>
-                      <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
-                        Gross Span
-                      </th>
-                      <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
-                        Net Hours
-                      </th>
-                      <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagedAttendanceData.map((record, idx) => (
-                      <tr
-                        key={idx}
-                        className="border-t border-light-border dark:border-dark-border hover:bg-light-bg/70 dark:hover:bg-dark-bg/70 transition-colors"
-                      >
-                        <td className="px-4 py-3 text-light-text dark:text-dark-text">
-                          <div className="font-medium">{record.employeeName || '—'}</div>
-                        </td>
-                        <td className="px-4 py-3 text-light-text dark:text-dark-text">
-                          {record.employeeCode || '—'}
-                        </td>
-                        <td className="px-4 py-3 text-light-text dark:text-dark-text">
-                          <div>{formatDate(record.date)}</div>
-                          <div className="text-xs text-light-text/60 dark:text-dark-text/60">
-                            {formatDay(record.date)}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-light-text dark:text-dark-text">
-                          {formatTime(record.checkInTime)}
-                        </td>
-                        <td className="px-4 py-3 text-light-text dark:text-dark-text">
-                          {formatTime(record.checkOutTime)}
-                        </td>
-                        <td className="px-4 py-3 text-light-text dark:text-dark-text">
-                          {formatDurationFromMilliseconds(record.totalRecessDuration)}
-                        </td>
-                        <td className="px-4 py-3 text-light-text dark:text-dark-text">
-                          {getGrossSpan(record)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="font-medium text-light-text dark:text-dark-text">
-                            {formatHoursDecimal(record.actualHours)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusVariant(record.status)}`}
+              <table className="admin-sticky-columns min-w-full text-sm">
+                <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
+                      Employee
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
+                      Emp Code
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
+                      Date
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
+                      Check In
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
+                      Check Out
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
+                      Break
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
+                      Gross Span
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
+                      Net Hours
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold text-light-text/70 dark:text-dark-text/70">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedAttendanceData.map((record, idx) => (
+                    <tr
+                      key={idx}
+                      className="border-t border-light-border dark:border-dark-border hover:bg-light-bg/70 dark:hover:bg-dark-bg/70 transition-colors"
+                    >
+                      <td className="px-4 py-3 text-light-text dark:text-dark-text">
+                        <div className="font-medium">
+                          {record.employeeId ? (
+                            <Link
+                              to={`/admin/dashboard/employees/${record.employeeId}`}
+                              className="text-inherit hover:text-primary hover:underline transition-colors"
+                            >
+                              {record.employeeName || '—'}
+                            </Link>
+                          ) : (
+                            record.employeeName || '—'
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-light-text dark:text-dark-text">
+                        {record.employeeId && record.employeeCode ? (
+                          <Link
+                            to={`/admin/dashboard/employees/${record.employeeId}`}
+                            className="text-inherit hover:text-primary hover:underline transition-colors"
                           >
-                            {record.statusLabel || formatStatusLabel(record.status) || 'unknown'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                            {record.employeeCode}
+                          </Link>
+                        ) : (
+                          record.employeeCode || '—'
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-light-text dark:text-dark-text">
+                        <div>{formatDate(record.date)}</div>
+                        <div className="text-xs text-light-text/60 dark:text-dark-text/60">
+                          {formatDay(record.date)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-light-text dark:text-dark-text">
+                        {formatTime(record.checkInTime)}
+                      </td>
+                      <td className="px-4 py-3 text-light-text dark:text-dark-text">
+                        {formatTime(record.checkOutTime)}
+                      </td>
+                      <td className="px-4 py-3 text-light-text dark:text-dark-text">
+                        {formatDurationFromMilliseconds(record.totalRecessDuration)}
+                      </td>
+                      <td className="px-4 py-3 text-light-text dark:text-dark-text">
+                        {getGrossSpan(record)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="font-medium text-light-text dark:text-dark-text">
+                          {formatHoursDecimal(record.actualHours)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium capitalize whitespace-nowrap ${getStatusVariant(record.status)}`}
+                        >
+                          {record.statusLabel || formatStatusLabel(record.status) || 'unknown'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             ) : (
               <div className="p-8 text-center">
                 <p className="text-light-text/60 dark:text-dark-text/60 text-sm">
@@ -2086,6 +2178,22 @@ const AdminReports = () => {
               </div>
             )}
           </div>
+          {!loading && filteredAttendanceData.length > 0 && (
+            <>
+              <div
+                className="absolute left-0 top-0 bottom-0 z-10 w-12 cursor-w-resize"
+                onMouseEnter={() => startAttendanceAutoScroll('left')}
+                onMouseLeave={stopAttendanceAutoScroll}
+                aria-hidden="true"
+              />
+              <div
+                className="absolute right-0 top-0 bottom-0 z-10 w-12 cursor-e-resize"
+                onMouseEnter={() => startAttendanceAutoScroll('right')}
+                onMouseLeave={stopAttendanceAutoScroll}
+                aria-hidden="true"
+              />
+            </>
+          )}
 
           <div className="mt-6 px-1 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-light-text/70 dark:text-dark-text/70">
             <div>
@@ -2123,7 +2231,7 @@ const AdminReports = () => {
     );
   };
 
-  const renderPunchTab = () => {
+  const _renderPunchTab = () => {
     const completePunches = filteredPunchData.filter(
       record => record.checkInTime && record.checkOutTime
     ).length;
@@ -2630,7 +2738,16 @@ const AdminReports = () => {
                       >
                         <td className="px-4 py-3 text-light-text dark:text-dark-text">
                           <div className="font-medium">
-                            {record.employee?.name || record.employeeName || '—'}
+                            {record.employee?._id || record.employeeId ? (
+                              <Link
+                                to={`/admin/dashboard/employees/${record.employee?._id || record.employeeId}`}
+                                className="text-inherit hover:text-primary hover:underline transition-colors"
+                              >
+                                {record.employee?.name || record.employeeName || '—'}
+                              </Link>
+                            ) : (
+                              record.employee?.name || record.employeeName || '—'
+                            )}
                           </div>
                         </td>
                         <td className="px-4 py-3 text-light-text dark:text-dark-text">
@@ -2713,7 +2830,7 @@ const AdminReports = () => {
     );
   };
 
-  const renderHourlyTab = () => {
+  const _renderHourlyTab = () => {
     const completeDays = filteredHourlyData.filter(
       record => record.checkInTime && record.checkOutTime
     ).length;
@@ -3060,12 +3177,8 @@ const AdminReports = () => {
     switch (tab) {
       case 'attendance':
         return renderAttendanceTab();
-      case 'daily-punch':
-        return renderPunchTab();
       case 'daily-report':
         return renderDailyReportTab();
-      case 'hourly':
-        return renderHourlyTab();
       case 'attendance-master':
         return (
           <>
@@ -3215,8 +3328,30 @@ const AdminReports = () => {
                             key={key + idx}
                             className="border-t border-light-border dark:border-dark-border"
                           >
-                            <td className="px-4 py-3">{row.employeeCode || '-'}</td>
-                            <td className="px-4 py-3">{row.employeeName}</td>
+                            <td className="px-4 py-3">
+                              {row.employeeId && row.employeeCode ? (
+                                <Link
+                                  to={`/admin/dashboard/employees/${row.employeeId}`}
+                                  className="text-inherit hover:text-primary hover:underline transition-colors"
+                                >
+                                  {row.employeeCode}
+                                </Link>
+                              ) : (
+                                row.employeeCode || '-'
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {row.employeeId ? (
+                                <Link
+                                  to={`/admin/dashboard/employees/${row.employeeId}`}
+                                  className="text-inherit hover:text-primary hover:underline transition-colors"
+                                >
+                                  {row.employeeName}
+                                </Link>
+                              ) : (
+                                row.employeeName
+                              )}
+                            </td>
                             <td className="px-4 py-3">{row.department}</td>
                             <td className="px-4 py-3">{row.designation}</td>
                             <td className="px-4 py-3">{row.date}</td>
@@ -3400,7 +3535,7 @@ const AdminReports = () => {
                               selectedEntry &&
                               updateAttendanceMasterStatus(selectedEntry, actionStatus)
                             }
-                            className="px-3 py-2 rounded-lg border border-light-border dark:border-dark-border text-sm disabled:opacity-50 hover:scale-105 transition-transform"
+                            className="disabled:opacity-50 hover:scale-105 transition-transform"
                           >
                             <AnimatedStatusBadge
                               status={actionStatus}
@@ -3410,7 +3545,7 @@ const AdminReports = () => {
                         );
                       })}
                     </div>
-                    <div className="mt-3 space-y-2">
+                    <div className="mt-6 space-y-2">
                       <p className="text-xs uppercase tracking-[0.12em] text-light-text/60 dark:text-dark-text/60">
                         Checkout Time
                       </p>

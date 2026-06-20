@@ -1,6 +1,6 @@
 import 'react-toastify/dist/ReactToastify.css';
 
-import { Calculator, CheckCircle2, Download, Loader2, Search, X } from 'lucide-react';
+import { Calculator, CheckCircle2, FileSpreadsheetIcon, Loader2, Search, X } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 
@@ -325,8 +325,8 @@ const AdminPayroll = () => {
   }, [month, year]);
 
   const renderPanelContent = (showClose = false) => (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-6">
+      <div className="sticky -top-6 bg-light-bg dark:bg-dark-bg z-10 pt-6 pb-4 -mx-6 px-6 border-b border-light-border dark:border-dark-border flex items-center justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-light-text/60 dark:text-dark-text/60">
             Payroll Detail
@@ -596,7 +596,7 @@ const AdminPayroll = () => {
           onClick={generatePayslip}
           className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border"
         >
-          <Download className="w-4 h-4" />
+          <FileSpreadsheetIcon className="w-4 h-4" />
           Generate Payslip
         </button>
       </div>
