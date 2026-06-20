@@ -23,13 +23,14 @@ import {
   XCircle,
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 
 import Header from '../../../../components/pageHeader';
 
 const AdminLeaveManagement = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortOrder, setSortOrder] = useState('newest');
@@ -40,14 +41,20 @@ const AdminLeaveManagement = () => {
   const [newIsPaidLeave, setNewIsPaidLeave] = useState(false);
   const [useTemplateQuota, setUseTemplateQuota] = useState(false);
   const [templateQuota, setTemplateQuota] = useState(null);
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState([]);
   const [templateQuotaLoading, setTemplateQuotaLoading] = useState(false);
   const [isSlideOverOpen, setIsSlideOverOpen] = useState(false);
   const [isDocumentPreviewOpen, setIsDocumentPreviewOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('requests');
+  const [activeTab, setActiveTab] = useState(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    return searchParams.get('tab') || 'requests';
+  });
   const [isTemplatePanelOpen, setIsTemplatePanelOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [templates, setTemplates] = useState([]);
   const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [employeeAssignments, setEmployeeAssignments] = useState([]);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [leaveToDelete, setLeaveToDelete] = useState(null);
   // eslint-disable-next-line unused-imports/no-unused-vars
@@ -66,12 +73,15 @@ const AdminLeaveManagement = () => {
 
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
-  const fetchEmployeeTemplateQuota = async employeeId => {
+  const fetchEmployeeTemplateQuota = async (employeeId, templateId = null) => {
     if (!employeeId) return;
 
     setTemplateQuotaLoading(true);
     try {
-      const response = await fetch(`${BASE_URL}/leave-templates/employee-template/${employeeId}`, {
+      const url = templateId
+        ? `${BASE_URL}/leave-templates/employee-template/${employeeId}?templateId=${templateId}`
+        : `${BASE_URL}/leave-templates/employee-template/${employeeId}`;
+      const response = await fetch(url, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
 
@@ -81,10 +91,16 @@ const AdminLeaveManagement = () => {
         return;
       }
 
-      setTemplateQuota({
-        template: data.template,
-        balance: data.balance,
-      });
+      if (data.templates) {
+        setTemplateQuota({
+          templates: data.templates,
+        });
+      } else {
+        setTemplateQuota({
+          template: data.template,
+          balance: data.balance,
+        });
+      }
     } catch (error) {
       setTemplateQuota(null);
     } finally {
@@ -161,7 +177,7 @@ const AdminLeaveManagement = () => {
           status: newStatus,
           isPaidLeave: newStatus === 'approved' ? newIsPaidLeave : false,
           useTemplateQuota: newStatus === 'approved' ? useTemplateQuota : false,
-          templateId: useTemplateQuota ? templateQuota?.template?._id : undefined,
+          templateIds: useTemplateQuota ? selectedTemplateIds : undefined,
         }),
       });
 
@@ -216,6 +232,7 @@ const AdminLeaveManagement = () => {
   useEffect(() => {
     if (activeTab === 'create') {
       fetchTemplates();
+      fetchEmployeeAssignments();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
@@ -228,13 +245,25 @@ const AdminLeaveManagement = () => {
   }, [dateFilter]);
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const tab = searchParams.get('tab');
+    if (tab && (tab === 'requests' || tab === 'create')) {
+      setActiveTab(tab);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
     if (!isSlideOverOpen || !currentLeave?.employee?._id) {
       setTemplateQuota(null);
+      setSelectedTemplateIds([]);
       return;
     }
 
     setUseTemplateQuota(false);
-    fetchEmployeeTemplateQuota(currentLeave.employee._id);
+    const reqTemplateId = currentLeave.template?._id || currentLeave.template;
+    setSelectedTemplateIds(reqTemplateId ? [reqTemplateId] : []);
+
+    fetchEmployeeTemplateQuota(currentLeave.employee._id, reqTemplateId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSlideOverOpen, currentLeave]);
 
@@ -249,7 +278,7 @@ const AdminLeaveManagement = () => {
 
   const tabs = [
     { id: 'requests', label: 'Leave Requests' },
-    { id: 'create', label: 'Create New Leave' },
+    { id: 'create', label: 'Create/ View Leaves' },
   ];
 
   const fetchTemplates = async () => {
@@ -267,6 +296,24 @@ const AdminLeaveManagement = () => {
       toast.error(error.message || 'Failed to fetch leave templates.');
     } finally {
       setTemplatesLoading(false);
+    }
+  };
+
+  const fetchEmployeeAssignments = async () => {
+    setAssignmentsLoading(true);
+    try {
+      const response = await fetch(`${BASE_URL}/leave-templates/employees`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch employee leave assignments.');
+
+      const data = await response.json();
+      setEmployeeAssignments(data.employees || []);
+    } catch (error) {
+      toast.error(error.message || 'Failed to fetch employee leave assignments.');
+    } finally {
+      setAssignmentsLoading(false);
     }
   };
 
@@ -434,6 +481,8 @@ const AdminLeaveManagement = () => {
                       {request.templateName && (
                         <span className="px-2 py-1 rounded-full text-xs bg-primary/10 text-primary border border-primary/20">
                           Template: {request.templateName}
+                          {Array.isArray(request.additionalTemplates) &&
+                            request.additionalTemplates.map(t => `, ${t.templateName}`)}
                         </span>
                       )}
                       {request.leaveCategory && (
@@ -604,7 +653,7 @@ const AdminLeaveManagement = () => {
           </button>
         </div>
         <div className="overflow-x-auto">
-          <table className="admin-sticky-columns min-w-full text-sm">
+          <table className="min-w-full text-sm">
             <thead className="bg-sky-50 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/70 dark:text-dark-text/60">
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Leave Name</th>
@@ -684,6 +733,74 @@ const AdminLeaveManagement = () => {
                     className="px-4 py-6 text-center text-sm text-light-text/70 dark:text-dark-text/70"
                   >
                     No leave templates found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Allotted Template Leaves Table */}
+      <div className="bg-light-card dark:bg-dark-card rounded-xl border border-light-border dark:border-dark-border shadow-card mt-6">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-light-border dark:border-dark-border">
+          <h3 className="font-semibold text-base text-light-text dark:text-dark-text">
+            Allotted Template Leaves
+          </h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-sky-50 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/70 dark:text-dark-text/60">
+              <tr>
+                <th className="px-4 py-3 text-left font-semibold">Emp ID</th>
+                <th className="px-4 py-3 text-left font-semibold">Employee Name</th>
+                <th className="px-4 py-3 text-left font-semibold">Department</th>
+                <th className="px-4 py-3 text-left font-semibold">Designation</th>
+                <th className="px-4 py-3 text-left font-semibold">Allotted Templates</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-light-border dark:divide-dark-border">
+              {assignmentsLoading ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-6 text-center text-sm text-light-text/70 dark:text-dark-text/70"
+                  >
+                    Loading allotments...
+                  </td>
+                </tr>
+              ) : employeeAssignments.length > 0 ? (
+                employeeAssignments.map(emp => (
+                  <tr key={emp._id} className="text-light-text dark:text-dark-text">
+                    <td className="px-4 py-3 font-medium">{emp.employeeCode || '—'}</td>
+                    <td className="px-4 py-3 font-medium">{emp.name}</td>
+                    <td className="px-4 py-3">{emp.department || '—'}</td>
+                    <td className="px-4 py-3">{emp.designation || '—'}</td>
+                    <td className="px-4 py-3">
+                      {Array.isArray(emp.templates) && emp.templates.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {emp.templates.map(t => (
+                            <span
+                              key={t._id}
+                              className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20"
+                            >
+                              {t.name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-light-text/40 dark:text-dark-text/45 text-xs">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-6 text-center text-sm text-light-text/70 dark:text-dark-text/70"
+                  >
+                    No employee assignments found.
                   </td>
                 </tr>
               )}
@@ -876,9 +993,9 @@ const AdminLeaveManagement = () => {
       </div>
 
       {isSlideOverOpen && currentLeave && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-light-card dark:bg-dark-card p-6 rounded-lg shadow-xl border border-light-border dark:border-dark-border max-w-md w-full mx-4">
-            <div className="flex items-center gap-3 mb-4">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-light-card dark:bg-dark-card rounded-xl shadow-2xl border border-light-border dark:border-dark-border max-w-md w-full flex flex-col max-h-[90vh]">
+            <div className="flex items-center gap-3 p-6 border-b border-light-border dark:border-dark-border shrink-0">
               <div className="p-2 bg-primary/10 rounded-lg">
                 <Edit className="w-5 h-5 text-primary" />
               </div>
@@ -892,7 +1009,7 @@ const AdminLeaveManagement = () => {
               </div>
             </div>
 
-            <div className="mt-6 space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
               <div className="bg-light-bg dark:bg-dark-bg p-4 rounded-lg">
                 <div className="flex items-center gap-2 text-sm text-light-text dark:text-dark-text">
                   <User className="w-4 h-4" />
@@ -953,15 +1070,96 @@ const AdminLeaveManagement = () => {
                         <input
                           type="checkbox"
                           checked={useTemplateQuota}
-                          onChange={e => setUseTemplateQuota(e.target.checked)}
+                          onChange={e => {
+                            setUseTemplateQuota(e.target.checked);
+                            if (e.target.checked) {
+                              setSelectedTemplateIds([templateQuota.template._id]);
+                            } else {
+                              setSelectedTemplateIds([]);
+                            }
+                          }}
                           disabled={!templateQuota.balance.remaining}
                           className="h-4 w-4 accent-primary"
                         />
                         Use this quota for the approval
                       </label>
                     </div>
+                  ) : templateQuota?.templates && templateQuota.templates.length > 0 ? (
+                    <div className="mt-2 space-y-3 max-h-60 overflow-y-auto pr-1">
+                      <p className="text-xs opacity-50 mb-1 text-light-text dark:text-dark-text">
+                        Select one or more quotas to deduct from:
+                      </p>
+
+                      {templateQuota.templates.map(item => {
+                        const isSelected = selectedTemplateIds.includes(item.template._id);
+                        return (
+                          <label
+                            key={item.template._id}
+                            className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                              isSelected
+                                ? 'border-primary/50 bg-primary/5'
+                                : 'border-light-border dark:border-dark-border hover:bg-light-bg dark:hover:bg-dark-bg'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {
+                                let newIds;
+                                if (isSelected) {
+                                  newIds = selectedTemplateIds.filter(
+                                    id => id !== item.template._id
+                                  );
+                                } else {
+                                  newIds = [...selectedTemplateIds, item.template._id];
+                                }
+                                setSelectedTemplateIds(newIds);
+                                setUseTemplateQuota(newIds.length > 0);
+                              }}
+                              disabled={!item.balance.remaining}
+                              className="mt-1 h-4 w-4 accent-primary rounded"
+                            />
+                            <div className="flex-1 text-xs">
+                              <p className="font-medium text-light-text dark:text-dark-text">
+                                {item.template.name}
+                              </p>
+                              <div className="grid grid-cols-3 gap-1 mt-1 text-center font-mono">
+                                <div className="bg-light-bg dark:bg-dark-bg rounded p-1">
+                                  <span className="block text-[9px] opacity-60">Total</span>
+                                  <span className="text-light-text dark:text-dark-text">
+                                    {item.balance.total}
+                                  </span>
+                                </div>
+                                <div className="bg-light-bg dark:bg-dark-bg rounded p-1">
+                                  <span className="block text-[9px] opacity-60">Used</span>
+                                  <span className="text-light-text dark:text-dark-text">
+                                    {item.balance.used}
+                                  </span>
+                                </div>
+                                <div
+                                  className={`rounded p-1 ${item.balance.remaining > 0 ? 'bg-success/10 text-success' : 'bg-light-bg dark:bg-dark-bg opacity-50 text-light-text dark:text-dark-text'}`}
+                                >
+                                  <span className="block text-[9px]">Remaining</span>
+                                  <span className="font-semibold">{item.balance.remaining}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </label>
+                        );
+                      })}
+
+                      {selectedTemplateIds.length > 1 && (
+                        <p className="text-[10px] text-primary bg-primary/5 p-2 rounded-lg leading-relaxed mt-1">
+                          * Multiple selected: Leave days will be deducted from the first template
+                          up to its remaining balance, and any leftover days will be deducted from
+                          the second template.
+                        </p>
+                      )}
+                    </div>
                   ) : (
-                    <p className="mt-2 opacity-70">No template quota assigned to this employee.</p>
+                    <p className="mt-2 opacity-70 text-light-text dark:text-dark-text">
+                      No template quota assigned to this employee.
+                    </p>
                   )}
                 </div>
                 <div className="flex items-center gap-2 mt-2 text-sm text-light-text dark:text-dark-text opacity-70">
@@ -1005,7 +1203,7 @@ const AdminLeaveManagement = () => {
               </div>
             </div>
 
-            <div className="flex justify-end mt-6 gap-3">
+            <div className="flex justify-end p-6 border-t border-light-border dark:border-dark-border gap-3 shrink-0">
               <button
                 onClick={() => setIsSlideOverOpen(false)}
                 className="px-4 py-2 bg-light-bg dark:bg-dark-bg rounded-lg hover:bg-light-card dark:hover:bg-dark-card transition-colors text-light-text dark:text-dark-text"

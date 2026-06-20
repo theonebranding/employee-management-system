@@ -135,8 +135,8 @@ export const assignLeaveTemplate = async (req, res) => {
     const assignments = await Promise.all(
       employees.map((employee) =>
         LeaveTemplateAssignment.findOneAndUpdate(
-          { employee: employee._id },
-          { template: template._id, assignedAt: new Date() },
+          { employee: employee._id, template: template._id },
+          { assignedAt: new Date() },
           { new: true, upsert: true }
         )
       )
@@ -166,21 +166,32 @@ export const getEmployeesWithTemplate = async (req, res) => {
       employee: { $in: employees.map((emp) => emp._id) },
     }).populate('template', 'name');
 
-    const assignmentMap = new Map(
-      assignments.map((assignment) => [
-        String(assignment.employee),
-        assignment.template?.name || null,
-      ])
-    );
+    const assignmentMap = new Map();
+    assignments.forEach((assignment) => {
+      const empIdStr = String(assignment.employee?._id || assignment.employee);
+      if (assignment.template?.name) {
+        if (!assignmentMap.has(empIdStr)) {
+          assignmentMap.set(empIdStr, []);
+        }
+        assignmentMap.get(empIdStr).push({
+          _id: assignment.template._id,
+          name: assignment.template.name,
+        });
+      }
+    });
 
-    const data = employees.map((emp) => ({
-      _id: emp._id,
-      employeeCode: emp.employeeCode,
-      name: emp.name,
-      department: emp.department || '—',
-      designation: emp.designation || '—',
-      templateAssigned: assignmentMap.get(String(emp._id)) || '—',
-    }));
+    const data = employees.map((emp) => {
+      const templates = assignmentMap.get(String(emp._id)) || [];
+      return {
+        _id: emp._id,
+        employeeCode: emp.employeeCode,
+        name: emp.name,
+        department: emp.department || '—',
+        designation: emp.designation || '—',
+        templates,
+        templateAssigned: templates.length > 0 ? templates.map((t) => t.name).join(', ') : '—',
+      };
+    });
 
     return res.status(200).json({
       message: 'Employees fetched',
@@ -196,64 +207,126 @@ export const getEmployeesWithTemplate = async (req, res) => {
 
 export const getMyLeaveTemplate = async (req, res) => {
   try {
-    const assignment = await LeaveTemplateAssignment.findOne({ employee: req.user._id }).populate(
+    const assignments = await LeaveTemplateAssignment.find({ employee: req.user._id }).populate(
       'template'
     );
 
-    if (!assignment?.template) {
-      return res.status(404).json({ message: 'No leave template assigned yet.' });
+    const results = [];
+    for (const assignment of assignments) {
+      if (assignment.template) {
+        const balance = await getTemplateBalance({
+          employeeId: req.user._id,
+          template: assignment.template,
+        });
+        results.push({
+          assignment: {
+            _id: assignment._id,
+            assignedAt: assignment.assignedAt,
+          },
+          template: assignment.template,
+          balance,
+        });
+      }
     }
 
-    const balance = await getTemplateBalance({
-      employeeId: req.user._id,
-      template: assignment.template,
-    });
-
     return res.status(200).json({
-      message: 'Leave template fetched',
-      assignment: {
-        _id: assignment._id,
-        assignedAt: assignment.assignedAt,
-      },
-      template: assignment.template,
-      balance,
+      message: 'Leave templates fetched',
+      templates: results,
     });
   } catch (error) {
-    return res.status(500).json({ message: 'Error fetching leave template', error: error.message });
+    return res
+      .status(500)
+      .json({ message: 'Error fetching leave templates', error: error.message });
   }
 };
 
 export const getEmployeeLeaveTemplate = async (req, res) => {
   try {
     const { employeeId } = req.params;
+    const { templateId } = req.query;
 
     if (!employeeId) {
       return res.status(400).json({ message: 'Employee ID is required.' });
     }
 
-    const assignment = await LeaveTemplateAssignment.findOne({ employee: employeeId }).populate(
+    if (templateId) {
+      const assignment = await LeaveTemplateAssignment.findOne({
+        employee: employeeId,
+        template: templateId,
+      }).populate('template');
+
+      if (!assignment?.template) {
+        return res.status(404).json({ message: 'No matching leave template assigned.' });
+      }
+
+      const balance = await getTemplateBalance({
+        employeeId,
+        template: assignment.template,
+      });
+
+      return res.status(200).json({
+        message: 'Leave template fetched',
+        assignment: {
+          _id: assignment._id,
+          assignedAt: assignment.assignedAt,
+        },
+        template: assignment.template,
+        balance,
+      });
+    }
+
+    const assignments = await LeaveTemplateAssignment.find({ employee: employeeId }).populate(
       'template'
     );
 
-    if (!assignment?.template) {
-      return res.status(404).json({ message: 'No leave template assigned yet.' });
+    const results = [];
+    for (const assignment of assignments) {
+      if (assignment.template) {
+        const balance = await getTemplateBalance({
+          employeeId,
+          template: assignment.template,
+        });
+        results.push({
+          assignment: {
+            _id: assignment._id,
+            assignedAt: assignment.assignedAt,
+          },
+          template: assignment.template,
+          balance,
+        });
+      }
     }
 
-    const balance = await getTemplateBalance({
-      employeeId,
-      template: assignment.template,
-    });
-
     return res.status(200).json({
-      message: 'Leave template fetched',
-      assignment: {
-        _id: assignment._id,
-        assignedAt: assignment.assignedAt,
-      },
-      template: assignment.template,
-      balance,
+      message: 'Leave templates fetched',
+      templates: results,
     });
   } catch (error) {
-    return res.status(500).json({ message: 'Error fetching leave template', error: error.message });
+    return res
+      .status(500)
+      .json({ message: 'Error fetching leave templates', error: error.message });
+  }
+};
+
+export const unassignLeaveTemplate = async (req, res) => {
+  try {
+    const { employeeId, templateId } = req.body;
+
+    if (!employeeId || !templateId) {
+      return res.status(400).json({ message: 'Employee ID and Template ID are required.' });
+    }
+
+    const assignment = await LeaveTemplateAssignment.findOneAndDelete({
+      employee: employeeId,
+      template: templateId,
+    });
+
+    if (!assignment) {
+      return res.status(404).json({ message: 'Assignment not found' });
+    }
+
+    return res.status(200).json({ message: 'Template unassigned successfully' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Error unassigning template', error: error.message });
   }
 };

@@ -10,6 +10,7 @@ import {
   getEmployeesWithTemplate,
   getLeaveTemplates,
   updateLeaveTemplate,
+  unassignLeaveTemplate,
 } from '../controllers/leaveTemplateController.js';
 
 const router = express.Router();
@@ -21,6 +22,7 @@ router.delete('/templates/:templateId', verifyToken, checkRole(['admin']), delet
 
 router.get('/employees', verifyToken, checkRole(['admin']), getEmployeesWithTemplate);
 router.post('/assign', verifyToken, checkRole(['admin']), assignLeaveTemplate);
+router.post('/unassign', verifyToken, checkRole(['admin']), unassignLeaveTemplate);
 router.get(
   '/employee-template/:employeeId',
   verifyToken,

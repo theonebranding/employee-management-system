@@ -294,7 +294,14 @@ const shouldApplyLeaveEncashmentForPayroll = (month, carryForwardPeriod) => {
   return false;
 };
 
-const buildLeaveEncashmentEntries = ({ balance, dailyWage, month, year, templateName }) => {
+const buildLeaveEncashmentEntries = ({
+  balance,
+  dailyWage,
+  month,
+  year,
+  templateId,
+  templateName,
+}) => {
   const encashmentDays = Number(balance?.encashmentDays || 0);
   if (!encashmentDays) return [];
 
@@ -317,6 +324,7 @@ const buildLeaveEncashmentEntries = ({ balance, dailyWage, month, year, template
         previousPeriodRemaining: Number(balance?.previousPeriodRemaining || 0),
         allocationPeriodStart: balance?.periodStart || null,
         allocationPeriodEnd: balance?.periodEnd || null,
+        templateId: templateId || null,
         templateName: templateName || null,
       },
     },
@@ -332,17 +340,24 @@ const syncLeaveEncashmentExtras = async ({ employeeId, month, year, entries, pro
     transactionDate: { $gte: start, $lte: end },
   });
 
-  const existingByDate = new Map();
+  const existingByTemplateAndDate = new Map();
   existing.forEach((item) => {
-    existingByDate.set(toDateKey(new Date(item.transactionDate)), item);
+    const key = `${toDateKey(new Date(item.transactionDate))}_${item.breakdown?.templateId || item.breakdown?.templateName || ''}`;
+    existingByTemplateAndDate.set(key, item);
   });
 
-  const desiredDates = new Set(entries.map((entry) => entry.dateKey));
+  const desiredKeys = new Set(
+    entries.map(
+      (entry) =>
+        `${entry.dateKey}_${entry.breakdown?.templateId || entry.breakdown?.templateName || ''}`
+    )
+  );
 
   for (const entry of entries) {
     const [yearPart, monthPart, dayPart] = entry.dateKey.split('-').map(Number);
     const transactionDate = getIstDayStartFromParts(yearPart, monthPart, dayPart);
-    const current = existingByDate.get(entry.dateKey);
+    const mapKey = `${entry.dateKey}_${entry.breakdown?.templateId || entry.breakdown?.templateName || ''}`;
+    const current = existingByTemplateAndDate.get(mapKey);
 
     if (!current) {
       await ExtraAllowance.create({
@@ -374,8 +389,8 @@ const syncLeaveEncashmentExtras = async ({ employeeId, month, year, entries, pro
   }
 
   for (const current of existing) {
-    const dateKey = toDateKey(new Date(current.transactionDate));
-    if (!desiredDates.has(dateKey)) {
+    const key = `${toDateKey(new Date(current.transactionDate))}_${current.breakdown?.templateId || current.breakdown?.templateName || ''}`;
+    if (!desiredKeys.has(key)) {
       current.status = 'cancelled';
       await current.save();
     }
@@ -486,32 +501,41 @@ const computePayroll = async ({
     0
   );
 
-  const leaveTemplateAssignment = await LeaveTemplateAssignment.findOne({
+  const leaveTemplateAssignments = await LeaveTemplateAssignment.find({
     employee: employee._id,
   }).populate('template');
-  const leaveEncashmentEnabled = Boolean(
-    leaveTemplateAssignment?.template?.encashmentAllowed &&
-    shouldApplyLeaveEncashmentForPayroll(
-      month,
-      leaveTemplateAssignment?.template?.carryForwardPeriod
-    )
-  );
-  const leaveBalance = leaveEncashmentEnabled
-    ? await getTemplateBalance({
-        employeeId: employee._id,
-        template: leaveTemplateAssignment.template,
-        referenceDate: start,
-      })
-    : null;
-  const leaveEncashmentEntries = leaveBalance
-    ? buildLeaveEncashmentEntries({
-        balance: leaveBalance,
-        dailyWage,
+
+  let leaveEncashmentEntries = [];
+
+  for (const assignment of leaveTemplateAssignments) {
+    if (assignment?.template?.encashmentAllowed) {
+      const leaveEncashmentEnabled = shouldApplyLeaveEncashmentForPayroll(
         month,
-        year,
-        templateName: leaveTemplateAssignment?.template?.name,
-      })
-    : [];
+        assignment.template.carryForwardPeriod
+      );
+      if (leaveEncashmentEnabled) {
+        const leaveBalance = await getTemplateBalance({
+          employeeId: employee._id,
+          template: assignment.template,
+          referenceDate: start,
+        });
+        if (leaveBalance) {
+          const entries = buildLeaveEncashmentEntries({
+            balance: leaveBalance,
+            dailyWage,
+            month,
+            year,
+            templateId: assignment.template._id,
+            templateName: assignment.template.name,
+          });
+          if (entries && entries.length > 0) {
+            leaveEncashmentEntries = [...leaveEncashmentEntries, ...entries];
+          }
+        }
+      }
+    }
+  }
+
   const leaveEncashmentTotal = leaveEncashmentEntries.reduce(
     (sum, entry) => sum + Number(entry.amount || 0),
     0

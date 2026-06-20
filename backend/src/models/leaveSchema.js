@@ -9,6 +9,13 @@ const leaveSchema = new mongoose.Schema(
     leaveCategory: { type: String, default: null },
     template: { type: mongoose.Schema.Types.ObjectId, ref: 'LeaveTemplate', default: null },
     templateName: { type: String, default: null },
+    additionalTemplates: [
+      {
+        template: { type: mongoose.Schema.Types.ObjectId, ref: 'LeaveTemplate', default: null },
+        templateName: { type: String, default: null },
+        quotaDaysUsed: { type: Number, default: 0 },
+      },
+    ],
     reason: { type: String, required: true },
     status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
     isTemplateBased: { type: Boolean, default: false },

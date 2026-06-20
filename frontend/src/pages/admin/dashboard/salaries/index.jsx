@@ -34,6 +34,26 @@ const minutesToTime = value => {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 };
 
+const getLeaveDisplayName = record => {
+  if (!record) return '—';
+  if (record.leaveMode === 'template') {
+    const mainName = record.templateName || 'Template Leave';
+    if (Array.isArray(record.additionalTemplates) && record.additionalTemplates.length > 0) {
+      const additionalNames = record.additionalTemplates.map(t => t.templateName).join(', ');
+      return `${mainName}, ${additionalNames}`;
+    }
+    return mainName;
+  }
+  if (record.leaveMode === 'special') {
+    if (!record.leaveCategory) return 'Special/Document Leave';
+    return record.leaveCategory
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+  return '—';
+};
+
 // eslint-disable-next-line sonarjs/cognitive-complexity
 const AdminSalaryManagement = () => {
   const navigate = useNavigate();
@@ -3472,7 +3492,7 @@ const AdminSalaryManagement = () => {
                       </div>
 
                       <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
-                        <table className="admin-sticky-columns min-w-full text-sm">
+                        <table className=" min-w-full text-sm">
                           <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
                             <tr>
                               <th className="px-4 py-3 text-left font-semibold">Date</th>
@@ -3635,12 +3655,15 @@ const AdminSalaryManagement = () => {
                       </div>
 
                       <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
-                        <table className="admin-sticky-columns min-w-full text-sm">
+                        <table className="min-w-full text-sm">
                           <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
                             <tr>
                               <th className="px-4 py-3 text-left font-semibold">Date</th>
                               <th className="px-4 py-3 text-left font-semibold">Days</th>
                               <th className="px-4 py-3 text-left font-semibold">Type</th>
+                              <th className="px-4 py-3 text-left font-semibold">
+                                Leave Name / Category
+                              </th>
                               <th className="px-4 py-3 text-left font-semibold">Amount</th>
                               <th className="px-4 py-3 text-left font-semibold">Remarks</th>
                             </tr>
@@ -3649,7 +3672,7 @@ const AdminSalaryManagement = () => {
                             {!paidLeaveDetails ? (
                               <tr>
                                 <td
-                                  colSpan={5}
+                                  colSpan={6}
                                   className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
                                 >
                                   Select an employee to view paid leave details.
@@ -3658,7 +3681,7 @@ const AdminSalaryManagement = () => {
                             ) : (paidLeaveDetails.leaveRecords || []).length === 0 ? (
                               <tr>
                                 <td
-                                  colSpan={5}
+                                  colSpan={6}
                                   className="px-4 py-6 text-center text-light-text/60 dark:text-dark-text/60"
                                 >
                                   No approved paid leave requests for this period.
@@ -3684,6 +3707,7 @@ const AdminSalaryManagement = () => {
                                     </td>
                                     <td className="px-4 py-3">{Number(record.paidDays || 0)}</td>
                                     <td className="px-4 py-3">{record.leaveMode || 'N/A'}</td>
+                                    <td className="px-4 py-3">{getLeaveDisplayName(record)}</td>
                                     <td className="px-4 py-3">₹{paidDayAmount.toFixed(2)}</td>
                                     <td className="px-4 py-3">{record.reason || '—'}</td>
                                   </tr>
@@ -3696,7 +3720,7 @@ const AdminSalaryManagement = () => {
                     </div>
 
                     <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
-                      <table className="admin-sticky-columns min-w-full text-sm">
+                      <table className="min-w-full text-sm">
                         <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
                           <tr>
                             <th className="px-4 py-3 text-left font-semibold">Date</th>
@@ -3963,7 +3987,7 @@ const AdminSalaryManagement = () => {
                       </div>
 
                       <div className="overflow-x-auto rounded-xl border border-light-border dark:border-dark-border">
-                        <table className="admin-sticky-columns min-w-full text-sm">
+                        <table className="min-w-full text-sm">
                           <thead className="bg-light-bg/70 dark:bg-dark-bg/70 text-xs uppercase tracking-wide text-light-text/60 dark:text-dark-text/60">
                             <tr>
                               <th className="px-4 py-3 text-left font-semibold">Date</th>

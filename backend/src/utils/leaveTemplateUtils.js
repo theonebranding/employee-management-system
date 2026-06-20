@@ -136,16 +136,32 @@ export const getPayrollLeaveDaysForRange = async ({ employeeId, startDate, endDa
 export const getTemplateUsedDays = async ({ employeeId, templateId, periodStart, periodEnd }) => {
   const approvedLeaves = await Leave.find({
     employee: employeeId,
-    template: templateId,
     status: 'approved',
     startDate: { $lte: periodEnd },
     endDate: { $gte: periodStart },
-  }).select('startDate endDate quotaDaysUsed paidDays isTemplateBased');
+    $or: [{ template: templateId }, { 'additionalTemplates.template': templateId }],
+  }).select(
+    'startDate endDate quotaDaysUsed paidDays isTemplateBased template additionalTemplates'
+  );
 
   const usedDays = await Promise.all(
     approvedLeaves.map(async (leave) => {
-      if (Number.isFinite(leave.quotaDaysUsed) && leave.quotaDaysUsed > 0) {
-        return leave.quotaDaysUsed;
+      let used = 0;
+      if (leave.template && String(leave.template) === String(templateId)) {
+        used += Number(leave.quotaDaysUsed || 0);
+      }
+
+      if (Array.isArray(leave.additionalTemplates)) {
+        const matching = leave.additionalTemplates.find(
+          (t) => t.template && String(t.template) === String(templateId)
+        );
+        if (matching) {
+          used += Number(matching.quotaDaysUsed || 0);
+        }
+      }
+
+      if (used > 0) {
+        return used;
       }
 
       if (!leave.isTemplateBased) {
