@@ -735,10 +735,11 @@ const AdminPayroll = () => {
                         <td className="px-4 py-3">₹{payroll?.totalSalary?.toFixed(2) || '0.00'}</td>
                         <td className="px-4 py-3">
                           <span
-                            className={`px-3 py-1 rounded-full text-xs font-semibold ${payroll?.status === 'paid'
-                              ? 'bg-success/15 text-success'
-                              : 'bg-warning/15 text-warning'
-                              }`}
+                            className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                              payroll?.status === 'paid'
+                                ? 'bg-success/15 text-success'
+                                : 'bg-warning/15 text-warning'
+                            }`}
                           >
                             {payroll?.status || 'unpaid'}
                           </span>

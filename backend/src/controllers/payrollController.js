@@ -1056,7 +1056,19 @@ export const processPayrollForAll = async (req, res) => {
 
 export const getPayrolls = async (req, res) => {
   try {
-    const { month, year, startMonth, startYear, endMonth, endYear, status, page, limit, all, employeeIds } = req.query;
+    const {
+      month,
+      year,
+      startMonth,
+      startYear,
+      endMonth,
+      endYear,
+      status,
+      page,
+      limit,
+      all,
+      employeeIds,
+    } = req.query;
     const query = {};
     if (status) query.status = status;
 
@@ -1081,7 +1093,7 @@ export const getPayrolls = async (req, res) => {
         query.$or = [
           { year: { $gt: sY, $lt: eY } },
           { year: sY, month: { $gte: sM } },
-          { year: eY, month: { $lte: eM } }
+          { year: eY, month: { $lte: eM } },
         ];
       }
     }
@@ -1102,7 +1114,7 @@ export const getPayrolls = async (req, res) => {
       const pageNum = Number(page || 1);
       const limitNum = Number(limit || 10);
       const skipNum = (pageNum - 1) * limitNum;
-      
+
       [payrolls, total] = await Promise.all([
         dbQuery.skip(skipNum).limit(limitNum),
         Payroll.countDocuments(query),
@@ -1112,12 +1124,14 @@ export const getPayrolls = async (req, res) => {
     return res.status(200).json({
       message: 'Payrolls fetched successfully',
       payrolls,
-      pagination: isExport ? null : {
-        currentPage: Number(page || 1),
-        totalPages: Math.ceil(total / Number(limit || 10)),
-        totalPayrolls: total,
-        limit: Number(limit || 10),
-      },
+      pagination: isExport
+        ? null
+        : {
+            currentPage: Number(page || 1),
+            totalPages: Math.ceil(total / Number(limit || 10)),
+            totalPayrolls: total,
+            limit: Number(limit || 10),
+          },
     });
   } catch (error) {
     return res.status(500).json({ message: 'Error fetching payrolls', error: error.message });

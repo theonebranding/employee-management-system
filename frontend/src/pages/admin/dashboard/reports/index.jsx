@@ -768,10 +768,13 @@ const AdminReports = () => {
     }, 16);
   };
 
-  useEffect(() => () => {
-    stopAttendanceMasterAutoScroll();
-    stopAttendanceAutoScroll();
-  }, []);
+  useEffect(
+    () => () => {
+      stopAttendanceMasterAutoScroll();
+      stopAttendanceAutoScroll();
+    },
+    []
+  );
 
   const formatHoursFromMinutes = minutes => {
     const mins = Number(minutes || 0);
@@ -1678,11 +1681,11 @@ const AdminReports = () => {
         // for those tabs.
         ...(tab === 'attendance'
           ? {
-            statusFilter: Object.entries(statusFilters || {})
-              .filter(([, on]) => on)
-              .map(([key]) => formatStatusLabel(key))
-              .join('/'),
-          }
+              statusFilter: Object.entries(statusFilters || {})
+                .filter(([, on]) => on)
+                .map(([key]) => formatStatusLabel(key))
+                .join('/'),
+            }
           : {}),
       });
 
@@ -1845,8 +1848,10 @@ const AdminReports = () => {
     const stats = calculateStats(filteredAttendanceData);
 
     const totalBreakHours = (
-      filteredAttendanceData.reduce((sum, record) => sum + Number(record.totalRecessDuration || 0), 0) /
-      3600000
+      filteredAttendanceData.reduce(
+        (sum, record) => sum + Number(record.totalRecessDuration || 0),
+        0
+      ) / 3600000
     ).toFixed(2);
 
     const hourlyDistribution = [
@@ -1858,8 +1863,9 @@ const AdminReports = () => {
       'No Check-In',
     ].map(label => ({
       label,
-      count: filteredAttendanceData.filter(record => getCheckInHourBucket(record.checkInTime) === label)
-        .length,
+      count: filteredAttendanceData.filter(
+        record => getCheckInHourBucket(record.checkInTime) === label
+      ).length,
     }));
 
     return (
@@ -2193,9 +2199,9 @@ const AdminReports = () => {
             <div>
               {filteredAttendanceData.length > 0
                 ? `Showing ${startIndex + 1}-${Math.min(
-                  startIndex + RECORDS_PER_PAGE,
-                  filteredAttendanceData.length
-                )} of ${filteredAttendanceData.length}`
+                    startIndex + RECORDS_PER_PAGE,
+                    filteredAttendanceData.length
+                  )} of ${filteredAttendanceData.length}`
                 : SHOWING_NO_RESULTS}
             </div>
             <div className="flex items-center gap-2">
@@ -2234,9 +2240,9 @@ const AdminReports = () => {
     ).length;
     const avgNetHours = filteredPunchData.length
       ? (
-        filteredPunchData.reduce((sum, record) => sum + Number(record.actualHours || 0), 0) /
-        filteredPunchData.length
-      ).toFixed(2)
+          filteredPunchData.reduce((sum, record) => sum + Number(record.actualHours || 0), 0) /
+          filteredPunchData.length
+        ).toFixed(2)
       : '0.00';
 
     return (
@@ -2468,10 +2474,11 @@ const AdminReports = () => {
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${record.checkInTime && record.checkOutTime
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              record.checkInTime && record.checkOutTime
                                 ? 'bg-green-100 text-green-700'
                                 : 'bg-amber-100 text-amber-700'
-                              }`}
+                            }`}
                           >
                             {record.checkInTime && record.checkOutTime ? 'Complete' : 'Pending'}
                           </span>
@@ -2494,9 +2501,9 @@ const AdminReports = () => {
             <div>
               {filteredPunchData.length > 0
                 ? `Showing ${startIndex + 1}-${Math.min(
-                  startIndex + RECORDS_PER_PAGE,
-                  filteredPunchData.length
-                )} of ${filteredPunchData.length}`
+                    startIndex + RECORDS_PER_PAGE,
+                    filteredPunchData.length
+                  )} of ${filteredPunchData.length}`
                 : SHOWING_NO_RESULTS}
             </div>
             <div className="flex items-center gap-2">
@@ -2762,10 +2769,11 @@ const AdminReports = () => {
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${record.reportText && record.reportText !== 'N/A'
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              record.reportText && record.reportText !== 'N/A'
                                 ? 'bg-green-100 text-green-700'
                                 : 'bg-amber-100 text-amber-700'
-                              }`}
+                            }`}
                           >
                             {record.reportText && record.reportText !== 'N/A'
                               ? 'Submitted'
@@ -2790,9 +2798,9 @@ const AdminReports = () => {
             <div>
               {filteredReportData.length > 0
                 ? `Showing ${startIndex + 1}-${Math.min(
-                  startIndex + RECORDS_PER_PAGE,
-                  filteredReportData.length
-                )} of ${filteredReportData.length}`
+                    startIndex + RECORDS_PER_PAGE,
+                    filteredReportData.length
+                  )} of ${filteredReportData.length}`
                 : SHOWING_NO_RESULTS}
             </div>
             <div className="flex items-center gap-2">
@@ -2831,9 +2839,9 @@ const AdminReports = () => {
     ).length;
     const avgNetHours = filteredHourlyData.length
       ? (
-        filteredHourlyData.reduce((sum, record) => sum + Number(record.actualHours || 0), 0) /
-        filteredHourlyData.length
-      ).toFixed(2)
+          filteredHourlyData.reduce((sum, record) => sum + Number(record.actualHours || 0), 0) /
+          filteredHourlyData.length
+        ).toFixed(2)
       : '0.00';
 
     const totalBreakHours = (
@@ -3106,10 +3114,11 @@ const AdminReports = () => {
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${record.checkInTime && record.checkOutTime
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              record.checkInTime && record.checkOutTime
                                 ? 'bg-green-100 text-green-700'
                                 : 'bg-amber-100 text-amber-700'
-                              }`}
+                            }`}
                           >
                             {record.checkInTime && record.checkOutTime ? 'Complete' : 'Incomplete'}
                           </span>
@@ -3132,9 +3141,9 @@ const AdminReports = () => {
             <div>
               {filteredHourlyData.length > 0
                 ? `Showing ${startIndex + 1}-${Math.min(
-                  startIndex + RECORDS_PER_PAGE,
-                  filteredHourlyData.length
-                )} of ${filteredHourlyData.length}`
+                    startIndex + RECORDS_PER_PAGE,
+                    filteredHourlyData.length
+                  )} of ${filteredHourlyData.length}`
                 : SHOWING_NO_RESULTS}
             </div>
             <div className="flex items-center gap-2">
@@ -3284,33 +3293,33 @@ const AdminReports = () => {
                     <tbody>
                       {loading
                         ? [...Array(8)].map((_, idx) => (
-                          <tr
-                            key={`skeleton-${idx}`}
-                            className="border-t border-light-border dark:border-dark-border animate-pulse"
-                          >
-                            <td className="px-4 py-3">
-                              <div className="h-4 w-14 bg-light-bg dark:bg-dark-bg rounded" />
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="h-4 w-28 bg-light-bg dark:bg-dark-bg rounded" />
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="h-4 w-20 bg-light-bg dark:bg-dark-bg rounded" />
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="h-4 w-24 bg-light-bg dark:bg-dark-bg rounded" />
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="h-4 w-24 bg-light-bg dark:bg-dark-bg rounded" />
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="h-4 w-16 bg-light-bg dark:bg-dark-bg rounded" />
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="h-7 w-24 bg-light-bg dark:bg-dark-bg rounded" />
-                            </td>
-                          </tr>
-                        ))
+                            <tr
+                              key={`skeleton-${idx}`}
+                              className="border-t border-light-border dark:border-dark-border animate-pulse"
+                            >
+                              <td className="px-4 py-3">
+                                <div className="h-4 w-14 bg-light-bg dark:bg-dark-bg rounded" />
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="h-4 w-28 bg-light-bg dark:bg-dark-bg rounded" />
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="h-4 w-20 bg-light-bg dark:bg-dark-bg rounded" />
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="h-4 w-24 bg-light-bg dark:bg-dark-bg rounded" />
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="h-4 w-24 bg-light-bg dark:bg-dark-bg rounded" />
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="h-4 w-16 bg-light-bg dark:bg-dark-bg rounded" />
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="h-7 w-24 bg-light-bg dark:bg-dark-bg rounded" />
+                              </td>
+                            </tr>
+                          ))
                         : null}
                       {pagedAttendanceMasterRows.map((row, idx) => {
                         const key = `${row.employeeId}_${row.date}`;
@@ -3408,9 +3417,9 @@ const AdminReports = () => {
                 <div>
                   {filteredAttendanceMasterRows.length > 0
                     ? `Showing ${startIndex + 1}-${Math.min(
-                      startIndex + RECORDS_PER_PAGE,
-                      filteredAttendanceMasterRows.length
-                    )} of ${filteredAttendanceMasterRows.length}`
+                        startIndex + RECORDS_PER_PAGE,
+                        filteredAttendanceMasterRows.length
+                      )} of ${filteredAttendanceMasterRows.length}`
                     : SHOWING_NO_RESULTS}
                 </div>
                 <div className="flex items-center gap-2">
@@ -3468,14 +3477,14 @@ const AdminReports = () => {
                   <div className="flex-1 overflow-y-auto p-6 space-y-4">
                     {loading
                       ? [...Array(5)].map((_, idx) => (
-                        <div
-                          key={`panel-skeleton-${idx}`}
-                          className="border border-light-border dark:border-dark-border rounded-xl p-4 animate-pulse"
-                        >
-                          <div className="h-4 w-28 bg-light-bg dark:bg-dark-bg rounded mb-3" />
-                          <div className="h-7 w-24 bg-light-bg dark:bg-dark-bg rounded" />
-                        </div>
-                      ))
+                          <div
+                            key={`panel-skeleton-${idx}`}
+                            className="border border-light-border dark:border-dark-border rounded-xl p-4 animate-pulse"
+                          >
+                            <div className="h-4 w-28 bg-light-bg dark:bg-dark-bg rounded mb-3" />
+                            <div className="h-7 w-24 bg-light-bg dark:bg-dark-bg rounded" />
+                          </div>
+                        ))
                       : null}
                     {(groupedAttendanceRows.get(attendanceLogPanel.employeeId) || []).map(entry => {
                       const key = `${entry.employeeId}_${entry.date}`;
@@ -3613,10 +3622,11 @@ const AdminReports = () => {
                 <button
                   key={tabItem.id}
                   onClick={() => handleTabChange(tabItem.id)}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${isActive
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
+                    isActive
                       ? 'bg-primary text-white border-primary'
                       : 'border-light-border dark:border-dark-border bg-white/90 dark:bg-dark-card text-light-text dark:text-dark-text hover:bg-light-bg dark:hover:bg-dark-bg'
-                    }`}
+                  }`}
                 >
                   <span>{tabItem.label}</span>
                 </button>

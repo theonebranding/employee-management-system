@@ -1,7 +1,15 @@
 /* eslint-disable unused-imports/no-unused-vars */
- 
+
 /* eslint-disable react-hooks/exhaustive-deps */
-import { Calculator, ChevronDown, Download, FileSpreadsheet , Filter, Search, X } from 'lucide-react';
+import {
+  Calculator,
+  ChevronDown,
+  Download,
+  FileSpreadsheet,
+  Filter,
+  Search,
+  X,
+} from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
@@ -1248,9 +1256,10 @@ const AdminSalaryManagement = () => {
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
 
-      const rangeLabel = (fromMonth === toMonth && fromYear === toYear)
-        ? `${fromMonth}-${fromYear}`
-        : `${fromMonth}_${fromYear}_to_${toMonth}_${toYear}`;
+      const rangeLabel =
+        fromMonth === toMonth && fromYear === toYear
+          ? `${fromMonth}-${fromYear}`
+          : `${fromMonth}_${fromYear}_to_${toMonth}_${toYear}`;
 
       link.download = `payroll-report-${rangeLabel}.csv`;
       link.click();
@@ -1371,9 +1380,10 @@ const AdminSalaryManagement = () => {
         </tr>
       `;
 
-      const rangeLabel = (fromMonth === toMonth && fromYear === toYear)
-        ? `${fromMonth}/${fromYear}`
-        : `${fromMonth}/${fromYear} to ${toMonth}/${toYear}`;
+      const rangeLabel =
+        fromMonth === toMonth && fromYear === toYear
+          ? `${fromMonth}/${fromYear}`
+          : `${fromMonth}/${fromYear} to ${toMonth}/${toYear}`;
 
       const html = `
         <html>
@@ -1991,7 +2001,9 @@ const AdminSalaryManagement = () => {
 
             {/* Status Select Badge */}
             <div className="flex items-center gap-2.5 mt-3">
-              <span className="text-xs font-semibold uppercase tracking-wider text-light-text/50 dark:text-dark-text/50">Status:</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-light-text/50 dark:text-dark-text/50">
+                Status:
+              </span>
               <select
                 value={formState.status}
                 disabled={isPayrollPaidLocked}
@@ -2026,19 +2038,27 @@ const AdminSalaryManagement = () => {
           <div className="grid grid-cols-4 gap-2 bg-light-card/40 dark:bg-dark-card/40 p-3.5 rounded-xl border border-light-border/80 dark:border-dark-border/80 shadow-sm">
             <div className="text-center">
               <span className="block text-xl font-bold text-primary">{fullDays}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-light-text/50 dark:text-dark-text/50">Full Days</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-light-text/50 dark:text-dark-text/50">
+                Full Days
+              </span>
             </div>
             <div className="text-center border-l border-light-border/80 dark:border-dark-border/80">
               <span className="block text-xl font-bold text-primary">{halfDays}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-light-text/50 dark:text-dark-text/50">Half Days</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-light-text/50 dark:text-dark-text/50">
+                Half Days
+              </span>
             </div>
             <div className="text-center border-l border-light-border/80 dark:border-dark-border/80">
               <span className="block text-xl font-bold text-primary">{paidLeaves}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-light-text/50 dark:text-dark-text/50">Paid Leaves</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-light-text/50 dark:text-dark-text/50">
+                Paid Leaves
+              </span>
             </div>
             <div className="text-center border-l border-light-border/80 dark:border-dark-border/80">
               <span className="block text-xl font-bold text-red-500">{unpaidDays}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-light-text/50 dark:text-dark-text/50">Unpaid Days</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-light-text/50 dark:text-dark-text/50">
+                Unpaid Days
+              </span>
             </div>
           </div>
         </div>
@@ -2159,14 +2179,14 @@ const AdminSalaryManagement = () => {
                     Monthly installment deduction
                   </span>
                 </div>
-                <span className="font-semibold text-red-500">
-                  ₹{snapshotLoanAmount.toFixed(2)}
-                </span>
+                <span className="font-semibold text-red-500">₹{snapshotLoanAmount.toFixed(2)}</span>
               </div>
             )}
 
             <div className="flex items-center justify-between text-sm border-t border-light-border dark:border-dark-border pt-3 mt-1">
-              <span className="font-bold text-light-text dark:text-dark-text">Total Deductions</span>
+              <span className="font-bold text-light-text dark:text-dark-text">
+                Total Deductions
+              </span>
               <span className="font-bold text-red-500 text-base">₹{deductions.toFixed(2)}</span>
             </div>
           </div>
@@ -2357,11 +2377,7 @@ const AdminSalaryManagement = () => {
                 </label>
                 <input
                   type="date"
-                  value={toInputDate(
-                    fromYear,
-                    fromMonth,
-                    1
-                  )}
+                  value={toInputDate(fromYear, fromMonth, 1)}
                   onChange={e => {
                     const date = new Date(e.target.value);
                     if (!Number.isNaN(date.getTime())) {
@@ -2378,11 +2394,7 @@ const AdminSalaryManagement = () => {
                 </label>
                 <input
                   type="date"
-                  value={toInputDate(
-                    toYear,
-                    toMonth,
-                    new Date(toYear, toMonth, 0).getDate()
-                  )}
+                  value={toInputDate(toYear, toMonth, new Date(toYear, toMonth, 0).getDate())}
                   onChange={e => {
                     const date = new Date(e.target.value);
                     if (!Number.isNaN(date.getTime())) {
@@ -2407,7 +2419,9 @@ const AdminSalaryManagement = () => {
                       ? 'All Employees'
                       : `${selectedExportEmployees.length} selected`}
                   </span>
-                  <ChevronDown className={`w-4 h-4 transition-transform ${isEmployeeDropdownOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform ${isEmployeeDropdownOpen ? 'rotate-180' : ''}`}
+                  />
                 </button>
                 {isEmployeeDropdownOpen && (
                   <div className="absolute top-full left-0 mt-2 w-64 max-h-60 overflow-y-auto rounded-lg border border-light-border dark:border-dark-border bg-white dark:bg-dark-card shadow-lg z-50 p-2 space-y-1">
@@ -2444,7 +2458,9 @@ const AdminSalaryManagement = () => {
                           }}
                           className="rounded text-primary focus:ring-primary border-light-border dark:border-dark-border"
                         />
-                        <span className="truncate">{emp.name} {emp.employeeCode ? `(${emp.employeeCode})` : ''}</span>
+                        <span className="truncate">
+                          {emp.name} {emp.employeeCode ? `(${emp.employeeCode})` : ''}
+                        </span>
                       </label>
                     ))}
                   </div>

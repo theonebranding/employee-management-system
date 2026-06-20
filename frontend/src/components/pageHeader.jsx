@@ -1,4 +1,3 @@
- 
 import { ChevronDown, LogOut, Moon, Settings, Sun } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
