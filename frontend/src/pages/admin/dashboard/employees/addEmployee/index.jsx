@@ -68,16 +68,12 @@ const REQUIRED_FOR_ONBOARDING = [
   'employmentType',
   'workLocation',
   'joinedDate',
-  'bankName',
-  'branchName',
-  'bankAccountNumber',
-  'ifscCode',
 ];
 const STEP_REQUIRED_FIELDS = {
   0: ['name', 'email', 'phoneNumber'],
   1: ['department', 'designation', 'employmentType', 'workLocation', 'joinedDate'],
   2: [],
-  3: ['bankName', 'branchName', 'bankAccountNumber', 'ifscCode'],
+  3: [],
   4: [],
 };
 const PHONE_REGEX = /^[0-9]{10,15}$/;
@@ -145,9 +141,7 @@ const AdminAddEmployee = () => {
         return Number(trimmed) > 0 ? '' : 'Base salary must be greater than 0.';
       case 'joinedDate': {
         const joined = new Date(trimmed);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        return joined > today ? 'Joining date cannot be in the future.' : '';
+        return Number.isNaN(joined.getTime()) ? 'Entering a valid joining date is required.' : '';
       }
       case 'dateofBirth': {
         const dob = new Date(trimmed);
@@ -749,7 +743,7 @@ const AdminAddEmployee = () => {
           {stepIndex === 3 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
-                label="Bank Name *"
+                label="Bank Name (Optional)"
                 name="bankName"
                 value={form.bankName}
                 onChange={handleChange}
@@ -757,7 +751,7 @@ const AdminAddEmployee = () => {
                 error={stepErrors.bankName}
               />
               <Input
-                label="Branch Name *"
+                label="Branch Name (Optional)"
                 name="branchName"
                 value={form.branchName}
                 onChange={handleChange}
@@ -765,7 +759,7 @@ const AdminAddEmployee = () => {
                 error={stepErrors.branchName}
               />
               <Input
-                label="Bank Account Number *"
+                label="Bank Account Number (Optional)"
                 name="bankAccountNumber"
                 value={form.bankAccountNumber}
                 onChange={handleChange}
@@ -774,7 +768,7 @@ const AdminAddEmployee = () => {
                 maxLength={20}
               />
               <Input
-                label="IFSC Code *"
+                label="IFSC Code (Optional)"
                 name="ifscCode"
                 value={form.ifscCode}
                 onChange={handleChange}

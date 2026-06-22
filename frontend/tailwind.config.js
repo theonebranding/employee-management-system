@@ -57,11 +57,32 @@ export default {
 
       animation: {
         fade: 'fade 0.3s ease-in-out',
+        'float-slow': 'floatSlow 6s ease-in-out infinite',
+        'pulse-glow': 'pulseGlow 4s ease-in-out infinite',
+        'slide-in-up': 'slideInUp 1s ease-out forwards',
+        shimmer: 'shimmer 8s ease-in-out infinite',
       },
       keyframes: {
         fade: {
           '0%': { opacity: 0 },
           '100%': { opacity: 1 },
+        },
+        floatSlow: {
+          '0%, 100%': { transform: 'translateY(0px) scale(1)' },
+          '50%': { transform: 'translateY(-16px) scale(1.02)' },
+        },
+        pulseGlow: {
+          '0%, 100%': { opacity: '0.06' },
+          '50%': { opacity: '0.12' },
+        },
+        slideInUp: {
+          '0%': { opacity: '0', transform: 'translateY(20px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        shimmer: {
+          '0%, 100%': { filter: 'blur(0px)', opacity: '0.15' },
+          '33%': { filter: 'blur(1px)', opacity: '0.2' },
+          '66%': { filter: 'blur(0px)', opacity: '0.12' },
         },
       },
       typography: {

@@ -119,6 +119,7 @@ export const getCurrentStatus = async (req, res) => {
           ? { latitude: recessEndLatitude, longitude: recessEndLongitude }
           : null,
       totalRecessDuration: formatTime(totalRecessDurationInMilliseconds),
+      totalRecessDurationMs: totalRecessDurationInMilliseconds,
       liveWorkingTime: formatTime(liveWorkingTime),
       lateCheckIn,
     };

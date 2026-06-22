@@ -28,15 +28,18 @@ const Settings = () => {
       pinCode: '',
     },
     professionalInfo: {
-      jobRole: '',
+      designation: '',
+      department: '',
+      employmentType: '',
+      workLocation: '',
       joinedDate: '',
       serviceTime: '',
+      predefinedCheckInTime: '',
     },
     bankAccountInfo: {
       bankName: '',
       branchName: '',
-      accountNumber: '',
-      confirmAccountNumber: '',
+      bankAccountNumber: '',
       ifscCode: '',
     },
     identificationInfo: {
@@ -72,15 +75,18 @@ const Settings = () => {
           pinCode: employee.pinCode || '',
         },
         professionalInfo: {
-          jobRole: employee.jobRole || '',
+          designation: employee.designation || '',
+          department: employee.department || '',
+          employmentType: employee.employmentType || '',
+          workLocation: employee.workLocation || '',
           joinedDate: employee.joinedDate ? toIstInputDate(employee.joinedDate) : '',
           serviceTime: employee.serviceTime || '',
+          predefinedCheckInTime: employee.predefinedCheckInTime || '',
         },
         bankAccountInfo: {
           bankName: employee.bankName || '',
           branchName: employee.branchName || '',
-          accountNumber: employee.bankAccountNumber || '',
-          confirmAccountNumber: employee.bankAccountNumber || '',
+          bankAccountNumber: employee.bankAccountNumber || '',
           ifscCode: employee.ifscCode || '',
         },
         identificationInfo: {
@@ -129,6 +135,42 @@ const Settings = () => {
     },
   ];
 
+  const formatLabel = key => {
+    const customLabels = {
+      dateofBirth: 'Date of Birth',
+      phoneNumber: 'Phone Number',
+      pinCode: 'PIN Code',
+      joinedDate: 'Joining Date',
+      serviceTime: 'Service Time',
+      predefinedCheckInTime: 'Predefined Check-In Time',
+      employmentType: 'Employment Type',
+      workLocation: 'Work Location',
+      bankAccountNumber: 'Bank Account Number',
+      ifscCode: 'IFSC Code',
+      bankName: 'Bank Name',
+      branchName: 'Branch Name',
+      aadharNumber: 'Aadhar Number',
+      panNumber: 'PAN Number',
+      licenseInfo: 'License Info',
+    };
+    if (customLabels[key]) return customLabels[key];
+    return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+  };
+
+  const formatValue = (key, value) => {
+    if (!value) return 'Not provided';
+    if (key === 'aadharNumber' && value.length >= 4) {
+      return '•••• •••• ' + value.slice(-4);
+    }
+    if (key === 'bankAccountNumber' && value.length >= 4) {
+      return '••••••••' + value.slice(-4);
+    }
+    if (key === 'panNumber' && value.length >= 4) {
+      return '••••••' + value.slice(-4);
+    }
+    return value;
+  };
+
   const renderFields = (section, fields) => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -137,12 +179,12 @@ const Settings = () => {
             key={key}
             className="group relative bg-light-card dark:bg-dark-card rounded-xl p-4 ring-1 ring-light-border dark:ring-dark-border shadow-card transition-all duration-300"
           >
-            <label className="block text-sm font-medium mb-2 text-light-text dark:text-dark-text capitalize">
-              {key.replace(/([A-Z])/g, ' $1')}
+            <label className="block text-sm font-medium mb-2 text-light-text dark:text-dark-text">
+              {formatLabel(key)}
             </label>
             <div className="relative">
               <div className="w-full p-3 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg text-light-text dark:text-dark-text">
-                {value || 'Not provided'}
+                {formatValue(key, value)}
               </div>
             </div>
           </div>

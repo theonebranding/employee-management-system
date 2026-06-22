@@ -16,6 +16,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 
 import Header from '../../../../components/pageHeader';
+import { useAuth } from '../../../../context/authContext';
 import { useTheme } from '../../../../context/themeContext';
 
 ChartJS.register(
@@ -169,12 +170,16 @@ const computeStats = (records, monthIndex, year) => {
   };
 };
 
+const ERROR_BORDER_CLASS = 'border-red-500 focus:ring-red-500';
+const NORMAL_BORDER_CLASS = 'border-light-border dark:border-dark-border focus:ring-primary';
+
 const DashboardHome = () => {
   const lineChartRef = useRef(null);
   const barChartRef = useRef(null);
   const lineChartInstanceRef = useRef(null);
   const barChartInstanceRef = useRef(null);
   const { theme } = useTheme();
+  const { setIsProfileComplete } = useAuth();
 
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
   const employeeId = localStorage.getItem('_id');
@@ -186,6 +191,257 @@ const DashboardHome = () => {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const IST_OFFSET_MINUTES = 330;
+  const toIstInputDate = dateValue => {
+    if (!dateValue) return '';
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return '';
+    const shifted = new Date(date.getTime() + IST_OFFSET_MINUTES * 60 * 1000);
+    return shifted.toISOString().split('T')[0];
+  };
+
+  // Profile completion wizard states
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    bankName: '',
+    branchName: '',
+    bankAccountNumber: '',
+    ifscCode: '',
+    aadharNumber: '',
+    panNumber: '',
+    dateofBirth: '',
+    address: '',
+    state: '',
+    city: '',
+    district: '',
+    pinCode: '',
+  });
+  const [profileErrors, setProfileErrors] = useState({});
+  const [submittingProfile, setSubmittingProfile] = useState(false);
+
+  useEffect(() => {
+    const checkProfileCompletion = async () => {
+      if (!employeeId) return;
+      try {
+        const response = await fetch(`${BASE_URL}/employee/my-profile`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        if (!response.ok) throw new Error('Failed to fetch profile');
+        const data = await response.json();
+        const emp = data.employee || {};
+
+        const currentData = {
+          bankName: emp.bankName || '',
+          branchName: emp.branchName || '',
+          bankAccountNumber: emp.bankAccountNumber || '',
+          ifscCode: emp.ifscCode || '',
+          aadharNumber: emp.aadharNumber || '',
+          panNumber: emp.panNumber || '',
+          dateofBirth: emp.dateofBirth ? toIstInputDate(emp.dateofBirth) : '',
+          address: emp.address || '',
+          state: emp.state || '',
+          city: emp.city || '',
+          district: emp.district || '',
+          pinCode: emp.pinCode || '',
+        };
+        setProfileForm(currentData);
+
+        // Wizard displays if any of the optional details are blank
+        const isMissing =
+          !currentData.bankName.trim() ||
+          !currentData.branchName.trim() ||
+          !currentData.bankAccountNumber.trim() ||
+          !currentData.ifscCode.trim() ||
+          !currentData.aadharNumber.trim() ||
+          !currentData.panNumber.trim() ||
+          !currentData.dateofBirth.trim() ||
+          !currentData.address.trim() ||
+          !currentData.state.trim() ||
+          !currentData.city.trim() ||
+          !currentData.district.trim() ||
+          !currentData.pinCode.trim();
+
+        if (isMissing) {
+          setShowCompletionModal(true);
+        }
+      } catch (err) {
+        console.error('Error checking profile completion:', err);
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+    checkProfileCompletion();
+  }, [BASE_URL, employeeId]);
+
+  const validateProfileForm = () => {
+    const errors = {};
+    if (!profileForm.bankName.trim()) errors.bankName = 'Bank name is required';
+    if (!profileForm.branchName.trim()) errors.branchName = 'Branch name is required';
+
+    const acc = profileForm.bankAccountNumber.trim();
+    if (!acc) {
+      errors.bankAccountNumber = 'Bank account number is required';
+    } else if (!/^[0-9]{8,20}$/.test(acc)) {
+      errors.bankAccountNumber = 'Account number must be 8-20 digits';
+    }
+
+    const ifsc = profileForm.ifscCode.trim().toUpperCase();
+    if (!ifsc) {
+      errors.ifscCode = 'IFSC code is required';
+    } else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
+      errors.ifscCode = 'IFSC format should be like HDFC0001234';
+    }
+
+    const aadhar = profileForm.aadharNumber.trim();
+    if (!aadhar) {
+      errors.aadharNumber = 'Aadhar number is required';
+    } else if (!/^[0-9]{12}$/.test(aadhar)) {
+      errors.aadharNumber = 'Aadhar number must be exactly 12 digits';
+    }
+
+    const pan = profileForm.panNumber.trim().toUpperCase();
+    if (!pan) {
+      errors.panNumber = 'PAN number is required';
+    } else if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan)) {
+      errors.panNumber = 'PAN format should be ABCDE1234F';
+    }
+
+    const dob = profileForm.dateofBirth.trim();
+    if (!dob) {
+      errors.dateofBirth = 'Date of birth is required';
+    } else {
+      const dobDate = new Date(dob);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (Number.isNaN(dobDate.getTime()) || dobDate >= today) {
+        errors.dateofBirth = 'Date of birth must be in the past';
+      }
+    }
+
+    if (!profileForm.address.trim()) errors.address = 'Address is required';
+    if (!profileForm.state.trim()) errors.state = 'State is required';
+    if (!profileForm.city.trim()) errors.city = 'City is required';
+    if (!profileForm.district.trim()) errors.district = 'District is required';
+
+    const pin = profileForm.pinCode.trim();
+    if (!pin) {
+      errors.pinCode = 'PIN code is required';
+    } else if (!/^[0-9]{6}$/.test(pin)) {
+      errors.pinCode = 'PIN code must be exactly 6 digits';
+    }
+
+    setProfileErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateSingleField = (field, value) => {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) {
+      const fieldLabels = {
+        bankName: 'Bank name',
+        branchName: 'Branch name',
+        bankAccountNumber: 'Bank account number',
+        ifscCode: 'IFSC code',
+        aadharNumber: 'Aadhar number',
+        panNumber: 'PAN number',
+        dateofBirth: 'Date of birth',
+        address: 'Address',
+        state: 'State',
+        city: 'City',
+        district: 'District',
+        pinCode: 'PIN code',
+      };
+      return `${fieldLabels[field] || field} is required`;
+    }
+    switch (field) {
+      case 'bankAccountNumber':
+        return /^[0-9]{8,20}$/.test(trimmed) ? '' : 'Account number must be 8-20 digits';
+      case 'ifscCode':
+        return /^[A-Z]{4}0[A-Z0-9]{6}$/.test(trimmed.toUpperCase())
+          ? ''
+          : 'IFSC format should be like HDFC0001234';
+      case 'aadharNumber':
+        return /^[0-9]{12}$/.test(trimmed) ? '' : 'Aadhar number must be exactly 12 digits';
+      case 'panNumber':
+        return /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(trimmed.toUpperCase())
+          ? ''
+          : 'PAN format should be ABCDE1234F';
+      case 'dateofBirth': {
+        const dobDate = new Date(trimmed);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return Number.isNaN(dobDate.getTime()) || dobDate >= today
+          ? 'Date of birth must be in the past'
+          : '';
+      }
+      case 'pinCode':
+        return /^[0-9]{6}$/.test(trimmed) ? '' : 'PIN code must be exactly 6 digits';
+      default:
+        return '';
+    }
+  };
+
+  const handleFieldChange = (field, value) => {
+    let sanitizedValue = value;
+    if (field === 'pinCode' || field === 'bankAccountNumber' || field === 'aadharNumber') {
+      sanitizedValue = value.replace(/\D/g, '');
+    } else if (field === 'panNumber' || field === 'ifscCode') {
+      sanitizedValue = value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    }
+
+    setProfileForm(prev => {
+      const next = { ...prev, [field]: sanitizedValue };
+      const err = validateSingleField(field, sanitizedValue);
+      setProfileErrors(prevErrs => ({ ...prevErrs, [field]: err }));
+      return next;
+    });
+  };
+
+  const handleProfileSubmit = async e => {
+    e.preventDefault();
+    if (!validateProfileForm()) return;
+
+    setSubmittingProfile(true);
+    try {
+      const response = await fetch(`${BASE_URL}/employee/update/${employeeId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          bankName: profileForm.bankName.trim(),
+          branchName: profileForm.branchName.trim(),
+          bankAccountNumber: profileForm.bankAccountNumber.trim(),
+          ifscCode: profileForm.ifscCode.trim().toUpperCase(),
+          aadharNumber: profileForm.aadharNumber.trim(),
+          panNumber: profileForm.panNumber.trim().toUpperCase(),
+          dateofBirth: profileForm.dateofBirth.trim(),
+          address: profileForm.address.trim(),
+          state: profileForm.state.trim(),
+          city: profileForm.city.trim(),
+          district: profileForm.district.trim(),
+          pinCode: profileForm.pinCode.trim(),
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update profile details');
+      }
+
+      toast.success('Profile details updated successfully');
+      setIsProfileComplete(true);
+      setShowCompletionModal(false);
+    } catch (err) {
+      console.error('Error updating profile details:', err);
+      toast.error(err.message || 'Error updating profile details');
+    } finally {
+      setSubmittingProfile(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -370,6 +626,288 @@ const DashboardHome = () => {
 
         {error && !loading ? <p className="mt-4 text-sm text-danger">{error}</p> : null}
       </div>
+
+      {showCompletionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="relative w-full max-w-2xl bg-white/95 dark:bg-dark-card/95 backdrop-blur-md rounded-2xl shadow-2xl border border-light-border dark:border-dark-border p-6 md:p-8 max-h-[90vh] overflow-y-auto transform transition-all duration-300">
+            <div className="text-center mb-6">
+              <h2 className="text-2xl font-bold text-light-text dark:text-dark-text flex items-center justify-center gap-2">
+                <span className="p-2 rounded-lg bg-primary/10 text-primary">💼</span>
+                Complete Your Profile
+              </h2>
+              <p className="text-sm text-light-text/60 dark:text-dark-text/60 mt-2">
+                Please fill in your personal, banking, and identity details to complete your
+                onboarding process. This is a one-time setup.
+              </p>
+            </div>
+
+            <form onSubmit={handleProfileSubmit} className="space-y-6">
+              {/* Personal Details Section */}
+              <div>
+                <h3 className="text-md font-semibold text-primary mb-3 pb-1 border-b border-light-border dark:border-dark-border">
+                  Personal & Contact Details
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-light-text/60 dark:text-dark-text/60 mb-1">
+                      Date of Birth <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={profileForm.dateofBirth}
+                      onChange={e => handleFieldChange('dateofBirth', e.target.value)}
+                      max={new Date().toISOString().split('T')[0]}
+                      className={`w-full p-3 bg-light-bg dark:bg-dark-bg border ${
+                        profileErrors.dateofBirth ? ERROR_BORDER_CLASS : NORMAL_BORDER_CLASS
+                      } rounded-lg text-sm focus:outline-none focus:ring-2`}
+                    />
+                    {profileErrors.dateofBirth && (
+                      <p className="text-red-500 text-xs mt-1">{profileErrors.dateofBirth}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-light-text/60 dark:text-dark-text/60 mb-1">
+                      PIN Code <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.pinCode}
+                      onChange={e => handleFieldChange('pinCode', e.target.value)}
+                      placeholder="6 digits"
+                      maxLength={6}
+                      className={`w-full p-3 bg-light-bg dark:bg-dark-bg border ${
+                        profileErrors.pinCode ? ERROR_BORDER_CLASS : NORMAL_BORDER_CLASS
+                      } rounded-lg text-sm focus:outline-none focus:ring-2`}
+                    />
+                    {profileErrors.pinCode && (
+                      <p className="text-red-500 text-xs mt-1">{profileErrors.pinCode}</p>
+                    )}
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-light-text/60 dark:text-dark-text/60 mb-1">
+                      Address <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={profileForm.address}
+                      onChange={e => handleFieldChange('address', e.target.value)}
+                      placeholder="Your permanent address"
+                      rows={2}
+                      className={`w-full p-3 bg-light-bg dark:bg-dark-bg border ${
+                        profileErrors.address ? ERROR_BORDER_CLASS : NORMAL_BORDER_CLASS
+                      } rounded-lg text-sm focus:outline-none focus:ring-2 resize-none`}
+                    />
+                    {profileErrors.address && (
+                      <p className="text-red-500 text-xs mt-1">{profileErrors.address}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-light-text/60 dark:text-dark-text/60 mb-1">
+                      City <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.city}
+                      onChange={e => handleFieldChange('city', e.target.value)}
+                      placeholder="City"
+                      className={`w-full p-3 bg-light-bg dark:bg-dark-bg border ${
+                        profileErrors.city ? ERROR_BORDER_CLASS : NORMAL_BORDER_CLASS
+                      } rounded-lg text-sm focus:outline-none focus:ring-2`}
+                    />
+                    {profileErrors.city && (
+                      <p className="text-red-500 text-xs mt-1">{profileErrors.city}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-light-text/60 dark:text-dark-text/60 mb-1">
+                      District <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.district}
+                      onChange={e => handleFieldChange('district', e.target.value)}
+                      placeholder="District"
+                      className={`w-full p-3 bg-light-bg dark:bg-dark-bg border ${
+                        profileErrors.district ? ERROR_BORDER_CLASS : NORMAL_BORDER_CLASS
+                      } rounded-lg text-sm focus:outline-none focus:ring-2`}
+                    />
+                    {profileErrors.district && (
+                      <p className="text-red-500 text-xs mt-1">{profileErrors.district}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-light-text/60 dark:text-dark-text/60 mb-1">
+                      State <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.state}
+                      onChange={e => handleFieldChange('state', e.target.value)}
+                      placeholder="State"
+                      className={`w-full p-3 bg-light-bg dark:bg-dark-bg border ${
+                        profileErrors.state ? ERROR_BORDER_CLASS : NORMAL_BORDER_CLASS
+                      } rounded-lg text-sm focus:outline-none focus:ring-2`}
+                    />
+                    {profileErrors.state && (
+                      <p className="text-red-500 text-xs mt-1">{profileErrors.state}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Bank Info Section */}
+              <div>
+                <h3 className="text-md font-semibold text-primary mb-3 pb-1 border-b border-light-border dark:border-dark-border">
+                  Bank Details
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-light-text/60 dark:text-dark-text/60 mb-1">
+                      Bank Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.bankName}
+                      onChange={e => handleFieldChange('bankName', e.target.value)}
+                      placeholder="e.g. State Bank of India"
+                      className={`w-full p-3 bg-light-bg dark:bg-dark-bg border ${
+                        profileErrors.bankName ? ERROR_BORDER_CLASS : NORMAL_BORDER_CLASS
+                      } rounded-lg text-sm focus:outline-none focus:ring-2`}
+                    />
+                    {profileErrors.bankName && (
+                      <p className="text-red-500 text-xs mt-1">{profileErrors.bankName}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-light-text/60 dark:text-dark-text/60 mb-1">
+                      Branch Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.branchName}
+                      onChange={e => handleFieldChange('branchName', e.target.value)}
+                      placeholder="e.g. Main Branch"
+                      className={`w-full p-3 bg-light-bg dark:bg-dark-bg border ${
+                        profileErrors.branchName ? ERROR_BORDER_CLASS : NORMAL_BORDER_CLASS
+                      } rounded-lg text-sm focus:outline-none focus:ring-2`}
+                    />
+                    {profileErrors.branchName && (
+                      <p className="text-red-500 text-xs mt-1">{profileErrors.branchName}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-light-text/60 dark:text-dark-text/60 mb-1">
+                      Bank Account Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.bankAccountNumber}
+                      onChange={e => handleFieldChange('bankAccountNumber', e.target.value)}
+                      placeholder="8-20 digits"
+                      maxLength={20}
+                      className={`w-full p-3 bg-light-bg dark:bg-dark-bg border ${
+                        profileErrors.bankAccountNumber ? ERROR_BORDER_CLASS : NORMAL_BORDER_CLASS
+                      } rounded-lg text-sm focus:outline-none focus:ring-2`}
+                    />
+                    {profileErrors.bankAccountNumber && (
+                      <p className="text-red-500 text-xs mt-1">{profileErrors.bankAccountNumber}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-light-text/60 dark:text-dark-text/60 mb-1">
+                      IFSC Code <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.ifscCode}
+                      onChange={e => handleFieldChange('ifscCode', e.target.value)}
+                      placeholder="e.g. SBIN0001234"
+                      maxLength={11}
+                      className={`w-full p-3 bg-light-bg dark:bg-dark-bg border ${
+                        profileErrors.ifscCode ? ERROR_BORDER_CLASS : NORMAL_BORDER_CLASS
+                      } rounded-lg text-sm focus:outline-none focus:ring-2`}
+                    />
+                    {profileErrors.ifscCode && (
+                      <p className="text-red-500 text-xs mt-1">{profileErrors.ifscCode}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Identity & Compliance Section */}
+              <div>
+                <h3 className="text-md font-semibold text-primary mb-3 pb-1 border-b border-light-border dark:border-dark-border">
+                  Identity & Compliance Details
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-light-text/60 dark:text-dark-text/60 mb-1">
+                      Aadhar Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.aadharNumber}
+                      onChange={e => handleFieldChange('aadharNumber', e.target.value)}
+                      placeholder="12 digit number"
+                      maxLength={12}
+                      className={`w-full p-3 bg-light-bg dark:bg-dark-bg border ${
+                        profileErrors.aadharNumber ? ERROR_BORDER_CLASS : NORMAL_BORDER_CLASS
+                      } rounded-lg text-sm focus:outline-none focus:ring-2`}
+                    />
+                    {profileErrors.aadharNumber && (
+                      <p className="text-red-500 text-xs mt-1">{profileErrors.aadharNumber}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-light-text/60 dark:text-dark-text/60 mb-1">
+                      PAN Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.panNumber}
+                      onChange={e => handleFieldChange('panNumber', e.target.value)}
+                      placeholder="e.g. ABCDE1234F"
+                      maxLength={10}
+                      className={`w-full p-3 bg-light-bg dark:bg-dark-bg border ${
+                        profileErrors.panNumber ? ERROR_BORDER_CLASS : NORMAL_BORDER_CLASS
+                      } rounded-lg text-sm focus:outline-none focus:ring-2`}
+                    />
+                    {profileErrors.panNumber && (
+                      <p className="text-red-500 text-xs mt-1">{profileErrors.panNumber}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Form Actions */}
+              <div className="pt-4 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={submittingProfile}
+                  className="px-6 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary-dark transition-colors duration-200 shadow-md flex items-center justify-center gap-2 min-w-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submittingProfile ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Details'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <ToastContainer
         toastClassName="bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text ring-1 ring-light-border dark:ring-dark-border"
