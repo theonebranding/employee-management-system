@@ -11,7 +11,7 @@ const injectData = (template, data) => {
   return template.replace(/{{(.*?)}}/g, (_, key) => data[key.trim()] || '');
 };
 
-const adminEmail = 'man842289@gmail.com';
+const adminEmail = 'info@theonebranding.com';
 
 const sendResetPasswordEmail = async (email, name, otp) => {
   const templatePath = path.join(__dirname, 'templates', 'resetPassword.html');
