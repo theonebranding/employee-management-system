@@ -29,16 +29,16 @@ const EmployeeTasks = () => {
   const [activeTaskFiles, setActiveTaskFiles] = useState(null);
   const [previewFile, setPreviewFile] = useState(null);
 
-  const isFileTypePreviewable = mimeType => {
+  const isFileTypePreviewable = (mimeType) => {
     if (!mimeType) return false;
     return mimeType.startsWith('image/') || mimeType === 'application/pdf';
   };
 
-  const handlePreviewFile = file => {
+  const handlePreviewFile = (file) => {
     setPreviewFile(file);
   };
 
-  const handleDownloadFile = file => {
+  const handleDownloadFile = (file) => {
     try {
       const link = document.createElement('a');
       link.href = file.fileData;
@@ -51,7 +51,7 @@ const EmployeeTasks = () => {
     }
   };
 
-  const formatExternalUrl = url => {
+  const formatExternalUrl = (url) => {
     if (!url) return '';
     const trimmed = url.trim();
     if (/^https?:\/\//i.test(trimmed)) {
@@ -278,8 +278,7 @@ const EmployeeTasks = () => {
                               {task.attachments?.length > 0 && (
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary font-medium border border-primary/20">
                                   <Paperclip className="w-3 h-3" />
-                                  {task.attachments.length} file
-                                  {task.attachments.length > 1 ? 's' : ''}
+                                  {task.attachments.length} file{task.attachments.length > 1 ? 's' : ''}
                                 </span>
                               )}
                               {task.links?.length > 0 && (
@@ -411,18 +410,10 @@ const EmployeeTasks = () => {
               </h4>
               <div className="space-y-2 max-h-48 overflow-y-auto border border-light-border/50 dark:border-dark-border/50 rounded-lg p-2.5 bg-light-bg/30 dark:bg-dark-bg/30">
                 {activeTaskFiles.attachments.map((file, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between gap-3 px-3 py-2 rounded bg-light-bg dark:bg-dark-bg border border-light-border/30 dark:border-dark-border/30 text-sm"
-                  >
+                  <div key={idx} className="flex items-center justify-between gap-3 px-3 py-2 rounded bg-light-bg dark:bg-dark-bg border border-light-border/30 dark:border-dark-border/30 text-sm">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <Paperclip className="w-4 h-4 text-light-text/40 shrink-0" />
-                      <span
-                        className="truncate font-medium text-light-text dark:text-dark-text"
-                        title={file.fileName}
-                      >
-                        {file.fileName}
-                      </span>
+                      <span className="truncate font-medium text-light-text dark:text-dark-text" title={file.fileName}>{file.fileName}</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {isFileTypePreviewable(file.fileType) && (
@@ -456,17 +447,10 @@ const EmployeeTasks = () => {
               </h4>
               <div className="space-y-2 max-h-48 overflow-y-auto border border-light-border/50 dark:border-dark-border/50 rounded-lg p-2.5 bg-light-bg/30 dark:bg-dark-bg/30">
                 {activeTaskFiles.links.map((link, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between gap-3 px-3 py-2 rounded bg-light-bg dark:bg-dark-bg border border-light-border/30 dark:border-dark-border/30 text-sm"
-                  >
+                  <div key={idx} className="flex items-center justify-between gap-3 px-3 py-2 rounded bg-light-bg dark:bg-dark-bg border border-light-border/30 dark:border-dark-border/30 text-sm">
                     <div className="flex flex-col min-w-0 flex-1">
-                      <span className="font-semibold text-light-text dark:text-dark-text truncate">
-                        {link.label || 'Reference Link'}
-                      </span>
-                      <span className="text-xs text-light-text/50 dark:text-dark-text/50 truncate">
-                        {link.url}
-                      </span>
+                      <span className="font-semibold text-light-text dark:text-dark-text truncate">{link.label || 'Reference Link'}</span>
+                      <span className="text-xs text-light-text/50 dark:text-dark-text/50 truncate">{link.url}</span>
                     </div>
                     <a
                       href={formatExternalUrl(link.url)}

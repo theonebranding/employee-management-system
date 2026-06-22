@@ -54,16 +54,16 @@ const AdminTasks = () => {
   const [fileUploading, setFileUploading] = useState(false);
   const [previewFile, setPreviewFile] = useState(null);
 
-  const isFileTypePreviewable = mimeType => {
+  const isFileTypePreviewable = (mimeType) => {
     if (!mimeType) return false;
     return mimeType.startsWith('image/') || mimeType === 'application/pdf';
   };
 
-  const handlePreviewFile = file => {
+  const handlePreviewFile = (file) => {
     setPreviewFile(file);
   };
 
-  const handleDownloadFile = file => {
+  const handleDownloadFile = (file) => {
     try {
       const link = document.createElement('a');
       link.href = file.fileData;
@@ -76,7 +76,7 @@ const AdminTasks = () => {
     }
   };
 
-  const handleFileUpload = async e => {
+  const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
@@ -88,7 +88,7 @@ const AdminTasks = () => {
           toast.error(`File "${file.name}" exceeds the 5MB limit.`);
           continue;
         }
-
+        
         const dataUrl = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(reader.result);
@@ -111,17 +111,17 @@ const AdminTasks = () => {
     }
   };
 
-  const handleRemoveAttachment = index => {
+  const handleRemoveAttachment = (index) => {
     setFormData(prev => ({
       ...prev,
-      attachments: prev.attachments.filter((_, idx) => idx !== index),
+      attachments: prev.attachments.filter((_, idx) => idx !== index)
     }));
   };
 
   const handleAddLink = () => {
     setFormData(prev => ({
       ...prev,
-      links: [...(prev.links || []), { label: '', url: '' }],
+      links: [...(prev.links || []), { label: '', url: '' }]
     }));
   };
 
@@ -133,14 +133,14 @@ const AdminTasks = () => {
     });
   };
 
-  const handleRemoveLink = index => {
+  const handleRemoveLink = (index) => {
     setFormData(prev => ({
       ...prev,
-      links: prev.links.filter((_, idx) => idx !== index),
+      links: prev.links.filter((_, idx) => idx !== index)
     }));
   };
 
-  const formatExternalUrl = url => {
+  const formatExternalUrl = (url) => {
     if (!url) return '';
     const trimmed = url.trim();
     if (/^https?:\/\//i.test(trimmed)) {
@@ -585,8 +585,7 @@ const AdminTasks = () => {
                               {task.attachments?.length > 0 && (
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary font-medium border border-primary/20">
                                   <Paperclip className="w-3 h-3" />
-                                  {task.attachments.length} file
-                                  {task.attachments.length > 1 ? 's' : ''}
+                                  {task.attachments.length} file{task.attachments.length > 1 ? 's' : ''}
                                 </span>
                               )}
                               {task.links?.length > 0 && (
@@ -827,7 +826,7 @@ const AdminTasks = () => {
               <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70">
                 Reference Files (Max 5MB each)
               </label>
-
+              
               <div className="flex items-center gap-2">
                 <label className="flex items-center gap-2 px-4 py-2 rounded-lg bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border cursor-pointer hover:bg-light-bg/70 dark:hover:bg-dark-bg/70 transition-colors text-sm font-medium">
                   <Paperclip className="w-4 h-4 text-primary" />
@@ -840,25 +839,16 @@ const AdminTasks = () => {
                     disabled={fileUploading}
                   />
                 </label>
-                {fileUploading && (
-                  <span className="text-xs text-light-text/60 dark:text-dark-text/60 animate-pulse">
-                    Reading file(s)...
-                  </span>
-                )}
+                {fileUploading && <span className="text-xs text-light-text/60 dark:text-dark-text/60 animate-pulse">Reading file(s)...</span>}
               </div>
 
               {formData.attachments && formData.attachments.length > 0 && (
                 <div className="space-y-2 max-h-48 overflow-y-auto border border-light-border/50 dark:border-dark-border/50 rounded-lg p-2 bg-light-bg/30 dark:bg-dark-bg/30">
                   {formData.attachments.map((file, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between gap-2 px-3 py-1.5 rounded bg-light-bg/60 dark:bg-dark-bg/60 border border-light-border/30 dark:border-dark-border/30 text-xs"
-                    >
+                    <div key={idx} className="flex items-center justify-between gap-2 px-3 py-1.5 rounded bg-light-bg/60 dark:bg-dark-bg/60 border border-light-border/30 dark:border-dark-border/30 text-xs">
                       <div className="flex items-center gap-1.5 min-w-0 flex-1">
                         <Paperclip className="w-3.5 h-3.5 text-light-text/50 shrink-0" />
-                        <span className="truncate font-medium" title={file.fileName}>
-                          {file.fileName}
-                        </span>
+                        <span className="truncate font-medium" title={file.fileName}>{file.fileName}</span>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         {isFileTypePreviewable(file.fileType) && (
@@ -909,10 +899,8 @@ const AdminTasks = () => {
                 </button>
               </div>
 
-              {!formData.links || formData.links.length === 0 ? (
-                <p className="text-xs text-light-text/40 dark:text-dark-text/40 italic">
-                  No links added.
-                </p>
+              {(!formData.links || formData.links.length === 0) ? (
+                <p className="text-xs text-light-text/40 dark:text-dark-text/40 italic">No links added.</p>
               ) : (
                 <div className="space-y-2 max-h-48 overflow-y-auto border border-light-border/50 dark:border-dark-border/50 rounded-lg p-2 bg-light-bg/30 dark:bg-dark-bg/30">
                   {formData.links.map((link, idx) => (

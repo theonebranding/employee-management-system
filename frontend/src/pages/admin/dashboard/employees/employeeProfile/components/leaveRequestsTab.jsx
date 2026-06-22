@@ -84,9 +84,7 @@ const LeaveRequestsTab = ({ employeeId }) => {
       <div className="flex justify-center items-center min-h-[300px]">
         <div className="flex items-center space-x-3 px-4 py-2 bg-light-card dark:bg-dark-card border border-light-border/50 dark:border-dark-border/50 rounded-lg">
           <Loader2 className="w-5 h-5 animate-spin text-primary" />
-          <span className="text-sm font-medium text-light-text dark:text-dark-text">
-            Loading leave requests...
-          </span>
+          <span className="text-sm font-medium text-light-text dark:text-dark-text">Loading leave requests...</span>
         </div>
       </div>
     );
@@ -99,13 +97,9 @@ const LeaveRequestsTab = ({ employeeId }) => {
           <div className="p-2 bg-primary/10 rounded-lg">
             <Calendar className="w-5 h-5 text-primary" />
           </div>
-          <h3 className="text-lg font-semibold text-light-text dark:text-dark-text">
-            Leave Requests
-          </h3>
+          <h3 className="text-lg font-semibold text-light-text dark:text-dark-text">Leave Requests</h3>
         </div>
-        <span className="text-sm text-light-text/60 dark:text-dark-text/60">
-          {leaveRequests.length} total requests
-        </span>
+        <span className="text-sm text-light-text/60 dark:text-dark-text/60">{leaveRequests.length} total requests</span>
       </div>
 
       {leaveRequests.length > 0 ? (
@@ -122,9 +116,7 @@ const LeaveRequestsTab = ({ employeeId }) => {
                 <div className="space-y-4">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h4 className="font-medium text-light-text dark:text-dark-text mb-1">
-                        {request.reason}
-                      </h4>
+                      <h4 className="font-medium text-light-text dark:text-dark-text mb-1">{request.reason}</h4>
                       <div className="flex items-center space-x-2 text-light-text/60 dark:text-dark-text/60">
                         <CalendarIcon className="w-4 h-4 text-primary" />
                         <span className="text-sm">
@@ -150,9 +142,7 @@ const LeaveRequestsTab = ({ employeeId }) => {
         <div className="flex flex-col items-center justify-center py-12 bg-light-card dark:bg-dark-card/30 rounded-xl border border-light-border/50 dark:border-dark-border/50">
           <AlertCircle className="w-8 h-8 text-light-text/50 dark:text-dark-text/50 mb-3" />
           <p className="text-light-text dark:text-dark-text font-medium">No leave requests found</p>
-          <p className="text-light-text/60 dark:text-dark-text/60 text-sm mt-1">
-            Your leave requests will appear here
-          </p>
+          <p className="text-light-text/60 dark:text-dark-text/60 text-sm mt-1">Your leave requests will appear here</p>
         </div>
       )}
 

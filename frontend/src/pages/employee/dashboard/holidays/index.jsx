@@ -376,11 +376,8 @@ const Holidays = () => {
               }
               holiday = holiday || {};
 
-              const isExpired =
-                credit.status === 'expired' ||
-                (credit.status === 'available' &&
-                  holiday.date &&
-                  toIsoDateKey(holiday.date) < todayKey);
+              const isExpired = credit.status === 'expired' ||
+                (credit.status === 'available' && holiday.date && toIsoDateKey(holiday.date) < todayKey);
               const statusToShow = isExpired ? 'expired' : credit.status;
               return (
                 <li
@@ -564,10 +561,7 @@ const Holidays = () => {
                 <ul className="text-xs text-light-text dark:text-dark-text opacity-70 list-disc pl-5 space-y-0.5">
                   <li>Sundays are not allowed.</li>
                   <li>Cannot match a fixed holiday already on your calendar.</li>
-                  <li>
-                    Date must be on or before the assigned holiday date (
-                    {formatHolidayDate(redeemModal.holiday.date)}).
-                  </li>
+                  <li>Date must be on or before the assigned holiday date ({formatHolidayDate(redeemModal.holiday.date)}).</li>
                   <li>Past dates and locked payroll months are rejected.</li>
                 </ul>
               </div>

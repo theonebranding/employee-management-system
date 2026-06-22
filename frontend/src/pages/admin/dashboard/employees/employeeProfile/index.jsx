@@ -7,6 +7,7 @@ import HolidaysTab from './components/holidaysTab';
 import InformationTab from './components/informationTab';
 import LeaveRequestsTab from './components/leaveRequestsTab';
 
+
 const AdminEmployeeProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();

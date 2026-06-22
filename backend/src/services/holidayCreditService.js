@@ -82,10 +82,7 @@ export async function redeemCredit({ creditId, employeeId, targetDate }) {
   );
   if (!holiday) {
     // Fallback for historically corrupted templates (due to ID regeneration)
-    const allCredits = await HolidayCredit.find({
-      employee: employeeId,
-      template: credit.template,
-    }).sort({ createdAt: 1 });
+    const allCredits = await HolidayCredit.find({ employee: employeeId, template: credit.template }).sort({ createdAt: 1 });
     const creditIndex = allCredits.findIndex((c) => c._id.toString() === credit._id.toString());
     if (creditIndex !== -1 && template.holidays[creditIndex]) {
       holiday = template.holidays[creditIndex];
@@ -247,10 +244,7 @@ export async function cancelRedemption({ creditId, actorId, actorRole }) {
   );
   if (!holiday) {
     // Fallback for historically corrupted templates (due to ID regeneration)
-    const allCredits = await HolidayCredit.find({
-      employee: credit.employee,
-      template: credit.template,
-    }).sort({ createdAt: 1 });
+    const allCredits = await HolidayCredit.find({ employee: credit.employee, template: credit.template }).sort({ createdAt: 1 });
     const creditIndex = allCredits.findIndex((c) => c._id.toString() === credit._id.toString());
     if (creditIndex !== -1 && template.holidays[creditIndex]) {
       holiday = template.holidays[creditIndex];
