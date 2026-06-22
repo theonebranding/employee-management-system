@@ -138,14 +138,83 @@ export const updateTemplate = async (
     await assertTypeChangeAllowed(templateId);
   }
 
+  const existingHolidaysMap = new Map(
+    (existing.holidays || []).map((h) => [
+      `${h.name.trim().toLowerCase()}_${new Date(h.date).getTime()}`,
+      h._id,
+    ])
+  );
+
+  const updatedHolidays = holidays.map((h) => {
+    const key = `${h.name.trim().toLowerCase()}_${new Date(h.date).getTime()}`;
+    const existingId = existingHolidaysMap.get(key);
+    if (existingId) {
+      return {
+        _id: existingId,
+        name: h.name,
+        date: h.date,
+      };
+    }
+    return h;
+  });
   existing.name = name;
   existing.description = description;
   existing.year = year;
   existing.type = type;
-  existing.holidays = holidays;
+  existing.holidays = updatedHolidays;
   existing.updatedBy = adminId;
 
   await existing.save();
+
+  // If floating template, check for newly added holidays and sync credits to assigned employees
+  if (existing.type === 'floating') {
+    const assignments = await TemplateAssignment.find({ template: templateId }).select('employee');
+    const employeeIds = assignments.map((a) => a.employee);
+
+    if (employeeIds.length > 0) {
+      const creditDocs = [];
+
+      for (const empId of employeeIds) {
+        const empCredits = await HolidayCredit.find({ employee: empId, template: templateId });
+        const assignedHolidayIds = new Set();
+
+        for (let idx = 0; idx < empCredits.length; idx++) {
+          const credit = empCredits[idx];
+          let holiday = existing.holidays.find(
+            (h) => h._id.toString() === credit.sourceHolidayId.toString()
+          );
+          if (!holiday && existing.holidays[idx]) {
+            holiday = existing.holidays[idx];
+            // Auto-heal database record to point to the correct holiday ID
+            credit.sourceHolidayId = holiday._id;
+            await credit.save();
+          }
+          if (holiday) {
+            assignedHolidayIds.add(holiday._id.toString());
+          }
+        }
+
+        const missingHolidays = existing.holidays.filter(
+          (h) => !assignedHolidayIds.has(h._id.toString())
+        );
+
+        for (const missingHoliday of missingHolidays) {
+          creditDocs.push({
+            employee: empId,
+            template: templateId,
+            sourceHolidayId: missingHoliday._id,
+            year: existing.year,
+            status: 'available',
+          });
+        }
+      }
+
+      if (creditDocs.length > 0) {
+        await HolidayCredit.insertMany(creditDocs);
+      }
+    }
+  }
+
   return existing;
 };
 

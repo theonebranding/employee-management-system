@@ -164,7 +164,7 @@ export const getEmployeesWithTemplate = async (req, res) => {
 
     const assignments = await LeaveTemplateAssignment.find({
       employee: { $in: employees.map((emp) => emp._id) },
-    }).populate('template', 'name');
+    }).populate('template', 'name autoAllocationCount autoAllocationPeriod');
 
     const assignmentMap = new Map();
     assignments.forEach((assignment) => {
@@ -176,6 +176,8 @@ export const getEmployeesWithTemplate = async (req, res) => {
         assignmentMap.get(empIdStr).push({
           _id: assignment.template._id,
           name: assignment.template.name,
+          autoAllocationCount: assignment.template.autoAllocationCount || 0,
+          autoAllocationPeriod: assignment.template.autoAllocationPeriod || 'monthly',
         });
       }
     });

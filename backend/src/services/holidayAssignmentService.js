@@ -91,8 +91,8 @@ const bulkAssign = async (templateId, employeeIds, adminId) => {
  * Remove a single Template_Assignment.
  *
  * For `floating` templates, the employee's `available` credits for this
- * template transition to `forfeited` (Requirement 2.5). Credits already in
- * `redeemed`, `expired`, or `forfeited` are left untouched.
+ * template transition to `expired` (Requirement 2.3, 2.5). Credits already in
+ * `redeemed` or `expired` are left untouched.
  *
  * Validates: Requirements 2.3, 2.5
  *
@@ -100,7 +100,7 @@ const bulkAssign = async (templateId, employeeIds, adminId) => {
  * @param {string} employeeId
  * @param {string} _adminId  - currently unused at the model layer; reserved
  *                             for future audit columns
- * @returns {Promise<{ unassigned: true, forfeitedCount: number }>}
+ * @returns {Promise<{ unassigned: true, expiredCount: number }>}
  */
 // eslint-disable-next-line no-unused-vars
 const unassign = async (templateId, employeeId, _adminId) => {
@@ -118,7 +118,7 @@ const unassign = async (templateId, employeeId, _adminId) => {
 
   await TemplateAssignment.deleteOne({ _id: assignment._id });
 
-  let forfeitedCount = 0;
+  let expiredCount = 0;
   if (template && template.type === 'floating') {
     const result = await HolidayCredit.updateMany(
       {
@@ -128,15 +128,15 @@ const unassign = async (templateId, employeeId, _adminId) => {
       },
       {
         $set: {
-          status: 'forfeited',
-          forfeitedAt: new Date(),
+          status: 'expired',
+          expiredAt: new Date(),
         },
       }
     );
-    forfeitedCount = result.modifiedCount ?? result.nModified ?? 0;
+    expiredCount = result.modifiedCount ?? result.nModified ?? 0;
   }
 
-  return { unassigned: true, forfeitedCount };
+  return { unassigned: true, expiredCount };
 };
 
 /**

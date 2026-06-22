@@ -41,7 +41,19 @@ const taskSchema = new mongoose.Schema(
       enum: ['low', 'medium', 'high'],
       default: 'medium',
     },
-    attachments: [String],
+    attachments: [
+      {
+        fileName: { type: String, required: true },
+        fileType: { type: String, required: true },
+        fileData: { type: String, required: true },
+      },
+    ],
+    links: [
+      {
+        label: { type: String, default: '' },
+        url: { type: String, required: true },
+      },
+    ],
     comments: [
       {
         type: mongoose.Schema.Types.ObjectId,

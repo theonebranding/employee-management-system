@@ -757,13 +757,14 @@ const AdminLeaveManagement = () => {
                 <th className="px-4 py-3 text-left font-semibold">Department</th>
                 <th className="px-4 py-3 text-left font-semibold">Designation</th>
                 <th className="px-4 py-3 text-left font-semibold">Allotted Templates</th>
+                <th className="px-4 py-3 text-left font-semibold">Days & Info</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-light-border dark:divide-dark-border">
               {assignmentsLoading ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-4 py-6 text-center text-sm text-light-text/70 dark:text-dark-text/70"
                   >
                     Loading allotments...
@@ -792,12 +793,28 @@ const AdminLeaveManagement = () => {
                         <span className="text-light-text/40 dark:text-dark-text/45 text-xs">—</span>
                       )}
                     </td>
+                    <td className="px-4 py-3">
+                      {Array.isArray(emp.templates) && emp.templates.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {emp.templates.map(t => (
+                            <span
+                              key={`${t._id}-info`}
+                              className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-info/10 text-info border border-info/20 capitalize"
+                            >
+                              {t.autoAllocationCount} days / {t.autoAllocationPeriod}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-light-text/40 dark:text-dark-text/45 text-xs">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-4 py-6 text-center text-sm text-light-text/70 dark:text-dark-text/70"
                   >
                     No employee assignments found.

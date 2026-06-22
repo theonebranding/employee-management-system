@@ -3,8 +3,13 @@ import {
   Calendar,
   CheckCircle,
   Clock,
+  Download,
+  ExternalLink,
+  Eye,
+  Link as LinkIcon,
   ListChecks,
   MessageSquare,
+  Paperclip,
   Send,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -20,6 +25,40 @@ const EmployeeTasks = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTask, setActiveTask] = useState(null);
   const [showCommentsModal, setShowCommentsModal] = useState(false);
+
+  const [activeTaskFiles, setActiveTaskFiles] = useState(null);
+  const [previewFile, setPreviewFile] = useState(null);
+
+  const isFileTypePreviewable = (mimeType) => {
+    if (!mimeType) return false;
+    return mimeType.startsWith('image/') || mimeType === 'application/pdf';
+  };
+
+  const handlePreviewFile = (file) => {
+    setPreviewFile(file);
+  };
+
+  const handleDownloadFile = (file) => {
+    try {
+      const link = document.createElement('a');
+      link.href = file.fileData;
+      link.download = file.fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      toast.error('Failed to download file.');
+    }
+  };
+
+  const formatExternalUrl = (url) => {
+    if (!url) return '';
+    const trimmed = url.trim();
+    if (/^https?:\/\//i.test(trimmed)) {
+      return trimmed;
+    }
+    return `https://${trimmed}`;
+  };
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState('');
   const tasksTableScrollRef = useRef(null);
@@ -230,9 +269,27 @@ const EmployeeTasks = () => {
                     {filteredTasks.map(task => (
                       <tr
                         key={task._id}
-                        className="border-t border-light-border/70 dark:border-dark-border/70"
+                        className="border-t border-light-border/70 dark:border-dark-border/70 hover:bg-light-bg/20 dark:hover:bg-dark-bg/20"
                       >
-                        <td className="px-4 py-3 font-medium">{task.title}</td>
+                        <td className="px-4 py-3 font-medium">
+                          <div>{task.title}</div>
+                          {(task.attachments?.length > 0 || task.links?.length > 0) && (
+                            <div className="flex flex-wrap gap-2 mt-1.5">
+                              {task.attachments?.length > 0 && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary font-medium border border-primary/20">
+                                  <Paperclip className="w-3 h-3" />
+                                  {task.attachments.length} file{task.attachments.length > 1 ? 's' : ''}
+                                </span>
+                              )}
+                              {task.links?.length > 0 && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-info/10 text-info font-medium border border-info/20">
+                                  <LinkIcon className="w-3 h-3" />
+                                  {task.links.length} link{task.links.length > 1 ? 's' : ''}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-sm text-light-text/70 dark:text-dark-text/70">
                           {task.description || '—'}
                         </td>
@@ -241,7 +298,7 @@ const EmployeeTasks = () => {
                           <select
                             value={task.status}
                             onChange={e => updateTaskStatus(task._id, e.target.value)}
-                            className="px-3 py-1.5 rounded-lg bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border text-sm"
+                            className="px-3 py-1.5 rounded-lg bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border text-sm font-medium"
                           >
                             <option value="pending">pending</option>
                             <option value="in-progress">in-progress</option>
@@ -250,17 +307,28 @@ const EmployeeTasks = () => {
                           </select>
                         </td>
                         <td className="px-4 py-3 text-sm inline-flex items-center gap-2">
-                          <Calendar className="w-4 h-4" />
+                          <Calendar className="w-4 h-4 text-light-text/60" />
                           {task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-GB') : '—'}
                         </td>
                         <td className="px-4 py-3">
-                          <button
-                            type="button"
-                            onClick={() => openComments(task)}
-                            className="px-3 py-1.5 rounded-lg border border-light-border dark:border-dark-border inline-flex items-center gap-2 text-sm"
-                          >
-                            <MessageSquare className="w-4 h-4" /> Comments
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openComments(task)}
+                              className="px-3 py-1.5 rounded-lg border border-light-border dark:border-dark-border inline-flex items-center gap-2 text-sm hover:bg-light-bg/50 dark:hover:bg-dark-bg/50 transition-colors"
+                            >
+                              <MessageSquare className="w-4 h-4 text-light-text/60" /> Comments
+                            </button>
+                            {(task.attachments?.length > 0 || task.links?.length > 0) && (
+                              <button
+                                type="button"
+                                onClick={() => setActiveTaskFiles(task)}
+                                className="px-3 py-1.5 rounded-lg border border-primary/30 text-primary inline-flex items-center gap-2 text-sm hover:bg-primary/10 transition-colors font-medium"
+                              >
+                                <Paperclip className="w-4 h-4 shrink-0" /> Resources
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -321,6 +389,131 @@ const EmployeeTasks = () => {
               className="px-3 py-2 rounded-lg bg-primary text-white inline-flex items-center gap-1"
             >
               <Send className="w-4 h-4" /> Send
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Task Resources Viewer Modal */}
+      <Modal
+        isOpen={!!activeTaskFiles}
+        onClose={() => setActiveTaskFiles(null)}
+        title={activeTaskFiles ? `Resources - ${activeTaskFiles.title}` : 'Resources'}
+        size="lg"
+      >
+        <div className="space-y-6">
+          {/* Reference Files Section */}
+          {activeTaskFiles?.attachments && activeTaskFiles.attachments.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5 text-light-text/80 dark:text-dark-text/80">
+                <Paperclip className="w-4 h-4 text-primary" /> Reference Files
+              </h4>
+              <div className="space-y-2 max-h-48 overflow-y-auto border border-light-border/50 dark:border-dark-border/50 rounded-lg p-2.5 bg-light-bg/30 dark:bg-dark-bg/30">
+                {activeTaskFiles.attachments.map((file, idx) => (
+                  <div key={idx} className="flex items-center justify-between gap-3 px-3 py-2 rounded bg-light-bg dark:bg-dark-bg border border-light-border/30 dark:border-dark-border/30 text-sm">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <Paperclip className="w-4 h-4 text-light-text/40 shrink-0" />
+                      <span className="truncate font-medium text-light-text dark:text-dark-text" title={file.fileName}>{file.fileName}</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isFileTypePreviewable(file.fileType) && (
+                        <button
+                          type="button"
+                          onClick={() => handlePreviewFile(file)}
+                          className="px-2.5 py-1 text-primary hover:bg-primary/10 rounded transition-colors text-xs font-semibold flex items-center gap-1"
+                        >
+                          <Eye className="w-3.5 h-3.5" /> Preview
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadFile(file)}
+                        className="px-2.5 py-1 text-success hover:bg-success/10 rounded transition-colors text-xs font-semibold flex items-center gap-1"
+                      >
+                        <Download className="w-3.5 h-3.5" /> Download
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Reference Links Section */}
+          {activeTaskFiles?.links && activeTaskFiles.links.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5 text-light-text/80 dark:text-dark-text/80">
+                <LinkIcon className="w-4 h-4 text-info" /> Reference Links
+              </h4>
+              <div className="space-y-2 max-h-48 overflow-y-auto border border-light-border/50 dark:border-dark-border/50 rounded-lg p-2.5 bg-light-bg/30 dark:bg-dark-bg/30">
+                {activeTaskFiles.links.map((link, idx) => (
+                  <div key={idx} className="flex items-center justify-between gap-3 px-3 py-2 rounded bg-light-bg dark:bg-dark-bg border border-light-border/30 dark:border-dark-border/30 text-sm">
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="font-semibold text-light-text dark:text-dark-text truncate">{link.label || 'Reference Link'}</span>
+                      <span className="text-xs text-light-text/50 dark:text-dark-text/50 truncate">{link.url}</span>
+                    </div>
+                    <a
+                      href={formatExternalUrl(link.url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-1 text-info hover:bg-info/10 rounded transition-colors text-xs font-semibold flex items-center gap-1 shrink-0"
+                    >
+                      Open Link <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end pt-3 border-t border-light-border/50 dark:border-dark-border/50">
+            <button
+              onClick={() => setActiveTaskFiles(null)}
+              className="px-4 py-2 rounded-lg border border-light-border dark:border-dark-border hover:bg-light-bg dark:hover:bg-dark-bg transition-colors text-sm font-medium"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* File Preview Modal */}
+      <Modal
+        isOpen={!!previewFile}
+        onClose={() => setPreviewFile(null)}
+        title={`Preview - ${previewFile?.fileName}`}
+        size="2xl"
+      >
+        <div className="flex flex-col items-center justify-center p-2 bg-light-bg/50 dark:bg-dark-bg/50 rounded-lg border border-light-border dark:border-dark-border animate-fade-in">
+          {previewFile?.fileType.startsWith('image/') ? (
+            <img
+              src={previewFile.fileData}
+              alt={previewFile.fileName}
+              className="max-h-[60vh] max-w-full rounded object-contain"
+            />
+          ) : previewFile?.fileType === 'application/pdf' ? (
+            <iframe
+              src={previewFile.fileData}
+              title={previewFile.fileName}
+              className="w-full h-[60vh] rounded border-none"
+            />
+          ) : (
+            <div className="py-12 text-center text-light-text/60 dark:text-dark-text/60">
+              Preview is not available for this file type.
+            </div>
+          )}
+          <div className="flex gap-3 justify-end w-full mt-4 pt-3 border-t border-light-border dark:border-dark-border">
+            <button
+              onClick={() => handleDownloadFile(previewFile)}
+              className="px-4 py-2 rounded-lg bg-success text-white hover:bg-success-dark transition-colors font-medium text-sm flex items-center gap-1.5"
+            >
+              <Download className="w-4 h-4" /> Download File
+            </button>
+            <button
+              onClick={() => setPreviewFile(null)}
+              className="px-4 py-2 rounded-lg border border-light-border dark:border-dark-border hover:bg-light-bg dark:hover:bg-dark-bg transition-colors text-sm font-medium"
+            >
+              Close
             </button>
           </div>
         </div>

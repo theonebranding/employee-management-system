@@ -3,6 +3,7 @@ import TemplateAssignment from '../models/templateAssignmentSchema.js';
 import Attendance from '../models/attendanceSchema.js';
 import Leave from '../models/leaveSchema.js';
 import Payroll from '../models/payrollSchema.js';
+import HolidayTemplate from '../models/holidayTemplateSchema.js';
 import {
   getStartOfIstDay,
   getEndOfIstDay,
@@ -70,6 +71,42 @@ export async function redeemCredit({ creditId, employeeId, targetDate }) {
     );
   }
 
+  // Get the holiday date from the template
+  const template = await HolidayTemplate.findById(credit.template);
+  if (!template) {
+    throw makeError(404, 'TEMPLATE_NOT_FOUND', 'Holiday template not found');
+  }
+
+  let holiday = template.holidays.find(
+    (h) => h._id.toString() === credit.sourceHolidayId.toString()
+  );
+  if (!holiday) {
+    // Fallback for historically corrupted templates (due to ID regeneration)
+    const allCredits = await HolidayCredit.find({ employee: employeeId, template: credit.template }).sort({ createdAt: 1 });
+    const creditIndex = allCredits.findIndex((c) => c._id.toString() === credit._id.toString());
+    if (creditIndex !== -1 && template.holidays[creditIndex]) {
+      holiday = template.holidays[creditIndex];
+    } else if (template.holidays[0]) {
+      holiday = template.holidays[0];
+    }
+  }
+
+  if (!holiday) {
+    throw makeError(404, 'HOLIDAY_NOT_FOUND', 'Source holiday not found on template');
+  }
+
+  const todayStart = getStartOfIstDay(new Date());
+  const holidayStart = getStartOfIstDay(holiday.date);
+
+  // Check if the assigned holiday date has passed
+  if (todayStart > holidayStart) {
+    throw makeError(
+      409,
+      'CREDIT_STATUS_INVALID',
+      'Holiday credit has expired as the assigned holiday date has passed'
+    );
+  }
+
   // Normalize the target date to the start of the IST day so all downstream
   // comparisons use the same anchor.
   const normalizedStart = getStartOfIstDay(targetDate);
@@ -80,13 +117,14 @@ export async function redeemCredit({ creditId, employeeId, targetDate }) {
     throw makeError(422, 'REDEEM_DATE_SUNDAY', 'Target date falls on a Sunday');
   }
 
-  // Rule 3: target date's IST year must match credit.year.
   const targetYear = istYearOf(targetDate);
-  if (targetYear !== credit.year) {
+
+  // Rule 3: target date must be exactly the assigned holiday date.
+  if (normalizedStart.getTime() !== holidayStart.getTime()) {
     throw makeError(
       422,
-      'REDEEM_YEAR_MISMATCH',
-      `Target date year (${targetYear}) does not match credit year (${credit.year})`
+      'REDEEM_DATE_INVALID',
+      'Target date must be exactly the assigned holiday date'
     );
   }
 
@@ -195,6 +233,42 @@ export async function cancelRedemption({ creditId, actorId, actorRole }) {
     }
   }
 
+  // Get the holiday date from the template
+  const template = await HolidayTemplate.findById(credit.template);
+  if (!template) {
+    throw makeError(404, 'TEMPLATE_NOT_FOUND', 'Holiday template not found');
+  }
+
+  let holiday = template.holidays.find(
+    (h) => h._id.toString() === credit.sourceHolidayId.toString()
+  );
+  if (!holiday) {
+    // Fallback for historically corrupted templates (due to ID regeneration)
+    const allCredits = await HolidayCredit.find({ employee: credit.employee, template: credit.template }).sort({ createdAt: 1 });
+    const creditIndex = allCredits.findIndex((c) => c._id.toString() === credit._id.toString());
+    if (creditIndex !== -1 && template.holidays[creditIndex]) {
+      holiday = template.holidays[creditIndex];
+    } else if (template.holidays[0]) {
+      holiday = template.holidays[0];
+    }
+  }
+
+  if (!holiday) {
+    throw makeError(404, 'HOLIDAY_NOT_FOUND', 'Source holiday not found on template');
+  }
+
+  const todayStart = getStartOfIstDay(new Date());
+  const holidayStart = getStartOfIstDay(holiday.date);
+
+  // Check if the holiday date has passed
+  if (todayStart > holidayStart) {
+    throw makeError(
+      409,
+      'CREDIT_STATUS_INVALID',
+      'Cannot cancel redemption after the holiday date has passed'
+    );
+  }
+
   const month = istMonthOf(credit.redeemedOn);
   const year = istYearOf(credit.redeemedOn);
   const lockedPayroll = await Payroll.findOne({
@@ -221,31 +295,63 @@ export async function cancelRedemption({ creditId, actorId, actorRole }) {
 }
 
 /**
- * Idempotent year-boundary expiry.
+ * Idempotent daily/periodic boundary expiry.
  *
- * Transitions every `available` credit whose `year` is strictly less than the
- * current IST calendar year to `expired`. A second invocation matches zero
- * documents because the `status` filter no longer holds (Property 10).
+ * Transitions every `available` credit whose corresponding holiday date has
+ * passed (is strictly less than the start of the current IST day) to `expired`.
  *
  * @returns {Promise<{ matched: number, modified: number }>}
  */
 export async function expireStaleFloatingCredits() {
-  const currentIstYear = istYearOf(new Date());
-  const result = await HolidayCredit.updateMany(
-    { status: 'available', year: { $lt: currentIstYear } },
-    { $set: { status: 'expired', expiredAt: new Date() } }
-  );
+  const todayStart = getStartOfIstDay(new Date());
+
+  // Fetch all floating templates to find past holidays
+  const floatingTemplates = await HolidayTemplate.find({ type: 'floating' });
+  const pastHolidayIds = [];
+  for (const template of floatingTemplates) {
+    const holidays = template.holidays || [];
+    for (const holiday of holidays) {
+      if (getStartOfIstDay(holiday.date) < todayStart) {
+        pastHolidayIds.push(holiday._id);
+      }
+    }
+  }
+
+  let matchedCount = 0;
+  let modifiedCount = 0;
+
+  if (pastHolidayIds.length > 0) {
+    const result = await HolidayCredit.updateMany(
+      {
+        status: 'available',
+        sourceHolidayId: { $in: pastHolidayIds },
+      },
+      {
+        $set: { status: 'expired', expiredAt: new Date() },
+      }
+    );
+    matchedCount = result.matchedCount ?? 0;
+    modifiedCount = result.modifiedCount ?? 0;
+  }
+
+  // Delete expired floating holiday credits from previous years (after year changes)
+  const currentIstYear = toIstDate(new Date()).getUTCFullYear();
+  await HolidayCredit.deleteMany({
+    status: 'expired',
+    year: { $lt: currentIstYear },
+  });
+
   return {
-    matched: result.matchedCount ?? 0,
-    modified: result.modifiedCount ?? 0,
+    matched: matchedCount,
+    modified: modifiedCount,
   };
 }
 
 /**
- * Forfeit every `available` credit belonging to the given employee.
+ * Forfeit every `available` credit belonging to the given employee by marking it expired.
  *
  * Used when an employee transitions to `terminated` or `inactive`. Credits in
- * `redeemed`, `expired`, or `forfeited` are not re-touched (Property 11).
+ * `redeemed` or `expired` are not re-touched.
  *
  * @param {string} employeeId
  * @returns {Promise<{ matched: number, modified: number }>}
@@ -253,7 +359,7 @@ export async function expireStaleFloatingCredits() {
 export async function forfeitEmployeeCredits(employeeId) {
   const result = await HolidayCredit.updateMany(
     { employee: employeeId, status: 'available' },
-    { $set: { status: 'forfeited', forfeitedAt: new Date() } }
+    { $set: { status: 'expired', expiredAt: new Date() } }
   );
   return {
     matched: result.matchedCount ?? 0,
@@ -270,7 +376,7 @@ export async function forfeitEmployeeCredits(employeeId) {
  * @param {string} employeeId
  * @returns {Promise<Array<{
  *   template: { _id, name, year, type },
- *   counts: { available: number, redeemed: number, expired: number, forfeited: number },
+ *   counts: { available: number, redeemed: number, expired: number },
  *   credits: Array<{ _id, sourceHolidayId, status, redeemedOn, redeemedAt }>,
  * }>>}
  */
@@ -278,6 +384,8 @@ export async function listCreditsForEmployee(employeeId) {
   const credits = await HolidayCredit.find({ employee: employeeId }).populate('template');
 
   const groups = new Map();
+  const todayStart = getStartOfIstDay(new Date());
+
   for (const credit of credits) {
     const template = credit.template;
     if (!template) continue;
@@ -289,19 +397,46 @@ export async function listCreditsForEmployee(employeeId) {
           name: template.name,
           year: template.year,
           type: template.type,
+          holidays: template.holidays,
         },
-        counts: { available: 0, redeemed: 0, expired: 0, forfeited: 0 },
+        counts: { available: 0, redeemed: 0, expired: 0 },
         credits: [],
       });
     }
     const group = groups.get(key);
-    if (group.counts[credit.status] !== undefined) {
-      group.counts[credit.status] += 1;
+
+    let status = credit.status;
+    if (status === 'forfeited') {
+      status = 'expired';
+    }
+
+    if (status === 'available' && template.holidays) {
+      let holiday = template.holidays.find(
+        (h) => h._id.toString() === credit.sourceHolidayId.toString()
+      );
+      if (!holiday) {
+        // Fallback for historically corrupted templates (due to ID regeneration)
+        const creditIndex = credits
+          .filter((c) => c.template && c.template._id.toString() === template._id.toString())
+          .indexOf(credit);
+        if (creditIndex !== -1 && template.holidays[creditIndex]) {
+          holiday = template.holidays[creditIndex];
+        } else if (template.holidays[0]) {
+          holiday = template.holidays[0];
+        }
+      }
+      if (holiday && getStartOfIstDay(holiday.date) < todayStart) {
+        status = 'expired';
+      }
+    }
+
+    if (group.counts[status] !== undefined) {
+      group.counts[status] += 1;
     }
     group.credits.push({
       _id: credit._id,
       sourceHolidayId: credit.sourceHolidayId,
-      status: credit.status,
+      status: status,
       redeemedOn: credit.redeemedOn,
       redeemedAt: credit.redeemedAt,
     });

@@ -53,6 +53,7 @@ const REDEEM_ERROR_MESSAGES = {
   CREDIT_STATUS_INVALID: 'This credit is not available for redemption.',
   CREDIT_NOT_OWNED: 'You do not own this holiday credit.',
   CREDIT_NOT_FOUND: 'This holiday credit was not found.',
+  REDEEM_DATE_INVALID: 'Target date must be exactly the assigned holiday date.',
 };
 
 const CANCEL_ERROR_MESSAGES = {
@@ -66,7 +67,6 @@ const STATUS_BADGE_STYLE = {
   available: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/20',
   redeemed: 'bg-primary/10 text-primary ring-1 ring-primary/20',
   expired: 'bg-gray-500/10 text-gray-500 dark:text-gray-400 ring-1 ring-gray-500/20',
-  forfeited: 'bg-rose-500/10 text-rose-500 ring-1 ring-rose-500/20',
 };
 
 const Holidays = () => {
@@ -147,9 +147,19 @@ const Holidays = () => {
   // Redemption modal lifecycle.
   // -------------------------------------------------------------------------
   const openRedeem = (credit, group) => {
-    const holiday = floatingHolidayMap.get(String(credit.sourceHolidayId)) || {};
+    let holiday = floatingHolidayMap.get(String(credit.sourceHolidayId));
+    if (!holiday) {
+      const templateHolidays = group.template.holidays || [];
+      const creditIndex = group.credits.findIndex(c => c._id === credit._id);
+      if (creditIndex !== -1 && templateHolidays[creditIndex]) {
+        holiday = templateHolidays[creditIndex];
+      } else if (templateHolidays[0]) {
+        holiday = templateHolidays[0];
+      }
+    }
+    holiday = holiday || {};
     setRedeemModal({ credit, group, holiday });
-    setRedeemDate('');
+    setRedeemDate(toIsoDateKey(holiday.date));
   };
 
   const closeRedeem = () => {
@@ -179,8 +189,9 @@ const Holidays = () => {
       toast.error(REDEEM_ERROR_MESSAGES.REDEEM_DATE_FIXED_CLASH);
       return;
     }
-    if (picked.getFullYear() !== redeemModal.group.template.year) {
-      toast.error(REDEEM_ERROR_MESSAGES.REDEEM_YEAR_MISMATCH);
+    const holidayDateStr = toIsoDateKey(redeemModal.holiday.date);
+    if (holidayDateStr && redeemDate !== holidayDateStr) {
+      toast.error('Target date must be exactly the assigned holiday date.');
       return;
     }
 
@@ -312,7 +323,6 @@ const Holidays = () => {
       available: 0,
       redeemed: 0,
       expired: 0,
-      forfeited: 0,
     };
     const credits = Array.isArray(group.credits) ? group.credits : [];
 
@@ -343,11 +353,6 @@ const Holidays = () => {
             <span className={`px-2 py-1 rounded-full ${STATUS_BADGE_STYLE.expired}`}>
               Expired: {counts.expired}
             </span>
-            {counts.forfeited > 0 && (
-              <span className={`px-2 py-1 rounded-full ${STATUS_BADGE_STYLE.forfeited}`}>
-                Forfeited: {counts.forfeited}
-              </span>
-            )}
           </div>
         </div>
 
@@ -358,7 +363,22 @@ const Holidays = () => {
         ) : (
           <ul className="divide-y divide-light-border dark:divide-dark-border">
             {credits.map(credit => {
-              const holiday = floatingHolidayMap.get(String(credit.sourceHolidayId)) || {};
+              let holiday = floatingHolidayMap.get(String(credit.sourceHolidayId));
+              if (!holiday) {
+                // Fallback for historically corrupted templates (due to ID regeneration before our fix)
+                const templateHolidays = group.template.holidays || [];
+                const creditIndex = credits.indexOf(credit);
+                if (creditIndex !== -1 && templateHolidays[creditIndex]) {
+                  holiday = templateHolidays[creditIndex];
+                } else if (templateHolidays[0]) {
+                  holiday = templateHolidays[0];
+                }
+              }
+              holiday = holiday || {};
+
+              const isExpired = credit.status === 'expired' ||
+                (credit.status === 'available' && holiday.date && toIsoDateKey(holiday.date) < todayKey);
+              const statusToShow = isExpired ? 'expired' : credit.status;
               return (
                 <li
                   key={credit._id}
@@ -377,7 +397,7 @@ const Holidays = () => {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {credit.status === 'available' && (
+                    {statusToShow === 'available' && (
                       <button
                         type="button"
                         onClick={() => openRedeem(credit, group)}
@@ -388,33 +408,28 @@ const Holidays = () => {
                       </button>
                     )}
 
-                    {credit.status === 'redeemed' && (
+                    {statusToShow === 'redeemed' && (
                       <div className="flex items-center gap-3">
                         <span className="inline-flex items-center gap-1.5 text-sm text-light-text dark:text-dark-text">
                           <Clock className="w-4 h-4 text-primary" />
                           Redeemed: {formatHolidayDate(credit.redeemedOn)}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => cancelRedemption(credit)}
-                          className="text-sm text-rose-500 hover:underline"
-                        >
-                          Cancel
-                        </button>
+                        {holiday.date && toIsoDateKey(holiday.date) >= todayKey && (
+                          <button
+                            type="button"
+                            onClick={() => cancelRedemption(credit)}
+                            className="text-sm text-rose-500 hover:underline"
+                          >
+                            Cancel
+                          </button>
+                        )}
                       </div>
                     )}
 
-                    {credit.status === 'expired' && (
+                    {statusToShow === 'expired' && (
                       <span className="inline-flex items-center gap-1.5 text-sm text-light-text dark:text-dark-text opacity-50">
                         <Lock className="w-4 h-4" />
                         Expired
-                      </span>
-                    )}
-
-                    {credit.status === 'forfeited' && (
-                      <span className="inline-flex items-center gap-1.5 text-sm text-light-text dark:text-dark-text opacity-50">
-                        <Lock className="w-4 h-4" />
-                        Forfeited
                       </span>
                     )}
                   </div>
@@ -434,13 +449,8 @@ const Holidays = () => {
 
   const datePickerBounds = useMemo(() => {
     if (!redeemModal) return { min: todayKey, max: todayKey };
-    const year = redeemModal.group.template.year;
-    const yearStart = `${year}-01-01`;
-    const yearEnd = `${year}-12-31`;
-    // Clamp the lower bound to today so past dates within the credit's year
-    // remain selectable only on the calendar UI but the form rejects them.
-    const min = todayKey > yearStart ? todayKey : yearStart;
-    return { min, max: yearEnd };
+    const holidayDateStr = toIsoDateKey(redeemModal.holiday.date) || todayKey;
+    return { min: todayKey, max: holidayDateStr };
   }, [redeemModal, todayKey]);
 
   return (
@@ -545,12 +555,13 @@ const Holidays = () => {
                   min={datePickerBounds.min}
                   max={datePickerBounds.max}
                   required
-                  className="w-full px-4 py-2.5 bg-light-bg dark:bg-dark-bg rounded-lg ring-1 ring-light-border dark:ring-dark-border focus:ring-2 focus:ring-primary text-light-text dark:text-dark-text"
+                  disabled
+                  className="w-full px-4 py-2.5 bg-light-bg dark:bg-dark-bg rounded-lg ring-1 ring-light-border dark:ring-dark-border focus:ring-2 focus:ring-primary text-light-text dark:text-dark-text opacity-70 cursor-not-allowed"
                 />
                 <ul className="text-xs text-light-text dark:text-dark-text opacity-70 list-disc pl-5 space-y-0.5">
                   <li>Sundays are not allowed.</li>
                   <li>Cannot match a fixed holiday already on your calendar.</li>
-                  <li>Date must fall within {redeemModal.group.template.year}.</li>
+                  <li>Date must be on or before the assigned holiday date ({formatHolidayDate(redeemModal.holiday.date)}).</li>
                   <li>Past dates and locked payroll months are rejected.</li>
                 </ul>
               </div>

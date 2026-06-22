@@ -198,9 +198,18 @@ export const listTemplateAssignments = async (req, res) => {
  */
 export const listEmployeeCredits = async (req, res) => {
   try {
-    const creditGroups = await holidayCreditService.listCreditsForEmployee(req.params.employeeId);
+    const [assignments, creditGroups] = await Promise.all([
+      holidayAssignmentService.listAssignmentsForEmployee(req.params.employeeId),
+      holidayCreditService.listCreditsForEmployee(req.params.employeeId),
+    ]);
+
+    const templates = assignments
+      .map((assignment) => assignment.template)
+      .filter((template) => template !== null && template !== undefined);
+
     return res.status(200).json({
       message: 'Employee holiday credits fetched successfully',
+      templates,
       creditGroups,
     });
   } catch (err) {

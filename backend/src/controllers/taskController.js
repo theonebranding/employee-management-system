@@ -141,6 +141,8 @@ export const createTask = async (req, res) => {
       priority = 'medium',
       status = 'pending',
       dueDate,
+      attachments = [],
+      links = [],
     } = req.body;
 
     const normalizedTitle = normalize(title);
@@ -168,6 +170,8 @@ export const createTask = async (req, res) => {
       priority,
       status,
       dueDate: dueDate ? new Date(dueDate) : undefined,
+      attachments,
+      links,
     });
 
     return res.status(201).json({ message: 'Task created successfully', task });
@@ -223,6 +227,8 @@ export const updateTask = async (req, res) => {
       priority,
       status,
       dueDate,
+      attachments,
+      links,
     } = req.body;
 
     const nextTitle = title !== undefined ? normalize(title) : existingTask.title;
@@ -264,6 +270,8 @@ export const updateTask = async (req, res) => {
     if (priority !== undefined) existingTask.priority = priority;
     if (status !== undefined) existingTask.status = status;
     if (dueDate !== undefined) existingTask.dueDate = dueDate ? new Date(dueDate) : undefined;
+    if (attachments !== undefined) existingTask.attachments = attachments;
+    if (links !== undefined) existingTask.links = links;
 
     await existingTask.save();
 
