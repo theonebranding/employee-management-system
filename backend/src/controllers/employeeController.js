@@ -2,7 +2,7 @@ import Employee from '../models/employeeSchema.js';
 import EmployeeSequence from '../models/employeeSequenceSchema.js';
 import bcrypt from 'bcrypt';
 import { forfeitEmployeeCredits } from '../services/holidayCreditService.js';
-// import { sendInvitationRequestEmail } from '../services/emailService.js';
+import { sendOnboardingInvitationEmail } from '../services/emailService.js';
 
 // Statuses that represent an employee leaving the company. When an employee
 // transitions into one of these states (or is hard-deleted), all of their
@@ -123,10 +123,8 @@ const validateEmployeeFields = (payload, { isUpdate = false } = {}) => {
     const raw = normalizeText(payload.joinedDate);
     if (raw) {
       const joined = new Date(raw);
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
-      if (Number.isNaN(joined.getTime()) || joined > now) {
-        errors.push('Joining date must be valid and cannot be in future');
+      if (Number.isNaN(joined.getTime())) {
+        errors.push('Joining date must be a valid date');
       } else {
         normalized.joinedDate = joined;
       }
@@ -233,7 +231,7 @@ export const addEmployee = async (req, res) => {
       return res.status(400).json({ message: errors[0], errors });
     }
 
-    // Check if the employee already exists (by email or phone)
+    // Check if the employee already exists (by email, phone, PAN, Aadhar or bank account number)
     const duplicateChecks = [{ email: normalized.email }, { phoneNumber: normalized.phoneNumber }];
     if (normalized.panNumber) duplicateChecks.push({ panNumber: normalized.panNumber });
     if (normalized.aadharNumber) duplicateChecks.push({ aadharNumber: normalized.aadharNumber });
@@ -245,6 +243,26 @@ export const addEmployee = async (req, res) => {
     });
 
     if (employeeExists) {
+      if (employeeExists.email === normalized.email) {
+        return res.status(400).json({ message: 'Employee with this email already exists' });
+      }
+      if (employeeExists.phoneNumber === normalized.phoneNumber) {
+        return res.status(400).json({ message: 'Employee with this phone number already exists' });
+      }
+      if (normalized.panNumber && employeeExists.panNumber === normalized.panNumber) {
+        return res.status(400).json({ message: 'Employee with this PAN number already exists' });
+      }
+      if (normalized.aadharNumber && employeeExists.aadharNumber === normalized.aadharNumber) {
+        return res.status(400).json({ message: 'Employee with this Aadhar number already exists' });
+      }
+      if (
+        normalized.bankAccountNumber &&
+        employeeExists.bankAccountNumber === normalized.bankAccountNumber
+      ) {
+        return res
+          .status(400)
+          .json({ message: 'Employee with this bank account number already exists' });
+      }
       return res
         .status(400)
         .json({ message: 'Employee with this email or phone number already exists' });
@@ -300,12 +318,20 @@ export const addEmployee = async (req, res) => {
     });
     console.log('New Employee Data:', employee);
 
-    // Send invitation email
-
-    // await sendInvitationRequestEmail(email);
-    // console.log('Invitation email sent to:', email);
-
     await employee.save();
+
+    try {
+      await sendOnboardingInvitationEmail(
+        normalized.email,
+        normalizedName,
+        employeeCode,
+        password,
+        normalized.joinedDate
+      );
+      console.log('Onboarding email sent successfully to:', normalized.email);
+    } catch (emailErr) {
+      console.error('Failed to send onboarding invitation email:', emailErr);
+    }
 
     return res.status(201).json({ message: 'Employee added successfully', employee });
   } catch (error) {
@@ -361,8 +387,32 @@ export const updateEmployee = async (req, res) => {
       const existingEmployee = await Employee.findOne({
         _id: { $ne: req.params.id },
         $or: duplicateChecks,
-      }).select('_id');
+      });
       if (existingEmployee) {
+        if (normalized.email && existingEmployee.email === normalized.email) {
+          return res.status(400).json({ message: 'Employee with this email already exists' });
+        }
+        if (normalized.phoneNumber && existingEmployee.phoneNumber === normalized.phoneNumber) {
+          return res
+            .status(400)
+            .json({ message: 'Employee with this phone number already exists' });
+        }
+        if (normalized.panNumber && existingEmployee.panNumber === normalized.panNumber) {
+          return res.status(400).json({ message: 'Employee with this PAN number already exists' });
+        }
+        if (normalized.aadharNumber && existingEmployee.aadharNumber === normalized.aadharNumber) {
+          return res
+            .status(400)
+            .json({ message: 'Employee with this Aadhar number already exists' });
+        }
+        if (
+          normalized.bankAccountNumber &&
+          existingEmployee.bankAccountNumber === normalized.bankAccountNumber
+        ) {
+          return res
+            .status(400)
+            .json({ message: 'Employee with this bank account number already exists' });
+        }
         return res
           .status(400)
           .json({ message: 'Another employee already uses one of these details' });

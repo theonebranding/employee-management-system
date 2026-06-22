@@ -11,7 +11,7 @@ const injectData = (template, data) => {
   return template.replace(/{{(.*?)}}/g, (_, key) => data[key.trim()] || '');
 };
 
-const adminEmail = 'info@theonebranding.com';
+const adminEmail = 'man842289@gmail.com';
 
 const sendResetPasswordEmail = async (email, name, otp) => {
   const templatePath = path.join(__dirname, 'templates', 'resetPassword.html');
@@ -85,6 +85,21 @@ const sendDailyReportSubmittedEmail = async ({
   await sendEmail(adminEmail, subjectLine, htmlContent);
 };
 
+const sendOnboardingInvitationEmail = async (email, name, employeeCode, password, joinedDate) => {
+  const templatePath = path.join(__dirname, 'templates', 'onboardingInvitation.html');
+  const template = fs.readFileSync(templatePath, 'utf-8');
+  const formattedDate = joinedDate ? new Date(joinedDate).toLocaleDateString('en-GB') : 'N/A';
+  const htmlContent = injectData(template, {
+    name,
+    email,
+    employeeCode,
+    password,
+    joinedDate: formattedDate,
+  });
+
+  await sendEmail(email, 'Welcome to The One Branding - Onboarding Details', htmlContent);
+};
+
 export {
   sendResetPasswordEmail,
   sendResetPasswordSuccessEmail,
@@ -92,4 +107,5 @@ export {
   sendLeaveStatusEmail,
   sendInvitationRequestEmail,
   sendDailyReportSubmittedEmail,
+  sendOnboardingInvitationEmail,
 };

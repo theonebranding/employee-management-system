@@ -19,7 +19,7 @@ import { useAuth } from '../../../context/authContext';
 const EmployeeSidebar = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, isProfileComplete } = useAuth();
 
   const menuItems = [
     {
@@ -113,38 +113,49 @@ const EmployeeSidebar = () => {
 
         {/* Nav */}
         <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto overflow-x-hidden no-scrollbar lg:px-2">
-          {menuItems.map((item, index) => (
-            <NavLink
-              to={item.path}
-              key={index}
-              onClick={() => setIsSidebarOpen(false)}
-              className={({ isActive }) =>
-                `relative flex items-center w-full px-4 py-3 rounded-2xl transition-all duration-200 group
-                lg:w-12 lg:h-12 lg:justify-center lg:px-0 lg:mx-auto lg:self-center
-                lg:group-hover:w-full lg:group-hover:justify-start lg:group-hover:px-4 lg:group-hover:mx-0
-                ${
-                  isActive
-                    ? 'bg-primary text-white shadow-md shadow-primary/20'
-                    : 'text-light-text dark:text-dark-text opacity-70 hover:bg-white/60 dark:hover:bg-dark-card/60 hover:text-primary'
-                }`
-              }
-            >
-              {!isSidebarOpen && (
-                <span
-                  className="fixed left-14 bg-gray-800 text-white text-xs font-medium px-2 py-1 rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-50 lg:hidden"
-                  style={{ whiteSpace: 'nowrap' }}
-                >
+          {menuItems.map((item, index) => {
+            const isDisabled = !isProfileComplete && item.name !== 'Home';
+            return (
+              <NavLink
+                to={isDisabled ? '#' : item.path}
+                key={index}
+                onClick={e => {
+                  if (isDisabled) {
+                    e.preventDefault();
+                    return;
+                  }
+                  setIsSidebarOpen(false);
+                }}
+                className={({ isActive }) =>
+                  `relative flex items-center w-full px-4 py-3 rounded-2xl transition-all duration-200 group
+                  lg:w-12 lg:h-12 lg:justify-center lg:px-0 lg:mx-auto lg:self-center
+                  lg:group-hover:w-full lg:group-hover:justify-start lg:group-hover:px-4 lg:group-hover:mx-0
+                  ${
+                    isDisabled
+                      ? 'opacity-40 cursor-not-allowed pointer-events-none'
+                      : isActive
+                        ? 'bg-primary text-white shadow-md shadow-primary/20'
+                        : 'text-light-text dark:text-dark-text opacity-70 hover:bg-white/60 dark:hover:bg-dark-card/60 hover:text-primary'
+                  }`
+                }
+              >
+                {!isSidebarOpen && (
+                  <span
+                    className="fixed left-14 bg-gray-800 text-white text-xs font-medium px-2 py-1 rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-50 lg:hidden"
+                    style={{ whiteSpace: 'nowrap' }}
+                  >
+                    {item.name}
+                  </span>
+                )}
+                <div className="w-6 h-6 shrink-0 flex items-center justify-center transition-colors duration-100">
+                  {item.icon}
+                </div>
+                <span className="ml-3 font-medium text-sm lg:opacity-0 lg:w-0 lg:overflow-hidden lg:ml-0 lg:group-hover:w-auto lg:group-hover:overflow-visible lg:group-hover:ml-3 lg:group-hover:opacity-100 lg:transition-all lg:duration-200">
                   {item.name}
                 </span>
-              )}
-              <div className="w-6 h-6 shrink-0 flex items-center justify-center transition-colors duration-100">
-                {item.icon}
-              </div>
-              <span className="ml-3 font-medium text-sm lg:opacity-0 lg:w-0 lg:overflow-hidden lg:ml-0 lg:group-hover:w-auto lg:group-hover:overflow-visible lg:group-hover:ml-3 lg:group-hover:opacity-100 lg:transition-all lg:duration-200">
-                {item.name}
-              </span>
-            </NavLink>
-          ))}
+              </NavLink>
+            );
+          })}
         </nav>
 
         {/* Logout */}

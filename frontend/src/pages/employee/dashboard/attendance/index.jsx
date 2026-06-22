@@ -21,6 +21,14 @@ import StatsCard from './components/statsCard';
 // Status string constants (avoid sonarjs/no-duplicate-string).
 const STATUS_CHECKED_IN = 'Checked In';
 
+const formatDuration = ms => {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${hours} hours ${minutes} minutes ${seconds} seconds`;
+};
+
 const Attendance = () => {
   const navigate = useNavigate();
   const hasTriggeredAutoCheckout = useRef(false);
@@ -28,6 +36,8 @@ const Attendance = () => {
   const [checkInTime, setCheckInTime] = useState(null);
   const [checkOutTime, setCheckOutTime] = useState(null);
   const [totalRecessDuration, setTotalRecessDuration] = useState('0 minutes');
+  const [totalRecessDurationMs, setTotalRecessDurationMs] = useState(0);
+  const [recessStartTime, setRecessStartTime] = useState(null);
   const [totalWorkingTime, setTotalWorkingTime] = useState('0 minutes');
   const [liveWorkingTime, setLiveWorkingTime] = useState('0 minutes');
   const [loading, setLoading] = useState(false);
@@ -155,6 +165,8 @@ const Attendance = () => {
       setCheckInTime(data.checkInTime || null);
       setCheckOutTime(data.checkOutTime || null);
       setTotalRecessDuration(data.totalRecessDuration || '0 minutes');
+      setTotalRecessDurationMs(data.totalRecessDurationMs || 0);
+      setRecessStartTime(data.recessStartTime || null);
       setTotalWorkingTime(data.totalWorkingTime || '0 minutes');
       setLiveWorkingTime(data.liveWorkingTime || '0 minutes');
       setIsLate(data.lateCheckIn || false);
@@ -168,6 +180,8 @@ const Attendance = () => {
       });
     } catch (error) {
       setStatus('No status available');
+      setTotalRecessDurationMs(0);
+      setRecessStartTime(null);
       setCheckInLocation({ latitude: null, longitude: null });
       setCheckOutLocation({ latitude: null, longitude: null });
       if (error.message === 'Error fetching current status') {
@@ -237,6 +251,8 @@ const Attendance = () => {
           ? `${Math.floor(attendance.totalRecessDuration / 60000)} minutes`
           : '0 minutes'
       );
+      setTotalRecessDurationMs(attendance.totalRecessDuration || 0);
+      setRecessStartTime(attendance.recessStartTime || null);
       setLiveWorkingTime(attendance.liveWorkingTime || '0 minutes');
       setTotalWorkingTime(
         attendance.checkOutTime && attendance.checkInTime
@@ -326,23 +342,6 @@ const Attendance = () => {
     }
   };
 
-  const getActionButtonStyle = (action, disabled) => {
-    if (disabled || loading)
-      return 'bg-gray-300 text-black dark:bg-gray-500/50 dark:text-gray-200 cursor-not-allowed opacity-50';
-    switch (action) {
-      case 'checkin':
-        return 'bg-success/10 text-success ring-1 ring-success/50 hover:bg-success/20';
-      case 'checkout':
-        return 'bg-danger/10 text-danger ring-1 ring-danger/50 hover:bg-danger/20';
-      case 'start-recess':
-        return 'bg-warning/10 text-warning ring-1 ring-warning/50 hover:bg-warning/20';
-      case 'end-recess':
-        return 'bg-primary/10 text-primary ring-1 ring-primary/50 hover:bg-primary/20';
-      default:
-        return 'bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text hover:bg-light-card dark:hover:bg-dark-card';
-    }
-  };
-
   const isDisabled = buttonStatus => {
     if (loading) return true;
     if (status === 'In Recess') return buttonStatus !== 'end-recess';
@@ -356,12 +355,17 @@ const Attendance = () => {
     return false;
   };
 
-  const actionButtons = [
-    { id: 'checkin', icon: LogIn, label: 'Check In' },
-    { id: 'checkout', icon: LogOut, label: 'Check Out' },
-    { id: 'start-recess', icon: Coffee, label: 'Start Break' },
-    { id: 'end-recess', icon: StopCircle, label: 'End Break' },
-  ];
+  const getDisplayBreakTime = () => {
+    if (status === 'In Recess' && recessStartTime) {
+      const start = new Date(recessStartTime);
+      if (!isNaN(start.getTime())) {
+        const elapsedMs = currentTime - start;
+        const totalMs = totalRecessDurationMs + elapsedMs;
+        return formatDuration(totalMs);
+      }
+    }
+    return totalRecessDurationMs > 0 ? formatDuration(totalRecessDurationMs) : totalRecessDuration;
+  };
 
   return (
     <div className="min-h-screen px-6 py-6 lg:ml-16 bg-light-bg dark:bg-dark-bg transition-colors duration-300">
@@ -386,18 +390,26 @@ const Attendance = () => {
             value={checkInTime ? new Date(checkInTime).toLocaleString() : 'Not checked in'}
             colorClass="bg-success/10 ring-1 ring-success/30 text-success"
             subText={isLate ? 'Late Arrival' : ''}
+            onClick={() => handleButtonClick('checkin')}
+            disabled={isDisabled('checkin')}
           />
           <StatsCard
             icon={LogOut}
             title="Check-out"
             value={checkOutTime ? new Date(checkOutTime).toLocaleString() : 'Not checked out'}
             colorClass="bg-danger/10 ring-1 ring-danger/30 text-danger"
+            onClick={() => handleButtonClick('checkout')}
+            disabled={isDisabled('checkout')}
           />
           <StatsCard
-            icon={Coffee}
+            icon={status === 'In Recess' ? StopCircle : Coffee}
             title="Break Time"
-            value={totalRecessDuration}
+            value={getDisplayBreakTime()}
             colorClass="bg-warning/10 ring-1 ring-warning/30 text-warning"
+            onClick={() =>
+              handleButtonClick(status === 'In Recess' ? 'end-recess' : 'start-recess')
+            }
+            disabled={isDisabled(status === 'In Recess' ? 'end-recess' : 'start-recess')}
           />
           <StatsCard
             icon={Timer}
@@ -405,23 +417,6 @@ const Attendance = () => {
             value={liveWorkingTime}
             colorClass="bg-primary/10 ring-1 ring-primary/30 text-primary"
           />
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {actionButtons.map(({ id, icon: Icon, label }) => (
-            <button
-              key={id}
-              onClick={() => handleButtonClick(id)}
-              disabled={isDisabled(id)}
-              className={`p-4 rounded-xl transition-all duration-300 ${getActionButtonStyle(
-                id,
-                isDisabled(id)
-              )} group flex flex-col items-center gap-3`}
-            >
-              <Icon className="w-6 h-6 transition-transform group-hover:scale-110" />
-              <span className="text-sm font-medium">{label}</span>
-            </button>
-          ))}
         </div>
 
         <LocationMap

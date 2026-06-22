@@ -7,6 +7,7 @@ export const AuthProvider = ({ children }) => {
   const [userRole, setUserRole] = useState(localStorage.getItem('role'));
   const [userId, setUserId] = useState(localStorage.getItem('_id'));
   const [email, setEmail] = useState(localStorage.getItem('email'));
+  const [isProfileComplete, setIsProfileComplete] = useState(true);
 
   // function to check if token is expired
   const isTokenExpired = token => {
@@ -21,30 +22,44 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // // Function to refresh token
-  // const refreshAccessToken = async () => {
-  //   try {
-  //     const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/refresh-token`, {
-  //       method: 'POST',
-  //       credentials: 'include',
-  //     });
+  const checkProfile = async (token, role) => {
+    if (role !== 'employee' || !token) {
+      setIsProfileComplete(true);
+      return;
+    }
+    try {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/employee/my-profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const emp = data.employee || {};
+        const isMissing =
+          !emp.bankName ||
+          !emp.branchName ||
+          !emp.bankAccountNumber ||
+          !emp.ifscCode ||
+          !emp.aadharNumber ||
+          !emp.panNumber ||
+          !emp.dateofBirth ||
+          !emp.address ||
+          !emp.state ||
+          !emp.city ||
+          !emp.district ||
+          !emp.pinCode;
 
-  //     if (!response.ok) {
-  //       throw new Error('Failed to refresh token');
-  //     }
-
-  //     const data = await response.json();
-  //     localStorage.setItem('token', data.token);
-  //     return data.token;
-  //   } catch (error) {
-  //     console.error('Refresh token failed. Logging out...', error);
-  //     logout();
-  //     return null;
-  //   }
-  // };
+        setIsProfileComplete(!isMissing);
+      } else {
+        setIsProfileComplete(true);
+      }
+    } catch (error) {
+      console.error('Error checking profile completion:', error);
+      setIsProfileComplete(true);
+    }
+  };
 
   // Check authentication on mount and update when login/logout happens
-  (useEffect(() => {
+  useEffect(() => {
     const checkAuth = async () => {
       let token = localStorage.getItem('token');
 
@@ -62,13 +77,14 @@ export const AuthProvider = ({ children }) => {
         setUserRole(role);
         setUserId(_id);
         setEmail(email);
+        checkProfile(token, role);
       } else {
         logout();
       }
     };
     checkAuth();
-  }),
-    []);
+  }, []);
+
   const login = (token, role, _id, email) => {
     // Save to localStorage
     localStorage.setItem('token', token);
@@ -82,6 +98,8 @@ export const AuthProvider = ({ children }) => {
     setUserRole(role);
     setUserId(_id);
     setEmail(email);
+
+    checkProfile(token, role);
   };
 
   const logout = () => {
@@ -96,6 +114,7 @@ export const AuthProvider = ({ children }) => {
     setUserRole(null);
     setUserId(null);
     setEmail(null);
+    setIsProfileComplete(true);
   };
 
   return (
@@ -105,6 +124,9 @@ export const AuthProvider = ({ children }) => {
         userRole,
         userId,
         email,
+        isProfileComplete,
+        setIsProfileComplete,
+        checkProfile,
         login,
         logout,
       }}
