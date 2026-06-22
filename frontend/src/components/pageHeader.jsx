@@ -129,6 +129,17 @@ const Header = ({ title = 'Dashboard', description = '', className = '', icon = 
 
       {/* Controls */}
       <div className="flex items-center gap-4 relative">
+        {userData.role?.toLowerCase() === 'admin' && (
+          <button
+            onClick={() => navigate('/admin/dashboard/reports?tab=attendance-master')}
+            className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-full hover:bg-primary/20 transition-all duration-300 shadow-sm font-medium text-sm"
+            aria-label="Navigate to Attendance Master"
+          >
+            <ClipboardList className="w-4 h-4" />
+            <span className="hidden sm:inline">Attendance Master</span>
+          </button>
+        )}
+
         {/* Enhanced Theme toggle with animation */}
         <button
           onClick={toggleTheme}

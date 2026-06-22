@@ -2,13 +2,18 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
+  Download,
   Edit,
+  Eye,
+  Link as LinkIcon,
   MessageSquare,
+  Paperclip,
   Plus,
   Search,
   Send,
   Trash2,
   User,
+  X,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
@@ -42,7 +47,107 @@ const AdminTasks = () => {
     priority: 'medium',
     status: 'pending',
     dueDate: '',
+    attachments: [],
+    links: [],
   });
+
+  const [fileUploading, setFileUploading] = useState(false);
+  const [previewFile, setPreviewFile] = useState(null);
+
+  const isFileTypePreviewable = (mimeType) => {
+    if (!mimeType) return false;
+    return mimeType.startsWith('image/') || mimeType === 'application/pdf';
+  };
+
+  const handlePreviewFile = (file) => {
+    setPreviewFile(file);
+  };
+
+  const handleDownloadFile = (file) => {
+    try {
+      const link = document.createElement('a');
+      link.href = file.fileData;
+      link.download = file.fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      toast.error('Failed to download file.');
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    setFileUploading(true);
+    try {
+      const newAttachments = [...(formData.attachments || [])];
+      for (const file of files) {
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error(`File "${file.name}" exceeds the 5MB limit.`);
+          continue;
+        }
+        
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error('Failed to read file'));
+          reader.readAsDataURL(file);
+        });
+
+        newAttachments.push({
+          fileName: file.name,
+          fileType: file.type,
+          fileData: String(dataUrl || ''),
+        });
+      }
+      setFormData(prev => ({ ...prev, attachments: newAttachments }));
+    } catch (err) {
+      toast.error('Failed to read file.');
+    } finally {
+      setFileUploading(false);
+      e.target.value = ''; // clear input
+    }
+  };
+
+  const handleRemoveAttachment = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      attachments: prev.attachments.filter((_, idx) => idx !== index)
+    }));
+  };
+
+  const handleAddLink = () => {
+    setFormData(prev => ({
+      ...prev,
+      links: [...(prev.links || []), { label: '', url: '' }]
+    }));
+  };
+
+  const handleLinkChange = (index, field, value) => {
+    setFormData(prev => {
+      const updatedLinks = [...(prev.links || [])];
+      updatedLinks[index] = { ...updatedLinks[index], [field]: value };
+      return { ...prev, links: updatedLinks };
+    });
+  };
+
+  const handleRemoveLink = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      links: prev.links.filter((_, idx) => idx !== index)
+    }));
+  };
+
+  const formatExternalUrl = (url) => {
+    if (!url) return '';
+    const trimmed = url.trim();
+    if (/^https?:\/\//i.test(trimmed)) {
+      return trimmed;
+    }
+    return `https://${trimmed}`;
+  };
 
   const BASE_URL = import.meta.env.VITE_BACKEND_URL;
   const authHeaders = { Authorization: `Bearer ${localStorage.getItem('token')}` };
@@ -137,6 +242,8 @@ const AdminTasks = () => {
       priority: 'medium',
       status: 'pending',
       dueDate: '',
+      attachments: [],
+      links: [],
     });
     setShowModal(true);
   };
@@ -152,6 +259,8 @@ const AdminTasks = () => {
       priority: task.priority || 'medium',
       status: task.status || 'pending',
       dueDate: task.dueDate ? task.dueDate.split('T')[0] : '',
+      attachments: task.attachments || [],
+      links: task.links || [],
     });
     setShowModal(true);
   };
@@ -182,6 +291,13 @@ const AdminTasks = () => {
         priority: formData.priority,
         status: formData.status,
         dueDate: formData.dueDate || undefined,
+        attachments: formData.attachments || [],
+        links: (formData.links || [])
+          .filter(link => link.url && link.url.trim())
+          .map(link => ({
+            label: link.label || '',
+            url: formatExternalUrl(link.url),
+          })),
       };
 
       const response = await fetch(url, {
@@ -464,6 +580,22 @@ const AdminTasks = () => {
                           <p className="text-xs text-light-text/60 dark:text-dark-text/60 mt-1">
                             {task.description?.substring(0, 80) || 'No description'}
                           </p>
+                          {(task.attachments?.length > 0 || task.links?.length > 0) && (
+                            <div className="flex flex-wrap gap-2 mt-1.5">
+                              {task.attachments?.length > 0 && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary font-medium border border-primary/20">
+                                  <Paperclip className="w-3 h-3" />
+                                  {task.attachments.length} file{task.attachments.length > 1 ? 's' : ''}
+                                </span>
+                              )}
+                              {task.links?.length > 0 && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-info/10 text-info font-medium border border-info/20">
+                                  <LinkIcon className="w-3 h-3" />
+                                  {task.links.length} link{task.links.length > 1 ? 's' : ''}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
@@ -686,6 +818,123 @@ const AdminTasks = () => {
               />
             </div>
           </div>
+
+          {/* Reference Attachments & Links Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-light-border/50 dark:border-dark-border/50 pt-4">
+            {/* Reference Files */}
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70">
+                Reference Files (Max 5MB each)
+              </label>
+              
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 px-4 py-2 rounded-lg bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border cursor-pointer hover:bg-light-bg/70 dark:hover:bg-dark-bg/70 transition-colors text-sm font-medium">
+                  <Paperclip className="w-4 h-4 text-primary" />
+                  Choose Files
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    disabled={fileUploading}
+                  />
+                </label>
+                {fileUploading && <span className="text-xs text-light-text/60 dark:text-dark-text/60 animate-pulse">Reading file(s)...</span>}
+              </div>
+
+              {formData.attachments && formData.attachments.length > 0 && (
+                <div className="space-y-2 max-h-48 overflow-y-auto border border-light-border/50 dark:border-dark-border/50 rounded-lg p-2 bg-light-bg/30 dark:bg-dark-bg/30">
+                  {formData.attachments.map((file, idx) => (
+                    <div key={idx} className="flex items-center justify-between gap-2 px-3 py-1.5 rounded bg-light-bg/60 dark:bg-dark-bg/60 border border-light-border/30 dark:border-dark-border/30 text-xs">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                        <Paperclip className="w-3.5 h-3.5 text-light-text/50 shrink-0" />
+                        <span className="truncate font-medium" title={file.fileName}>{file.fileName}</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {isFileTypePreviewable(file.fileType) && (
+                          <button
+                            type="button"
+                            onClick={() => handlePreviewFile(file)}
+                            className="p-1 text-primary hover:bg-primary/10 rounded transition-colors"
+                            title="Preview file"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadFile(file)}
+                          className="p-1 text-success hover:bg-success/10 rounded transition-colors"
+                          title="Download file"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAttachment(idx)}
+                          className="p-1 text-danger hover:bg-danger/10 rounded transition-colors"
+                          title="Remove file"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Reference Links */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-light-text/70 dark:text-dark-text/70">
+                  Reference Links
+                </label>
+                <button
+                  type="button"
+                  onClick={handleAddLink}
+                  className="flex items-center gap-1 text-xs text-primary hover:text-primary-dark font-medium"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Link
+                </button>
+              </div>
+
+              {(!formData.links || formData.links.length === 0) ? (
+                <p className="text-xs text-light-text/40 dark:text-dark-text/40 italic">No links added.</p>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto border border-light-border/50 dark:border-dark-border/50 rounded-lg p-2 bg-light-bg/30 dark:bg-dark-bg/30">
+                  {formData.links.map((link, idx) => (
+                    <div key={idx} className="flex items-start gap-2">
+                      <div className="grid grid-cols-2 gap-2 flex-1">
+                        <input
+                          type="text"
+                          placeholder="Label (e.g. Figma)"
+                          value={link.label}
+                          onChange={e => handleLinkChange(idx, 'label', e.target.value)}
+                          className="px-2 py-1 rounded bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border text-xs w-full"
+                        />
+                        <input
+                          type="text"
+                          placeholder="URL (https://...)"
+                          value={link.url}
+                          onChange={e => handleLinkChange(idx, 'url', e.target.value)}
+                          className="px-2 py-1 rounded bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border text-xs w-full"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLink(idx)}
+                        className="p-1 text-danger hover:bg-danger/10 rounded transition-colors self-center shrink-0"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="flex gap-3 justify-end pt-4 border-t border-light-border/70 dark:border-dark-border">
             <button
               onClick={() => setShowModal(false)}
@@ -740,6 +989,48 @@ const AdminTasks = () => {
               className="px-3 py-2 rounded-lg bg-primary text-white inline-flex items-center gap-1"
             >
               <Send className="w-4 h-4" /> Send
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* File Preview Modal */}
+      <Modal
+        isOpen={!!previewFile}
+        onClose={() => setPreviewFile(null)}
+        title={`Preview - ${previewFile?.fileName}`}
+        size="2xl"
+      >
+        <div className="flex flex-col items-center justify-center p-2 bg-light-bg/50 dark:bg-dark-bg/50 rounded-lg border border-light-border dark:border-dark-border animate-fade-in">
+          {previewFile?.fileType.startsWith('image/') ? (
+            <img
+              src={previewFile.fileData}
+              alt={previewFile.fileName}
+              className="max-h-[60vh] max-w-full rounded object-contain"
+            />
+          ) : previewFile?.fileType === 'application/pdf' ? (
+            <iframe
+              src={previewFile.fileData}
+              title={previewFile.fileName}
+              className="w-full h-[60vh] rounded border-none"
+            />
+          ) : (
+            <div className="py-12 text-center text-light-text/60 dark:text-dark-text/60">
+              Preview is not available for this file type.
+            </div>
+          )}
+          <div className="flex gap-3 justify-end w-full mt-4 pt-3 border-t border-light-border dark:border-dark-border">
+            <button
+              onClick={() => handleDownloadFile(previewFile)}
+              className="px-4 py-2 rounded-lg bg-success text-white hover:bg-success-dark transition-colors font-medium text-sm flex items-center gap-1.5"
+            >
+              <Download className="w-4 h-4" /> Download File
+            </button>
+            <button
+              onClick={() => setPreviewFile(null)}
+              className="px-4 py-2 rounded-lg border border-light-border dark:border-dark-border hover:bg-light-bg dark:hover:bg-dark-bg transition-colors text-sm font-medium"
+            >
+              Close
             </button>
           </div>
         </div>

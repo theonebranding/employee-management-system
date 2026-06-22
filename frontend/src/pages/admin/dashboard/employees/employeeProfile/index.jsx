@@ -3,8 +3,10 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 
+import HolidaysTab from './components/holidaysTab';
 import InformationTab from './components/informationTab';
 import LeaveRequestsTab from './components/leaveRequestsTab';
+
 
 const AdminEmployeeProfile = () => {
   const { id } = useParams();
@@ -117,6 +119,7 @@ const AdminEmployeeProfile = () => {
         <div className="flex gap-2 mb-6 border-b border-light-border/50 dark:border-dark-border/50">
           <TabButton label="Information" tab="information" />
           <TabButton label="Leave Requests" tab="leaves" />
+          <TabButton label="Holidays" tab="holidays" />
         </div>
 
         {loading ? (
@@ -127,6 +130,7 @@ const AdminEmployeeProfile = () => {
           <>
             {activeTab === 'information' && <InformationTab employeeId={id} />}
             {activeTab === 'leaves' && <LeaveRequestsTab employeeId={id} />}
+            {activeTab === 'holidays' && <HolidaysTab employeeId={id} />}
           </>
         )}
 
