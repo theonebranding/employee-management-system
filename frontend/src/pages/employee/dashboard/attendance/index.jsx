@@ -413,7 +413,7 @@ const Attendance = () => {
             icon={LogIn}
             title="Check-in"
             value={checkInTime ? new Date(checkInTime).toLocaleString() : 'Not checked in'}
-            colorClass="bg-success/10 ring-1 ring-success/30 text-success"
+            colorClass="bg-success text-white ring-1 ring-success/50 hover:bg-success/90 shadow-sm"
             subText={checkInTime ? (isLate ? 'Late Arrival' : 'Checked In') : 'Pending'}
             subTextColorClass={
               checkInTime
@@ -429,7 +429,7 @@ const Attendance = () => {
             icon={LogOut}
             title="Check-out"
             value={checkOutTime ? new Date(checkOutTime).toLocaleString() : 'Not checked out'}
-            colorClass="bg-danger/10 ring-1 ring-danger/30 text-danger"
+            colorClass="bg-danger text-white ring-1 ring-danger/50 hover:bg-danger/90 shadow-sm"
             subText={checkOutTime ? 'Checked Out' : checkInTime ? 'In Progress' : 'Pending'}
             subTextColorClass={
               checkOutTime
@@ -445,7 +445,7 @@ const Attendance = () => {
             icon={status === 'In Recess' ? StopCircle : Coffee}
             title="Break Time"
             value={displayBreakTime}
-            colorClass="bg-warning/10 ring-1 ring-warning/30 text-warning"
+            colorClass="bg-warning text-slate-900 ring-1 ring-warning/50 hover:bg-warning/90 shadow-sm"
             subText={
               status === 'In Recess'
                 ? 'On Break'
