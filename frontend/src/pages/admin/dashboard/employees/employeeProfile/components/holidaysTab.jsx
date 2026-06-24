@@ -1,13 +1,6 @@
 import 'react-toastify/dist/ReactToastify.css';
 
-import {
-  AlertCircle,
-  Calendar,
-  CalendarDays,
-  Clock,
-  Loader2,
-  Star,
-} from 'lucide-react';
+import { AlertCircle, Calendar, CalendarDays, Clock, Loader2, Star } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 
@@ -79,20 +72,17 @@ const HolidaysTab = ({ employeeId }) => {
     }
   }, [employeeId]);
 
-  const handleCancelRedemption = async (creditId) => {
+  const handleCancelRedemption = async creditId => {
     if (!creditId) return;
     setCancellingId(creditId);
     try {
-      const response = await fetch(
-        `${BASE_URL}/holidays/credits/${creditId}/cancel-redemption`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        }
-      );
+      const response = await fetch(`${BASE_URL}/holidays/credits/${creditId}/cancel-redemption`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data.message || 'Failed to cancel redemption.');
@@ -119,16 +109,17 @@ const HolidaysTab = ({ employeeId }) => {
     for (const group of creditGroups) {
       const credits = Array.isArray(group.credits) ? group.credits : [];
       const templateHolidays = group.template?.holidays || [];
-      
+
       credits.forEach((credit, idx) => {
         let holiday = templateHolidays.find(h => String(h._id) === String(credit.sourceHolidayId));
         if (!holiday && templateHolidays[idx]) {
           holiday = templateHolidays[idx];
         }
-        
-        const isExpired = credit.status === 'expired' || 
+
+        const isExpired =
+          credit.status === 'expired' ||
           (credit.status === 'available' && holiday?.date && toIsoDateKey(holiday.date) < todayKey);
-        
+
         const statusToShow = isExpired ? 'expired' : credit.status;
         if (stats[statusToShow] !== undefined) {
           stats[statusToShow]++;
@@ -143,7 +134,9 @@ const HolidaysTab = ({ employeeId }) => {
       <div className="flex justify-center items-center min-h-[300px]">
         <div className="flex items-center space-x-3 px-4 py-2 bg-light-card dark:bg-dark-card border border-light-border/50 dark:border-dark-border/50 rounded-lg">
           <Loader2 className="w-5 h-5 animate-spin text-primary" />
-          <span className="text-sm font-medium text-light-text dark:text-dark-text">Loading holiday details...</span>
+          <span className="text-sm font-medium text-light-text dark:text-dark-text">
+            Loading holiday details...
+          </span>
         </div>
       </div>
     );
@@ -238,14 +231,19 @@ const HolidaysTab = ({ employeeId }) => {
 
         <ul className="divide-y divide-light-border/50 dark:divide-dark-border/50">
           {credits.map((credit, idx) => {
-            let holiday = templateHolidays.find(h => String(h._id) === String(credit.sourceHolidayId));
+            let holiday = templateHolidays.find(
+              h => String(h._id) === String(credit.sourceHolidayId)
+            );
             if (!holiday && templateHolidays[idx]) {
               holiday = templateHolidays[idx];
             }
             holiday = holiday || {};
 
-            const isExpired = credit.status === 'expired' ||
-              (credit.status === 'available' && holiday.date && toIsoDateKey(holiday.date) < todayKey);
+            const isExpired =
+              credit.status === 'expired' ||
+              (credit.status === 'available' &&
+                holiday.date &&
+                toIsoDateKey(holiday.date) < todayKey);
             const statusToShow = isExpired ? 'expired' : credit.status;
 
             return (
@@ -266,7 +264,9 @@ const HolidaysTab = ({ employeeId }) => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span className={`px-2 py-1 text-xs rounded-full ${STATUS_BADGE_STYLE[statusToShow]}`}>
+                  <span
+                    className={`px-2 py-1 text-xs rounded-full ${STATUS_BADGE_STYLE[statusToShow]}`}
+                  >
                     {statusToShow.charAt(0).toUpperCase() + statusToShow.slice(1)}
                   </span>
 
@@ -305,15 +305,21 @@ const HolidaysTab = ({ employeeId }) => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
           <p className="text-2xl font-bold text-emerald-500">{summary.available}</p>
-          <p className="text-xs text-light-text/70 dark:text-dark-text/70 mt-1 font-medium">Available Credits</p>
+          <p className="text-xs text-light-text/70 dark:text-dark-text/70 mt-1 font-medium">
+            Available Credits
+          </p>
         </div>
         <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-center">
           <p className="text-2xl font-bold text-indigo-500">{summary.redeemed}</p>
-          <p className="text-xs text-light-text/70 dark:text-dark-text/70 mt-1 font-medium">Redeemed Credits</p>
+          <p className="text-xs text-light-text/70 dark:text-dark-text/70 mt-1 font-medium">
+            Redeemed Credits
+          </p>
         </div>
         <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-center">
           <p className="text-2xl font-bold text-rose-500">{summary.expired}</p>
-          <p className="text-xs text-light-text/70 dark:text-dark-text/70 mt-1 font-medium">Expired Credits</p>
+          <p className="text-xs text-light-text/70 dark:text-dark-text/70 mt-1 font-medium">
+            Expired Credits
+          </p>
         </div>
       </div>
 
@@ -324,7 +330,9 @@ const HolidaysTab = ({ employeeId }) => {
             <section className="space-y-3">
               <div className="flex items-center gap-2">
                 <Star className="w-5 h-5 text-amber-500" />
-                <h3 className="text-lg font-semibold text-light-text dark:text-dark-text">Fixed Holidays</h3>
+                <h3 className="text-lg font-semibold text-light-text dark:text-dark-text">
+                  Fixed Holidays
+                </h3>
               </div>
               <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
                 {fixedTemplates.map(renderFixedTemplateCard)}
@@ -337,19 +345,23 @@ const HolidaysTab = ({ employeeId }) => {
             <section className="space-y-3">
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-primary" />
-                <h3 className="text-lg font-semibold text-light-text dark:text-dark-text">Floating Credits</h3>
+                <h3 className="text-lg font-semibold text-light-text dark:text-dark-text">
+                  Floating Credits
+                </h3>
               </div>
-              <div className="grid gap-4 grid-cols-1">
-                {creditGroups.map(renderFloatingCard)}
-              </div>
+              <div className="grid gap-4 grid-cols-1">{creditGroups.map(renderFloatingCard)}</div>
             </section>
           )}
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-12 bg-light-card/30 dark:bg-dark-card/30 rounded-xl border border-light-border/50 dark:border-dark-border/50">
           <AlertCircle className="w-8 h-8 text-light-text/50 dark:text-dark-text/50 mb-3" />
-          <p className="text-light-text dark:text-dark-text font-medium">No holiday templates assigned</p>
-          <p className="text-light-text/60 dark:text-dark-text/60 text-sm mt-1">Holiday assignments will appear here</p>
+          <p className="text-light-text dark:text-dark-text font-medium">
+            No holiday templates assigned
+          </p>
+          <p className="text-light-text/60 dark:text-dark-text/60 text-sm mt-1">
+            Holiday assignments will appear here
+          </p>
         </div>
       )}
 
