@@ -26,7 +26,9 @@ const StatsCard = ({ icon: Icon, title, value, colorClass, subText, onClick, dis
     <div className="bg-light-card dark:bg-dark-card rounded-2xl p-6 shadow-card ring-1 ring-light-border dark:ring-dark-border flex flex-col justify-between min-h-[145px] transition-all duration-300 hover:shadow-md">
       <div>
         <div className="flex items-start justify-between gap-4 mb-2">
-          <h3 className="text-lg font-semibold text-light-text dark:text-dark-text tracking-tight">{title}</h3>
+          <h3 className="text-lg font-semibold text-light-text dark:text-dark-text tracking-tight">
+            {title}
+          </h3>
           {IconComponent}
         </div>
         {subText && (
