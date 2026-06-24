@@ -46,6 +46,7 @@ const getLeaveDisplayName = record => {
   }
   if (record.leaveMode === 'special') {
     if (!record.leaveCategory) return 'Special/Document Leave';
+    if (record.leaveCategory === 'special_other') return 'Other';
     return record.leaveCategory
       .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -2699,11 +2700,17 @@ const AdminSalaryManagement = () => {
                       key={employee._id}
                       className="border-t border-light-border/70 dark:border-dark-border/70 hover:bg-light-bg/40 dark:hover:bg-dark-bg/40"
                     >
-                      <td className="px-4 py-3 text-light-text/70 dark:text-dark-text/70">
+                      <td
+                        className="px-4 py-3 text-light-text/70 dark:text-dark-text/70 cursor-pointer hover:text-primary hover:underline transition-colors"
+                        onClick={() => navigate(`/admin/dashboard/employees/${employee._id}`)}
+                      >
                         {employee.employeeCode || 'N/A'}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-light-text dark:text-dark-text">
+                      <td
+                        className="px-4 py-3 cursor-pointer group"
+                        onClick={() => navigate(`/admin/dashboard/employees/${employee._id}`)}
+                      >
+                        <div className="font-medium text-light-text dark:text-dark-text group-hover:text-primary group-hover:underline transition-colors">
                           {employee.name}
                         </div>
                         <div className="text-xs text-light-text/60 dark:text-dark-text/60">
