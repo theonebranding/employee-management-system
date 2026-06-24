@@ -1,7 +1,16 @@
 // components/StatsCard.jsx
 import React from 'react';
 
-const StatsCard = ({ icon: Icon, title, value, colorClass, subText, onClick, disabled }) => {
+const StatsCard = ({
+  icon: Icon,
+  title,
+  value,
+  colorClass,
+  subText,
+  subTextColorClass,
+  onClick,
+  disabled,
+}) => {
   const IconComponent = onClick ? (
     <button
       onClick={onClick}
@@ -33,7 +42,9 @@ const StatsCard = ({ icon: Icon, title, value, colorClass, subText, onClick, dis
         </div>
         {subText && (
           <div className="mb-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-warning/15 text-warning ring-1 ring-warning/30">
+            <span
+              className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ring-1 ${subTextColorClass || 'bg-warning/15 text-warning ring-warning/30'}`}
+            >
               {subText}
             </span>
           </div>

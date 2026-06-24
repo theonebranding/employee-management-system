@@ -1,3 +1,4 @@
+/* eslint-disable simple-import-sort/imports */
 /* eslint-disable unused-imports/no-unused-vars */
 /* eslint-disable react-hooks/exhaustive-deps */
 
@@ -20,6 +21,8 @@ import StatsCard from './components/statsCard';
 
 // Status string constants (avoid sonarjs/no-duplicate-string).
 const STATUS_CHECKED_IN = 'Checked In';
+const STATUS_CHECKED_OUT = 'Checked Out';
+const STATUS_IN_RECESS = 'In Recess';
 
 const formatDuration = ms => {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -29,6 +32,54 @@ const formatDuration = ms => {
   return `${hours} hours ${minutes} minutes ${seconds} seconds`;
 };
 
+const getStatusColorHelper = status => {
+  switch (status) {
+    case STATUS_CHECKED_IN:
+      return 'bg-success/20 text-success ring-1 ring-success/50';
+    case STATUS_CHECKED_OUT:
+      return 'bg-danger/20 text-danger ring-1 ring-danger/50';
+    case STATUS_IN_RECESS:
+      return 'bg-warning/20 text-warning ring-1 ring-warning/50';
+    default:
+      return 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/50';
+  }
+};
+
+const getIsDisabled = (buttonStatus, status, loading) => {
+  if (loading) return true;
+  if (status === STATUS_IN_RECESS) return buttonStatus !== 'end-recess';
+  if (status !== STATUS_CHECKED_IN && buttonStatus !== 'checkin') return true;
+  if (buttonStatus === 'checkin' && status === STATUS_CHECKED_IN) return true;
+  if (buttonStatus === 'checkout' && (status === STATUS_CHECKED_OUT || status === STATUS_IN_RECESS))
+    return true;
+  if (
+    buttonStatus === 'start-recess' &&
+    (status === STATUS_CHECKED_OUT || status === STATUS_IN_RECESS)
+  )
+    return true;
+  if (buttonStatus === 'end-recess' && status !== STATUS_IN_RECESS) return true;
+  return false;
+};
+
+const calculateDisplayBreakTime = (
+  status,
+  recessStartTime,
+  currentTime,
+  totalRecessDurationMs,
+  totalRecessDuration
+) => {
+  if (status === STATUS_IN_RECESS && recessStartTime) {
+    const start = new Date(recessStartTime);
+    if (!isNaN(start.getTime())) {
+      const elapsedMs = currentTime - start;
+      const totalMs = totalRecessDurationMs + elapsedMs;
+      return formatDuration(totalMs);
+    }
+  }
+  return totalRecessDurationMs > 0 ? formatDuration(totalRecessDurationMs) : totalRecessDuration;
+};
+
+// eslint-disable-next-line sonarjs/cognitive-complexity
 const Attendance = () => {
   const navigate = useNavigate();
   const hasTriggeredAutoCheckout = useRef(false);
@@ -329,43 +380,17 @@ const Attendance = () => {
     }
   }, [status, loading, navigate]);
 
-  const getStatusColor = () => {
-    switch (status) {
-      case STATUS_CHECKED_IN:
-        return 'bg-success/20 text-success ring-1 ring-success/50';
-      case 'Checked Out':
-        return 'bg-danger/20 text-danger ring-1 ring-danger/50';
-      case 'In Recess':
-        return 'bg-warning/20 text-warning ring-1 ring-warning/50';
-      default:
-        return 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/50';
-    }
-  };
+  const getStatusColor = () => getStatusColorHelper(status);
 
-  const isDisabled = buttonStatus => {
-    if (loading) return true;
-    if (status === 'In Recess') return buttonStatus !== 'end-recess';
-    if (status !== STATUS_CHECKED_IN && buttonStatus !== 'checkin') return true;
-    if (buttonStatus === 'checkin' && status === STATUS_CHECKED_IN) return true;
-    if (buttonStatus === 'checkout' && (status === 'Checked Out' || status === 'In Recess'))
-      return true;
-    if (buttonStatus === 'start-recess' && (status === 'Checked Out' || status === 'In Recess'))
-      return true;
-    if (buttonStatus === 'end-recess' && status !== 'In Recess') return true;
-    return false;
-  };
+  const isDisabled = buttonStatus => getIsDisabled(buttonStatus, status, loading);
 
-  const getDisplayBreakTime = () => {
-    if (status === 'In Recess' && recessStartTime) {
-      const start = new Date(recessStartTime);
-      if (!isNaN(start.getTime())) {
-        const elapsedMs = currentTime - start;
-        const totalMs = totalRecessDurationMs + elapsedMs;
-        return formatDuration(totalMs);
-      }
-    }
-    return totalRecessDurationMs > 0 ? formatDuration(totalRecessDurationMs) : totalRecessDuration;
-  };
+  const displayBreakTime = calculateDisplayBreakTime(
+    status,
+    recessStartTime,
+    currentTime,
+    totalRecessDurationMs,
+    totalRecessDuration
+  );
 
   return (
     <div className="min-h-screen px-6 py-6 lg:ml-16 bg-light-bg dark:bg-dark-bg transition-colors duration-300">
@@ -389,7 +414,14 @@ const Attendance = () => {
             title="Check-in"
             value={checkInTime ? new Date(checkInTime).toLocaleString() : 'Not checked in'}
             colorClass="bg-success/10 ring-1 ring-success/30 text-success"
-            subText={isLate ? 'Late Arrival' : ''}
+            subText={checkInTime ? (isLate ? 'Late Arrival' : 'Checked In') : 'Pending'}
+            subTextColorClass={
+              checkInTime
+                ? isLate
+                  ? 'bg-warning/15 text-warning ring-warning/30'
+                  : 'bg-success/15 text-success ring-success/30'
+                : 'bg-gray-500/15 text-gray-500 ring-gray-500/30 dark:text-gray-400 dark:ring-gray-400/30'
+            }
             onClick={() => handleButtonClick('checkin')}
             disabled={isDisabled('checkin')}
           />
@@ -398,14 +430,34 @@ const Attendance = () => {
             title="Check-out"
             value={checkOutTime ? new Date(checkOutTime).toLocaleString() : 'Not checked out'}
             colorClass="bg-danger/10 ring-1 ring-danger/30 text-danger"
+            subText={checkOutTime ? 'Checked Out' : checkInTime ? 'In Progress' : 'Pending'}
+            subTextColorClass={
+              checkOutTime
+                ? 'bg-danger/15 text-danger ring-danger/30'
+                : checkInTime
+                  ? 'bg-primary/15 text-primary ring-primary/30'
+                  : 'bg-gray-500/15 text-gray-500 ring-gray-500/30 dark:text-gray-400 dark:ring-gray-400/30'
+            }
             onClick={() => handleButtonClick('checkout')}
             disabled={isDisabled('checkout')}
           />
           <StatsCard
             icon={status === 'In Recess' ? StopCircle : Coffee}
             title="Break Time"
-            value={getDisplayBreakTime()}
+            value={displayBreakTime}
             colorClass="bg-warning/10 ring-1 ring-warning/30 text-warning"
+            subText={
+              status === 'In Recess'
+                ? 'On Break'
+                : totalRecessDurationMs > 0
+                  ? 'Break Taken'
+                  : 'No Breaks'
+            }
+            subTextColorClass={
+              status === 'In Recess'
+                ? 'bg-warning/15 text-warning ring-warning/30'
+                : 'bg-gray-500/15 text-gray-500 ring-gray-500/30 dark:text-gray-400 dark:ring-gray-400/30'
+            }
             onClick={() =>
               handleButtonClick(status === 'In Recess' ? 'end-recess' : 'start-recess')
             }
@@ -416,6 +468,22 @@ const Attendance = () => {
             title="Working Time"
             value={liveWorkingTime}
             colorClass="bg-primary/10 ring-1 ring-primary/30 text-primary"
+            subText={
+              status === STATUS_CHECKED_IN
+                ? 'Tracking Live'
+                : status === 'In Recess'
+                  ? 'Paused'
+                  : status === 'Checked Out'
+                    ? 'Completed'
+                    : 'Inactive'
+            }
+            subTextColorClass={
+              status === STATUS_CHECKED_IN
+                ? 'bg-success/15 text-success ring-success/30'
+                : status === 'In Recess'
+                  ? 'bg-warning/15 text-warning ring-warning/30'
+                  : 'bg-gray-500/15 text-gray-500 ring-gray-500/30 dark:text-gray-400 dark:ring-gray-400/30'
+            }
           />
         </div>
 
