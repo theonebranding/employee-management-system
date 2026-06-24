@@ -46,12 +46,12 @@ const AdminSidebar = () => {
       path: '/admin/dashboard/employees',
     },
     {
-      name: 'Salary Management',
+      name: 'Payroll Management',
       icon: <BadgeDollarSign className="w-5 h-5" />,
       path: '/admin/dashboard/salaries',
     },
     {
-      name: 'Leave Requests',
+      name: 'Leave Management',
       icon: <FileText className="w-5 h-5" />,
       path: '/admin/dashboard/leaves',
     },
@@ -71,8 +71,8 @@ const AdminSidebar = () => {
       path: '/admin/dashboard/reports?tab=attendance',
       key: 'reports',
       children: [
-        { name: 'Attendance', path: '/admin/dashboard/reports?tab=attendance' },
-        { name: 'Daily Work', path: '/admin/dashboard/reports?tab=daily-report' },
+        { name: 'Attendance Reports', path: '/admin/dashboard/reports?tab=attendance' },
+        { name: 'Daily Work Reports', path: '/admin/dashboard/reports?tab=daily-report' },
         { name: 'Attendance Master', path: '/admin/dashboard/reports?tab=attendance-master' },
       ],
     },

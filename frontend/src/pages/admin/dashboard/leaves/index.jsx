@@ -486,8 +486,10 @@ const AdminLeaveManagement = () => {
                         </span>
                       )}
                       {request.leaveCategory && (
-                        <span className="px-2 py-1 rounded-full text-xs bg-warning/10 text-warning border border-warning/20">
-                          {request.leaveCategory.replaceAll('_', ' ')}
+                        <span className="px-2 py-1 rounded-full text-xs bg-warning/10 text-warning border border-warning/20 capitalize">
+                          {request.leaveCategory === 'special_other'
+                            ? 'other'
+                            : request.leaveCategory.replaceAll('_', ' ')}
                         </span>
                       )}
                       {request.documentName && (

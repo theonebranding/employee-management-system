@@ -89,6 +89,23 @@ const Leaves = () => {
     e.preventDefault();
     try {
       setLoading(true);
+
+      let submitLeaveMode = requestMode;
+      let submitLeaveCategory = newRequest.leaveCategory;
+
+      if (requestMode === 'other') {
+        submitLeaveMode = 'special';
+        submitLeaveCategory = 'other';
+      } else if (requestMode === 'special') {
+        submitLeaveMode = 'special';
+        if (newRequest.leaveCategory === 'other') {
+          submitLeaveCategory = 'special_other';
+        }
+      } else if (requestMode === 'template') {
+        submitLeaveMode = 'template';
+        submitLeaveCategory = null;
+      }
+
       const response = await fetch(`${BASE_URL}/leaves/create`, {
         method: 'POST',
         headers: {
@@ -97,8 +114,9 @@ const Leaves = () => {
         },
         body: JSON.stringify({
           ...newRequest,
-          leaveMode: requestMode,
-          templateId: requestMode === 'template' ? newRequest.templateId : '',
+          leaveMode: submitLeaveMode,
+          leaveCategory: submitLeaveCategory,
+          templateId: submitLeaveMode === 'template' ? newRequest.templateId : '',
           documentName: newRequest.documentName,
           documentType: newRequest.documentType,
           documentData: newRequest.documentData,
@@ -191,7 +209,7 @@ const Leaves = () => {
         };
       });
     }
-    if (assignedTemplates.length === 0) {
+    if (assignedTemplates.length === 0 && requestMode === 'template') {
       setRequestMode('special');
     }
   }, [assignedTemplates, requestMode]);
@@ -237,10 +255,11 @@ const Leaves = () => {
   );
   const templateRequiresDoc = selectedTemplateItem?.template?.requiresDocument || false;
   const showDocumentUpload =
-    requestMode === 'special' || (requestMode === 'template' && templateRequiresDoc);
-  const isDocumentRequired =
-    (requestMode === 'special' && newRequest.leaveCategory !== 'other') ||
+    requestMode === 'special' ||
+    requestMode === 'other' ||
     (requestMode === 'template' && templateRequiresDoc);
+  const isDocumentRequired =
+    requestMode === 'special' || (requestMode === 'template' && templateRequiresDoc);
 
   return (
     <div className="min-h-screen px-6 py-6 lg:ml-16 bg-light-bg dark:bg-dark-bg transition-colors duration-300">
@@ -454,6 +473,7 @@ const Leaves = () => {
                       <option value="template">Template Leave</option>
                     )}
                     <option value="special">Special Document Leave</option>
+                    <option value="other">Other Leave</option>
                   </select>
                 </div>
 
