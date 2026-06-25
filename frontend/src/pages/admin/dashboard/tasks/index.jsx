@@ -610,11 +610,18 @@ const AdminTasks = () => {
                           {task.priority}
                         </td>
                         <td className="px-6 py-4">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}
-                          >
-                            {task.status}
-                          </span>
+                          <div className="flex flex-col gap-1">
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium w-max ${getStatusColor(task.status)}`}
+                            >
+                              {task.status}
+                            </span>
+                            {task.statusChangedBy === 'admin' && (
+                              <span className="text-[11px] text-danger/80 dark:text-danger/90 font-medium italic">
+                                Updated by Admin
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 text-sm">
                           {task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-GB') : '—'}

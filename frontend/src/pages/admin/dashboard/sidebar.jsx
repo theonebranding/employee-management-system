@@ -12,13 +12,19 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../../context/authContext';
 
 const AdminSidebar = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const handleToggle = () => setIsSidebarOpen(prev => !prev);
+    window.addEventListener('toggle-sidebar', handleToggle);
+    return () => window.removeEventListener('toggle-sidebar', handleToggle);
+  }, []);
   const [openSections, setOpenSections] = useState({ reports: false });
   const [hoveredSection, setHoveredSection] = useState(null);
   const [hoverSuppressedSection, setHoverSuppressedSection] = useState(null);

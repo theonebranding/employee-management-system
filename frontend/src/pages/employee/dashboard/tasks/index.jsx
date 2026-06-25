@@ -296,16 +296,23 @@ const EmployeeTasks = () => {
                         </td>
                         <td className="px-4 py-3 text-sm">{task.priority}</td>
                         <td className="px-4 py-3">
-                          <select
-                            value={task.status}
-                            onChange={e => updateTaskStatus(task._id, e.target.value)}
-                            className="px-3 py-1.5 rounded-lg bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border text-sm font-medium"
-                          >
-                            <option value="pending">pending</option>
-                            <option value="in-progress">in-progress</option>
-                            <option value="completed">completed</option>
-                            <option value="cancelled">cancelled</option>
-                          </select>
+                          <div className="flex flex-col gap-1">
+                            <select
+                              value={task.status}
+                              onChange={e => updateTaskStatus(task._id, e.target.value)}
+                              className="px-3 py-1.5 rounded-lg bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border text-sm font-medium w-max"
+                            >
+                              <option value="pending">pending</option>
+                              <option value="in-progress">in-progress</option>
+                              <option value="completed">completed</option>
+                              <option value="cancelled">cancelled</option>
+                            </select>
+                            {task.statusChangedBy === 'admin' && (
+                              <span className="text-[11px] text-danger/80 dark:text-danger/90 font-medium italic">
+                                Updated by Admin
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-sm inline-flex items-center gap-2">
                           <Calendar className="w-4 h-4 text-light-text/60" />

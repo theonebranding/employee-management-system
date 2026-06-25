@@ -90,6 +90,7 @@ export const getAllTasks = async (req, res) => {
     const tasks = await Task.find(query)
       .populate('assignedTo', 'name email employeeCode department designation')
       .populate('assignedEmployeeIds', 'name email employeeCode department designation')
+      .populate('completedBy', 'name email')
       .sort({ createdAt: -1 });
 
     return res.status(200).json({ message: 'Tasks fetched successfully', tasks });
@@ -122,6 +123,7 @@ export const getMyTasks = async (req, res) => {
 
     const tasks = await Task.find(query)
       .populate('assignedBy', 'name email')
+      .populate('completedBy', 'name email')
       .sort({ createdAt: -1 });
 
     return res.status(200).json({ message: 'My tasks fetched successfully', tasks });
@@ -190,7 +192,8 @@ export const getTaskById = async (req, res) => {
     const task = await Task.findById(taskId)
       .populate('assignedTo', 'name email employeeCode')
       .populate('assignedEmployeeIds', 'name email employeeCode')
-      .populate('assignedBy', 'name email');
+      .populate('assignedBy', 'name email')
+      .populate('completedBy', 'name email');
 
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
@@ -268,7 +271,19 @@ export const updateTask = async (req, res) => {
     existingTask.targetDesignation = nextDesignation;
     existingTask.assignedEmployeeIds = assignedEmployeeIds;
     if (priority !== undefined) existingTask.priority = priority;
-    if (status !== undefined) existingTask.status = status;
+    if (status !== undefined && status !== existingTask.status) {
+      existingTask.status = status;
+      existingTask.statusChangedBy = 'admin';
+      if (status === 'completed') {
+        existingTask.completedAt = new Date();
+        existingTask.completedBy = req.user._id;
+        existingTask.completedByModel = 'Admin';
+      } else {
+        existingTask.completedAt = undefined;
+        existingTask.completedBy = undefined;
+        existingTask.completedByModel = undefined;
+      }
+    }
     if (dueDate !== undefined) existingTask.dueDate = dueDate ? new Date(dueDate) : undefined;
     if (attachments !== undefined) existingTask.attachments = attachments;
     if (links !== undefined) existingTask.links = links;
@@ -322,12 +337,15 @@ export const updateTaskStatusByEmployee = async (req, res) => {
     }
 
     task.status = status;
+    task.statusChangedBy = 'employee';
     if (status === 'completed') {
       task.completedAt = new Date();
       task.completedBy = req.user._id;
+      task.completedByModel = 'Employee';
     } else {
       task.completedAt = undefined;
       task.completedBy = undefined;
+      task.completedByModel = undefined;
     }
     await task.save();
 

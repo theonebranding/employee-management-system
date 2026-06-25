@@ -1,4 +1,4 @@
-import { ChevronDown, ClipboardList, LogOut, Moon, Settings, Sun } from 'lucide-react';
+import { ChevronDown, ClipboardList, LogOut, Menu, Moon, Settings, Sun } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -112,6 +112,14 @@ const Header = ({ title = 'Dashboard', description = '', className = '', icon = 
     >
       {/* Title section with subtle animation */}
       <div className="flex items-center gap-3 group">
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('toggle-sidebar'))}
+          className="p-2.5 rounded-xl hover:bg-gray-250 dark:hover:bg-gray-700 transition-colors lg:hidden mr-1 shadow-sm border border-light-border/40 dark:border-dark-border/40"
+          aria-label="Toggle Sidebar"
+          type="button"
+        >
+          <Menu className="w-5 h-5 text-light-text dark:text-dark-text" />
+        </button>
         {icon && (
           <div className="text-inherit transition-transform duration-300 group-hover:scale-110">
             {icon}

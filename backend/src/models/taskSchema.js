@@ -63,7 +63,15 @@ const taskSchema = new mongoose.Schema(
     completedAt: Date,
     completedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Employee',
+      refPath: 'completedByModel',
+    },
+    completedByModel: {
+      type: String,
+      enum: ['Employee', 'Admin'],
+    },
+    statusChangedBy: {
+      type: String,
+      enum: ['employee', 'admin'],
     },
   },
   { timestamps: true }
