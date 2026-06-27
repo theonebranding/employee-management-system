@@ -161,7 +161,7 @@ const Header = ({ title = 'Dashboard', description = '', className = '', icon = 
               }`}
             />
             <Moon
-              className={`w-5 h-5 text-indigo-500 transition-all duration-500 ${
+              className={`w-5 h-5 text-primary transition-all duration-500 ${
                 theme === 'dark' ? 'opacity-0 -rotate-90 scale-0' : 'opacity-100 rotate-0 scale-100'
               }`}
             />
@@ -174,7 +174,7 @@ const Header = ({ title = 'Dashboard', description = '', className = '', icon = 
             onClick={() => setDropdownOpen(prev => !prev)}
             className="flex items-center gap-3 px-4 py-2 bg-light-card dark:bg-dark-card rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-300 shadow-sm hover:shadow-md"
           >
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-indigo-600 text-white flex items-center justify-center font-semibold uppercase shadow-inner">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary-dark text-white flex items-center justify-center font-semibold uppercase shadow-inner">
               {isLoading ? '...' : userData.username.charAt(0)}
             </div>
             <div className="flex flex-col text-left">

@@ -95,7 +95,7 @@ const TypeBadge = ({ type }) => {
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-500/15 text-violet-600 dark:text-violet-400">
+    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary/15 text-secondary dark:text-secondary-light">
       Floating
     </span>
   );

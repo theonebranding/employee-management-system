@@ -66,9 +66,9 @@ const AnimatedStatusBadge = ({ status, label }) => {
     },
     holiday: {
       icon: Calendar,
-      color: 'text-purple-600 dark:text-purple-400',
-      bgColor: 'bg-purple-100/80 dark:bg-purple-900/30',
-      borderColor: 'border-purple-300 dark:border-purple-700',
+      color: 'text-sky-600 dark:text-sky-400',
+      bgColor: 'bg-sky-100/80 dark:bg-sky-900/30',
+      borderColor: 'border-sky-300 dark:border-sky-700',
       animation: 'slide-in',
     },
     'checkout-pending': {
@@ -1829,8 +1829,8 @@ const AdminReports = () => {
     if (status === 'checkout-pending') return 'bg-slate-100 text-slate-700';
     if (status === 'absent-early-checkout') return 'bg-orange-100 text-orange-700';
     if (status === 'absent') return 'bg-red-100 text-red-700';
-    if (status === 'leave') return 'bg-purple-100 text-purple-700';
-    if (status === 'holiday') return 'bg-purple-100 text-purple-700';
+    if (status === 'leave') return 'bg-blue-100 text-blue-700';
+    if (status === 'holiday') return 'bg-sky-100 text-sky-700';
     return 'bg-red-100 text-red-700';
   };
 

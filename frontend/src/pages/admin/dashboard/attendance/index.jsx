@@ -144,7 +144,7 @@ const AdminAttendance = () => {
 
   const getStatusColor = status => {
     const lower = status?.toLowerCase() || '';
-    if (lower.startsWith('holiday')) return 'text-purple-600 bg-purple-100';
+    if (lower.startsWith('holiday')) return 'text-sky-600 bg-sky-100';
     switch (lower) {
       case 'leave':
         return 'text-blue-600 bg-blue-100';

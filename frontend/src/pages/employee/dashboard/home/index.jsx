@@ -502,8 +502,8 @@ const DashboardHome = () => {
             {
               label: 'Daily Working Hours',
               data: stats.dailyHoursThisWeek,
-              borderColor: '#4F46E5',
-              backgroundColor: 'rgba(79, 70, 229, 0.3)',
+              borderColor: '#1565c0',
+              backgroundColor: 'rgba(21, 101, 192, 0.3)',
               tension: 0.4,
             },
           ],

@@ -74,11 +74,11 @@ const AverageWorkingHours = () => {
     const gradient = ctx.createLinearGradient(0, 0, 0, 300);
     gradient.addColorStop(
       0,
-      theme === 'dark' ? 'rgba(99, 102, 241, 0.8)' : 'rgba(165, 180, 252, 0.8)'
+      theme === 'dark' ? 'rgba(21, 101, 192, 0.8)' : 'rgba(144, 202, 249, 0.8)'
     );
     gradient.addColorStop(
       1,
-      theme === 'dark' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(165, 180, 252, 0.2)'
+      theme === 'dark' ? 'rgba(21, 101, 192, 0.2)' : 'rgba(144, 202, 249, 0.2)'
     );
 
     const chartConfigs = {
@@ -91,7 +91,7 @@ const AverageWorkingHours = () => {
               label: 'Average Hours',
               data: averageData,
               backgroundColor: gradient,
-              borderColor: theme === 'dark' ? '#4f46e5' : '#6366f1',
+              borderColor: theme === 'dark' ? '#0d47a1' : '#1565c0',
               borderWidth: 1,
               borderRadius: 6,
               barThickness: 32,
@@ -107,11 +107,11 @@ const AverageWorkingHours = () => {
             {
               label: 'Average Hours',
               data: averageData,
-              borderColor: theme === 'dark' ? '#4f46e5' : '#6366f1',
+              borderColor: theme === 'dark' ? '#0d47a1' : '#1565c0',
               backgroundColor: gradient,
               tension: 0.4,
               fill: true,
-              pointBackgroundColor: theme === 'dark' ? '#4f46e5' : '#6366f1',
+              pointBackgroundColor: theme === 'dark' ? '#0d47a1' : '#1565c0',
               pointBorderColor: theme === 'dark' ? '#e2e8f0' : '#1E293B',
               pointRadius: 5,
               pointHoverRadius: 7,
@@ -128,12 +128,12 @@ const AverageWorkingHours = () => {
               label: 'Average Hours',
               data: averageData,
               backgroundColor:
-                theme === 'dark' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(165, 180, 252, 0.3)',
-              borderColor: theme === 'dark' ? '#4f46e5' : '#6366f1',
-              pointBackgroundColor: theme === 'dark' ? '#4f46e5' : '#6366f1',
+                theme === 'dark' ? 'rgba(21, 101, 192, 0.3)' : 'rgba(144, 202, 249, 0.3)',
+              borderColor: theme === 'dark' ? '#0d47a1' : '#1565c0',
+              pointBackgroundColor: theme === 'dark' ? '#0d47a1' : '#1565c0',
               pointBorderColor: theme === 'dark' ? '#e2e8f0' : '#1E293B',
               pointHoverBackgroundColor: theme === 'dark' ? '#e2e8f0' : '#1E293B',
-              pointHoverBorderColor: theme === 'dark' ? '#4f46e5' : '#6366f1',
+              pointHoverBorderColor: theme === 'dark' ? '#0d47a1' : '#1565c0',
             },
           ],
         },

@@ -11,16 +11,15 @@ export default {
       colors: {
         // Brand colors (unchanged)
         primary: {
-          DEFAULT: '#6366f1', // indigo-500
-          light: '#a5b4fc', // indigo-300
-          dark: '#4f46e5', // indigo-600
+          DEFAULT: '#1565c0', // Material Blue-800
+          light: '#90caf9', // Material Blue-200 / sky-300 equivalent
+          dark: '#0d47a1', // Material Blue-900 / dark blue
         },
         secondary: {
-          DEFAULT: '#8b5cf6', // violet-500
-          light: '#c4b5fd', // violet-300
-          dark: '#7c3aed', // violet-600
+          DEFAULT: '#0284c7', // Sky-600
+          light: '#7dd3fc', // Sky-300
+          dark: '#0369a1', // Sky-700
         },
-
         success: '#22c55e',
         warning: '#facc15',
         danger: '#ef4444',
@@ -92,7 +91,7 @@ export default {
             h1: { fontWeight: '700' },
             h2: { fontWeight: '600' },
             a: {
-              color: '#6366f1',
+              color: '#1565c0',
               textDecoration: 'none',
               hover: { textDecoration: 'underline' },
             },
@@ -104,7 +103,7 @@ export default {
             h1: { fontWeight: '700' },
             h2: { fontWeight: '600' },
             a: {
-              color: '#a5b4fc',
+              color: '#90caf9',
               textDecoration: 'none',
               hover: { textDecoration: 'underline' },
             },

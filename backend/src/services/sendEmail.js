@@ -1,6 +1,6 @@
 import Nodemailer from 'nodemailer';
 
-const sendEmail = async (email, subject, htmlContent) => {
+const sendEmail = async (email, subject, htmlContent, attachments = []) => {
   try {
     const transporter = Nodemailer.createTransport({
       host: process.env.EMAIL_HOST,
@@ -26,6 +26,7 @@ const sendEmail = async (email, subject, htmlContent) => {
       to: email,
       subject: subject,
       html: htmlContent,
+      attachments: attachments,
       // text: `Hi ${name},\n\nYour OTP is: ${otp}\n\nThis OTP will expire in 15 minutes.\n\nThe One Branding Team`, // Plain text content
     };
 

@@ -97,8 +97,8 @@ const Login = () => {
           50% { transform: translateY(-20px) scale(1.02); }
         }
         @keyframes ringPulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.25), 0 0 40px rgba(99,102,241,0.1); }
-          50% { box-shadow: 0 0 0 12px rgba(99,102,241,0), 0 0 60px rgba(99,102,241,0.15); }
+          0%, 100% { box-shadow: 0 0 0 0 rgba(21,101,192,0.25), 0 0 40px rgba(21,101,192,0.1); }
+          50% { box-shadow: 0 0 0 12px rgba(21,101,192,0), 0 0 60px rgba(21,101,192,0.15); }
         }
         @keyframes fadeSlideIn {
           0% { opacity: 0; transform: translateX(-20px); }
@@ -131,8 +131,8 @@ const Login = () => {
 
       {/* Background gradients */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(99,102,241,0.22),transparent_30%),radial-gradient(circle_at_85%_15%,rgba(14,165,233,0.16),transparent_28%),radial-gradient(circle_at_70%_85%,rgba(139,92,246,0.18),transparent_32%)] dark:bg-[radial-gradient(circle_at_15%_20%,rgba(99,102,241,0.28),transparent_30%),radial-gradient(circle_at_85%_15%,rgba(14,165,233,0.16),transparent_28%),radial-gradient(circle_at_70%_85%,rgba(139,92,246,0.22),transparent_32%)]" />
-        <div className="absolute inset-0 opacity-[0.12] dark:opacity-[0.08] bg-[linear-gradient(90deg,rgba(99,102,241,0.35)_1px,transparent_1px),linear-gradient(rgba(99,102,241,0.35)_1px,transparent_1px)] bg-[size:44px_44px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(21,101,192,0.22),transparent_30%),radial-gradient(circle_at_85%_15%,rgba(14,165,233,0.16),transparent_28%),radial-gradient(circle_at_70%_85%,rgba(2,132,199,0.18),transparent_32%)] dark:bg-[radial-gradient(circle_at_15%_20%,rgba(21,101,192,0.28),transparent_30%),radial-gradient(circle_at_85%_15%,rgba(14,165,233,0.16),transparent_28%),radial-gradient(circle_at_70%_85%,rgba(2,132,199,0.22),transparent_32%)]" />
+        <div className="absolute inset-0 opacity-[0.12] dark:opacity-[0.08] bg-[linear-gradient(90deg,rgba(21,101,192,0.35)_1px,transparent_1px),linear-gradient(rgba(21,101,192,0.35)_1px,transparent_1px)] bg-[size:44px_44px]" />
       </div>
 
       {/* Main "digol" branding - large, visible, animated */}

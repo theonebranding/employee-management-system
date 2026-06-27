@@ -8,7 +8,7 @@ const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
 const STATUS_BADGE_STYLE = {
   available: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/20',
-  redeemed: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 ring-1 ring-indigo-500/20',
+  redeemed: 'bg-primary/10 text-primary dark:text-primary-light ring-1 ring-primary/20',
   expired: 'bg-rose-500/10 text-rose-500 ring-1 ring-rose-500/20',
 };
 
@@ -309,8 +309,8 @@ const HolidaysTab = ({ employeeId }) => {
             Available Credits
           </p>
         </div>
-        <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-center">
-          <p className="text-2xl font-bold text-indigo-500">{summary.redeemed}</p>
+        <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 text-center">
+          <p className="text-2xl font-bold text-primary">{summary.redeemed}</p>
           <p className="text-xs text-light-text/70 dark:text-dark-text/70 mt-1 font-medium">
             Redeemed Credits
           </p>

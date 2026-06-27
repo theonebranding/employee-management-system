@@ -112,7 +112,7 @@ const StatCard = () => {
       icon: Plane,
       label: 'On Leave',
       key: 'onLeaveToday',
-      color: 'bg-purple-500/10 text-purple-500',
+      color: 'bg-secondary/10 text-secondary',
     },
     {
       icon: CalendarDays,

@@ -57,7 +57,7 @@ const LocationMap = ({
           <select
             value={mapStyle}
             onChange={e => setMapStyle(e.target.value)}
-            className="bg-gray-700/50 text-gray-200 text-sm rounded-md px-2 py-1 border-none focus:ring-1 focus:ring-indigo-500"
+            className="bg-gray-700/50 text-gray-200 text-sm rounded-md px-2 py-1 border-none focus:ring-1 focus:ring-primary"
           >
             {Object.entries(mapStyles).map(([key, style]) => (
               <option key={key} value={key}>

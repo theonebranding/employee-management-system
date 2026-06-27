@@ -479,10 +479,15 @@ const computePayroll = async ({
     adminAttendanceSettings?.totalWorkingHours || HOURS_PER_DAY * 60
   );
   const bufferMinutesValue = String(payrollSettings?.overtime?.bufferMinutes || '00:00');
-  const [bufferHours, bufferMinutes] = bufferMinutesValue
-    .split(':')
-    .map((value) => Number(value || 0));
-  const totalBufferMinutes = Math.max(0, bufferHours * 60 + bufferMinutes);
+  let totalBufferMinutes = 0;
+  if (bufferMinutesValue.includes(':')) {
+    const [bufferHours, bufferMinutes] = bufferMinutesValue
+      .split(':')
+      .map((value) => Number(value || 0));
+    totalBufferMinutes = Math.max(0, (bufferHours || 0) * 60 + (bufferMinutes || 0));
+  } else {
+    totalBufferMinutes = Math.max(0, Number(bufferMinutesValue || 0));
+  }
   const isOvertimeEnabled = payrollSettings?.overtime?.enabled !== false;
 
   const salaryRecord = await Salary.findOne({ employee: employee._id })
@@ -619,7 +624,11 @@ const computePayroll = async ({
 
   const paidLeaves = approvedPaidLeaves + manualLeaveDays;
   const unpaidDays = Math.max(0, workingDays - fullDays - halfDays - paidLeaves);
-  const dailyWageOvertimeMultiplier = Number(payrollSettings?.overtime?.dailyWageMultiplier || 1);
+  const dailyWageOvertimeMultiplier =
+    payrollSettings?.overtime?.dailyWageMultiplier !== undefined &&
+    payrollSettings?.overtime?.dailyWageMultiplier !== null
+      ? Number(payrollSettings.overtime.dailyWageMultiplier)
+      : 1;
   const fallbackOvertimeRate = (dailyWage / HOURS_PER_DAY) * dailyWageOvertimeMultiplier;
   const configuredOvertimeRate = Number(payrollSettings?.overtime?.hourlyRate || 0);
   const overtimeRateBasis = String(payrollSettings?.overtime?.rateBasis || 'fixed');
@@ -913,7 +922,7 @@ export const recomputePayrollForAttendanceChange = async ({
     employee,
     month: Number(month),
     year: Number(year),
-    overtimeHours: existingPayroll?.overtimeHours,
+    overtimeHours: undefined, // Recalculate automatically
     penalties: existingPayroll?.penalties ?? 0,
     loanAmount: existingPayroll?.loanAmount,
     status: existingPayroll?.status || 'unpaid',
@@ -943,10 +952,42 @@ const emailPaidPayrollPayslip = async ({ payroll, employee, processedBy }) => {
     template,
   });
 
+  const attachments = [];
+  let emailHtml = payslipHtml;
+
+  if (mergedSettings.logoData) {
+    const logoMatch = mergedSettings.logoData.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (logoMatch) {
+      const mimeType = logoMatch[1];
+      const extension = mimeType.split('/')[1] || 'png';
+      attachments.push({
+        filename: `company_logo.${extension}`,
+        content: Buffer.from(logoMatch[2], 'base64'),
+        cid: 'company_logo',
+      });
+      emailHtml = emailHtml.replace(mergedSettings.logoData, 'cid:company_logo');
+    }
+  }
+
+  if (mergedSettings.signatureData) {
+    const sigMatch = mergedSettings.signatureData.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (sigMatch) {
+      const mimeType = sigMatch[1];
+      const extension = mimeType.split('/')[1] || 'png';
+      attachments.push({
+        filename: `authorized_signature.${extension}`,
+        content: Buffer.from(sigMatch[2], 'base64'),
+        cid: 'authorized_signature',
+      });
+      emailHtml = emailHtml.replace(mergedSettings.signatureData, 'cid:authorized_signature');
+    }
+  }
+
   await sendEmail(
     employee.email,
     `Payslip - ${salary.salaryMonth}/${salary.salaryYear}`,
-    payslipHtml
+    emailHtml,
+    attachments
   );
 
   salary.payslipStatus = 'generated';
